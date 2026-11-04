@@ -1,0 +1,60 @@
+<form>
+    <field>
+        <id>rule.enabled</id>
+        <label>Enabled</label>
+        <type>checkbox</type>
+    </field>
+    <field>
+        <id>rule.sequence</id>
+        <label>Priority Sequence</label>
+        <type>text</type>
+        <help>Rules are evaluated from lowest number to highest (e.g. 10, 20, 30).</help>
+    </field>
+    <field>
+        <id>rule.description</id>
+        <label>Rule Description</label>
+        <type>text</type>
+        <help>Example: Bypass RU domains and IPs</help>
+    </field>
+    <field>
+        <id>rule.domain</id>
+        <label>Domains / GeoSite</label>
+        <type>select_multiple</type>
+        <style>tokenize</style>
+        <allownew>true</allownew>
+        <help>Type and press Enter. Examples: geosite:ru, geosite:category-ads-all, domain:ya.ru, full:myip.ru</help>
+    </field>
+    <field>
+        <id>rule.ip</id>
+        <label>IPs / Subnets / GeoIP</label>
+        <type>select_multiple</type>
+        <style>tokenize</style>
+        <allownew>true</allownew>
+        <help>Type and press Enter. Examples: geoip:ru, geoip:private, 192.168.0.0/16, 8.8.8.8/32</help>
+    </field>
+    <field>
+        <id>rule.port</id>
+        <label>Destination Port(s)</label>
+        <type>text</type>
+        <help>Optional port or range (e.g., 53, 443, 1000-2000). Leave empty for any port.</help>
+    </field>
+    <field>
+        <id>rule.network_proto</id>
+        <label>Network Protocol</label>
+        <type>dropdown</type>
+    </field>
+    <field>
+        <id>rule.protocol</id>
+        <label>Sniffed Protocol</label>
+        <type>select_multiple</type>
+        <style>tokenize</style>
+        <allownew>true</allownew>
+        <help>Optional sniffed protocol: http, tls, quic, bittorrent.</help>
+    </field>
+    <field>
+        <id>rule.outbound_tag</id>
+        <label>Target Outbound Action</label>
+        <type>dropdown</type>
+        <help>Where to route matching traffic: Proxy (via VLESS), Direct (WAN bypass), or Block.</help>
+    </field>
+</form>

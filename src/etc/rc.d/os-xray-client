@@ -1,0 +1,60 @@
+#!/bin/sh
+#
+# PROVIDE: os_xray_client
+# REQUIRE: LOGIN NETWORKING
+# KEYWORD: shutdown
+
+. /etc/rc.subr
+
+name="xrayclient"
+rcvar="xrayclient_enable"
+
+load_rc_config $name
+
+: ${xrayclient_enable:="YES"}
+: ${xrayclient_config:="/usr/local/etc/xray/config.json"}
+: ${xrayclient_bin:="/usr/local/bin/xray"}
+: ${xrayclient_asset_dir:="/usr/local/share/xray"}
+
+pidfile="/var/run/${name}.pid"
+command="/usr/sbin/daemon"
+command_args="-c -f -P ${pidfile} -r ${xrayclient_bin} run -c ${xrayclient_config}"
+
+start_precmd="xrayclient_prestart"
+stop_postcmd="xrayclient_poststop"
+status_cmd="xrayclient_status"
+
+xrayclient_prestart()
+{
+    install -d -m 0755 /var/log/xray
+    install -d -m 0755 /usr/local/etc/xray
+    install -d -m 0755 "${xrayclient_asset_dir}"
+    touch /var/log/xray/access.log /var/log/xray/error.log
+
+    export XRAY_LOCATION_ASSET="${xrayclient_asset_dir}"
+
+    if [ ! -x "${xrayclient_bin}" ]; then
+        echo "Error: ${xrayclient_bin} not found or not executable. Please download Xray-core in the Maintenance tab."
+        return 1
+    fi
+
+    /usr/local/opnsense/scripts/OPNsense/XrayClient/setup_tun.sh up
+}
+
+xrayclient_poststop()
+{
+    rm -f "${pidfile}"
+}
+
+xrayclient_status()
+{
+    if [ -f "${pidfile}" ] && kill -0 $(cat "${pidfile}" 2>/dev/null) 2>/dev/null; then
+        echo "xrayclient is running as pid $(cat ${pidfile})."
+        return 0
+    else
+        echo "xrayclient is not running."
+        return 1
+    fi
+}
+
+run_rc_command "$1"

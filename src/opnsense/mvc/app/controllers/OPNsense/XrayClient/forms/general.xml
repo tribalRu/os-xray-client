@@ -1,0 +1,94 @@
+<form>
+    <field>
+        <id>xrayclient.general.enabled</id>
+        <label>Enable Xray Client</label>
+        <type>checkbox</type>
+        <help>Enable or disable the Xray client service.</help>
+    </field>
+    <field>
+        <id>xrayclient.general.config_mode</id>
+        <label>Configuration Mode</label>
+        <type>dropdown</type>
+        <help>Select whether to generate config.json from UI tabs (Nodes + Routing Rules) or use a raw JSON config.</help>
+    </field>
+    <field>
+        <id>xrayclient.general.loglevel</id>
+        <label>Log Level</label>
+        <type>dropdown</type>
+        <help>Logging verbosity for Xray-core.</help>
+    </field>
+    <field>
+        <type>header</type>
+        <label>TUN Interface Settings (Variant A)</label>
+    </field>
+    <field>
+        <id>xrayclient.general.enable_tun</id>
+        <label>Enable Native TUN Inbound</label>
+        <type>checkbox</type>
+        <help>Creates a virtual network interface in OPNsense for transparent L3 routing via Firewall Rules / Gateways.</help>
+    </field>
+    <field>
+        <id>xrayclient.general.tun_iface</id>
+        <label>TUN Interface Name</label>
+        <type>text</type>
+        <help>System interface name (default: tun_xray0). Can be assigned in Interfaces -&gt; Assignments.</help>
+    </field>
+    <field>
+        <id>xrayclient.general.tun_address</id>
+        <label>TUN Tunnel Subnet</label>
+        <type>text</type>
+        <help>Point-to-point IPv4 address with CIDR for the TUN interface (default: 10.255.0.1/30).</help>
+    </field>
+    <field>
+        <id>xrayclient.general.tun_mtu</id>
+        <label>TUN MTU</label>
+        <type>text</type>
+        <help>Maximum Transmission Unit for the TUN interface (default: 1500).</help>
+    </field>
+    <field>
+        <id>xrayclient.general.enable_sniffing</id>
+        <label>Enable Domain Sniffing (TLS/HTTP/QUIC)</label>
+        <type>checkbox</type>
+        <help>Required for domain-based routing rules (geosite:ru, etc.) when traffic comes via IP through the TUN interface.</help>
+    </field>
+    <field>
+        <type>header</type>
+        <label>Local Proxy Ports (Variant C)</label>
+    </field>
+    <field>
+        <id>xrayclient.general.enable_socks</id>
+        <label>Enable Local SOCKS5 Proxy</label>
+        <type>checkbox</type>
+        <help>Enable local SOCKS5 inbound (with UDP support) for apps and healthchecks.</help>
+    </field>
+    <field>
+        <id>xrayclient.general.socks_listen</id>
+        <label>Listen IP Address</label>
+        <type>text</type>
+        <help>IP to bind local SOCKS/HTTP ports (use 127.0.0.1 for local only, or 0.0.0.0 / LAN IP for LAN devices).</help>
+    </field>
+    <field>
+        <id>xrayclient.general.socks_port</id>
+        <label>SOCKS5 Port</label>
+        <type>text</type>
+        <help>Port for SOCKS5 inbound (default: 10808).</help>
+    </field>
+    <field>
+        <id>xrayclient.general.enable_http</id>
+        <label>Enable Local HTTP Proxy</label>
+        <type>checkbox</type>
+        <help>Enable local HTTP proxy inbound.</help>
+    </field>
+    <field>
+        <id>xrayclient.general.http_port</id>
+        <label>HTTP Port</label>
+        <type>text</type>
+        <help>Port for HTTP proxy inbound (default: 10809).</help>
+    </field>
+    <field>
+        <id>xrayclient.general.stats_port</id>
+        <label>Internal gRPC Stats API Port</label>
+        <type>text</type>
+        <help>Local loopback port used by the plugin to query live traffic counters from Xray (default: 10085).</help>
+    </field>
+</form>

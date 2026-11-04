@@ -1,0 +1,274 @@
+{% if not helpers.empty('OPNsense.XrayClient.general.config_mode') and OPNsense.XrayClient.general.config_mode == 'raw' %}
+{{ OPNsense.XrayClient.general.raw_json | default('{}') }}
+{% else %}
+{% set general = OPNsense.XrayClient.general %}
+{% set stats_port = general.stats_port | default('10085') %}
+{
+  "log": {
+    "access": "/var/log/xray/access.log",
+    "error": "/var/log/xray/error.log",
+    "loglevel": "{{ general.loglevel | default('warning') }}"
+  },
+  "stats": {},
+  "api": {
+    "tag": "api",
+    "services": [
+      "StatsService"
+    ]
+  },
+  "policy": {
+    "system": {
+      "statsInboundUplink": true,
+      "statsInboundDownlink": true,
+      "statsOutboundUplink": true,
+      "statsOutboundDownlink": true
+    }
+  },
+  "inbounds": [
+    {
+      "tag": "api-in",
+      "listen": "127.0.0.1",
+      "port": {{ stats_port }},
+      "protocol": "dokodemo-door",
+      "settings": {
+        "address": "127.0.0.1"
+      }
+    }
+{% if general.enable_tun | default('1') == '1' %}
+    ,{
+      "tag": "tun-in",
+      "port": 0,
+      "protocol": "tun",
+      "settings": {
+        "name": "{{ general.tun_iface | default('tun_xray0') }}",
+        "MTU": {{ general.tun_mtu | default('1500') }},
+        "userLevel": 0
+      },
+      "sniffing": {
+        "enabled": {{ 'true' if general.enable_sniffing | default('1') == '1' else 'false' }},
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ],
+        "routeOnly": true
+      }
+    }
+{% endif %}
+{% if general.enable_socks | default('1') == '1' %}
+    ,{
+      "tag": "socks-in",
+      "listen": "{{ general.socks_listen | default('127.0.0.1') }}",
+      "port": {{ general.socks_port | default('10808') }},
+      "protocol": "socks",
+      "settings": {
+        "auth": "noauth",
+        "udp": true
+      },
+      "sniffing": {
+        "enabled": {{ 'true' if general.enable_sniffing | default('1') == '1' else 'false' }},
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ],
+        "routeOnly": true
+      }
+    }
+{% endif %}
+{% if general.enable_http | default('0') == '1' %}
+    ,{
+      "tag": "http-in",
+      "listen": "{{ general.socks_listen | default('127.0.0.1') }}",
+      "port": {{ general.http_port | default('10809') }},
+      "protocol": "http",
+      "sniffing": {
+        "enabled": {{ 'true' if general.enable_sniffing | default('1') == '1' else 'false' }},
+        "destOverride": [
+          "http",
+          "tls"
+        ],
+        "routeOnly": true
+      }
+    }
+{% endif %}
+  ],
+  "outbounds": [
+{% set active_nodes = [] %}
+{% if not helpers.empty('OPNsense.XrayClient.nodes.node') %}
+{%   for node in helpers.toList('OPNsense.XrayClient.nodes.node') %}
+{%     if node.enabled == '1' %}
+{%        do active_nodes.append(node) %}
+{%     endif %}
+{%   endfor %}
+{% endif %}
+{% for node in active_nodes %}
+    {
+      "tag": "{{ 'proxy' if loop.first else 'node_' ~ node['@uuid'] }}",
+      "protocol": "{{ node.protocol }}",
+      "settings": {
+{% if node.protocol in ['vless', 'vmess'] %}
+        "vnext": [
+          {
+            "address": "{{ node.address }}",
+            "port": {{ node.port }},
+            "users": [
+              {
+                "id": "{{ node.uuid }}",
+{% if node.protocol == 'vless' %}
+                "encryption": "{{ node.encryption | default('none') }}",
+                "flow": "{{ '' if node.flow == 'none' else node.flow }}"
+{% else %}
+                "alterId": 0,
+                "security": "auto"
+{% endif %}
+              }
+            ]
+          }
+        ]
+{% elif node.protocol == 'trojan' %}
+        "servers": [
+          {
+            "address": "{{ node.address }}",
+            "port": {{ node.port }},
+            "password": "{{ node.uuid }}"
+          }
+        ]
+{% elif node.protocol == 'shadowsocks' %}
+        "servers": [
+          {
+            "address": "{{ node.address }}",
+            "port": {{ node.port }},
+            "method": "{{ node.ss_method | replace('x2022-', '2022-') }}",
+            "password": "{{ node.uuid }}"
+          }
+        ]
+{% endif %}
+      },
+      "streamSettings": {
+{% if not helpers.empty('node.custom_stream_json') and node.custom_stream_json | trim != '' %}
+        "network": "{{ node.network }}",
+        "security": "{{ node.security }}",
+        {{ node.custom_stream_json | trim | replace('{', '', 1) | reverse | replace('}', '', 1) | reverse }}
+{% else %}
+        "network": "{{ node.network }}",
+        "security": "{{ node.security }}"
+{%   if node.security == 'tls' %}
+        ,"tlsSettings": {
+          "serverName": "{{ node.sni }}",
+          "allowInsecure": {{ 'true' if node.allow_insecure == '1' else 'false' }},
+          "fingerprint": "{{ node.fingerprint | default('chrome') }}"
+{%     if node.alpn %}
+          ,"alpn": [
+{%       for a in node.alpn.split(',') %}
+            "{{ a | trim }}"{{ "," if not loop.last else "" }}
+{%       endfor %}
+          ]
+{%     endif %}
+        }
+{%   elif node.security == 'reality' %}
+        ,"realitySettings": {
+          "show": false,
+          "fingerprint": "{{ node.fingerprint | default('chrome') }}",
+          "serverName": "{{ node.sni }}",
+          "publicKey": "{{ node.reality_pubkey }}",
+          "shortId": "{{ node.reality_shortid }}",
+          "spiderX": "{{ node.reality_spiderx | default('/') }}"
+        }
+{%   endif %}
+{%   if node.network == 'ws' %}
+        ,"wsSettings": {
+          "path": "{{ node.transport_path | default('/') }}",
+          "headers": {
+            "Host": "{{ node.transport_host }}"
+          }
+        }
+{%   elif node.network == 'grpc' %}
+        ,"grpcSettings": {
+          "serviceName": "{{ node.grpc_service_name }}",
+          "multiMode": {{ 'true' if node.grpc_multi_mode == '1' else 'false' }}
+        }
+{%   elif node.network == 'xhttp' %}
+        ,"xhttpSettings": {
+          "host": "{{ node.transport_host }}",
+          "path": "{{ node.transport_path | default('/') }}",
+          "mode": "{{ node.xhttp_mode | default('auto') }}"
+        }
+{%   elif node.network == 'httpupgrade' %}
+        ,"httpupgradeSettings": {
+          "host": "{{ node.transport_host }}",
+          "path": "{{ node.transport_path | default('/') }}"
+        }
+{%   endif %}
+{% endif %}
+      },
+      "mux": {
+        "enabled": {{ 'true' if node.mux_enabled == '1' else 'false' }}
+      }
+    },
+{% endfor %}
+    {
+      "tag": "direct",
+      "protocol": "freedom",
+      "settings": {}
+    },
+    {
+      "tag": "block",
+      "protocol": "blackhole",
+      "settings": {}
+    }
+  ],
+  "routing": {
+    "domainStrategy": "IPIfNonMatch",
+    "rules": [
+      {
+        "type": "field",
+        "inboundTag": [
+          "api-in"
+        ],
+        "outboundTag": "api"
+      }
+{% if not helpers.empty('OPNsense.XrayClient.rules.rule') %}
+{%   for rule in helpers.toList('OPNsense.XrayClient.rules.rule', 'sequence', 'int') %}
+{%     if rule.enabled == '1' %}
+      ,{
+        "type": "field",
+{%       if rule.domain %}
+        "domain": [
+{%         for d in rule.domain.split(',') %}
+          "{{ d | trim }}"{{ "," if not loop.last else "" }}
+{%         endfor %}
+        ],
+{%       endif %}
+{%       if rule.ip %}
+        "ip": [
+{%         for i in rule.ip.split(',') %}
+          "{{ i | trim }}"{{ "," if not loop.last else "" }}
+{%         endfor %}
+        ],
+{%       endif %}
+{%       if rule.port %}
+        "port": "{{ rule.port | trim }}",
+{%       endif %}
+{%       if rule.protocol %}
+        "protocol": [
+{%         for p in rule.protocol.split(',') %}
+          "{{ p | trim }}"{{ "," if not loop.last else "" }}
+{%         endfor %}
+        ],
+{%       endif %}
+        "network": "{{ 'tcp,udp' if rule.network_proto == 'tcp_udp' else rule.network_proto }}",
+        "outboundTag": "{{ rule.outbound_tag }}"
+      }
+{%     endif %}
+{%   endfor %}
+{% endif %}
+      ,{
+        "type": "field",
+        "network": "tcp,udp",
+        "outboundTag": "{{ 'proxy' if active_nodes | length > 0 else 'direct' }}"
+      }
+    ]
+  }
+}
+{% endif %}

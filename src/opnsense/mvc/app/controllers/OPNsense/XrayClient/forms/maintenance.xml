@@ -1,0 +1,53 @@
+<form>
+    <field>
+        <type>header</type>
+        <label>Xray-core Binary Update</label>
+    </field>
+    <field>
+        <id>xrayclient.maintenance.core_branch</id>
+        <label>Xray-core Release Channel</label>
+        <type>dropdown</type>
+        <help>Choose Stable for tested production releases or Latest to include pre-release versions from XTLS/Xray-core.</help>
+    </field>
+    <field>
+        <type>header</type>
+        <label>GeoIP &amp; GeoSite Routing Databases</label>
+    </field>
+    <field>
+        <id>xrayclient.maintenance.geodata_preset</id>
+        <label>GeoData Source Preset</label>
+        <type>dropdown</type>
+        <style>geodata_selector</style>
+        <help>Select a preconfigured repository for geoip.dat and geosite.dat or choose Custom URLs.</help>
+    </field>
+    <field>
+        <id>xrayclient.maintenance.custom_geoip_url</id>
+        <label>Custom geoip.dat Direct URL</label>
+        <type>text</type>
+        <style>geodata_custom</style>
+        <help>Full https:// URL to download geoip.dat (used only when preset is set to Custom).</help>
+    </field>
+    <field>
+        <id>xrayclient.maintenance.custom_geosite_url</id>
+        <label>Custom geosite.dat Direct URL</label>
+        <type>text</type>
+        <style>geodata_custom</style>
+        <help>Full https:// URL to download geosite.dat (used only when preset is set to Custom).</help>
+    </field>
+    <field>
+        <type>header</type>
+        <label>Plugin Self-Update from GitHub</label>
+    </field>
+    <field>
+        <id>xrayclient.maintenance.plugin_repo_url</id>
+        <label>GitHub Repository URL</label>
+        <type>text</type>
+        <help>Public GitHub repository URL for os-xray-client.</help>
+    </field>
+    <field>
+        <id>xrayclient.maintenance.plugin_repo_branch</id>
+        <label>GitHub Branch</label>
+        <type>text</type>
+        <help>Branch name to pull updates from (default: main).</help>
+    </field>
+</form>

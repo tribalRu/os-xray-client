@@ -1,0 +1,158 @@
+<form>
+    <field>
+        <id>node.enabled</id>
+        <label>Active (Use this Server)</label>
+        <type>checkbox</type>
+        <help>Enable this outbound server node.</help>
+    </field>
+    <field>
+        <id>node.name</id>
+        <label>Node Name / Remarks</label>
+        <type>text</type>
+        <help>Friendly name for this server (automatically extracted from #remark when importing vless:// links).</help>
+    </field>
+    <field>
+        <id>node.protocol</id>
+        <label>Protocol</label>
+        <type>dropdown</type>
+        <style>proto_selector</style>
+    </field>
+    <field>
+        <id>node.address</id>
+        <label>Server Address (IP or Domain)</label>
+        <type>text</type>
+    </field>
+    <field>
+        <id>node.port</id>
+        <label>Server Port</label>
+        <type>text</type>
+    </field>
+    <field>
+        <id>node.uuid</id>
+        <label>UUID / Password</label>
+        <type>text</type>
+        <help>User UUID (for VLESS/VMess) or Password (for Trojan/Shadowsocks).</help>
+    </field>
+    <field>
+        <id>node.flow</id>
+        <label>XTLS Flow</label>
+        <type>dropdown</type>
+        <style>proto_vless</style>
+        <help>Flow control algorithm for VLESS (usually xtls-rprx-vision for REALITY/TLS).</help>
+    </field>
+    <field>
+        <id>node.encryption</id>
+        <label>Encryption</label>
+        <type>text</type>
+        <style>proto_vless</style>
+        <help>Keep as "none" for standard VLESS.</help>
+    </field>
+    <field>
+        <id>node.ss_method</id>
+        <label>Shadowsocks Cipher</label>
+        <type>dropdown</type>
+        <style>proto_shadowsocks</style>
+    </field>
+    <field>
+        <type>header</type>
+        <label>Transport &amp; Stream Security</label>
+    </field>
+    <field>
+        <id>node.network</id>
+        <label>Transport Network (type)</label>
+        <type>dropdown</type>
+        <style>net_selector</style>
+    </field>
+    <field>
+        <id>node.security</id>
+        <label>Stream Security</label>
+        <type>dropdown</type>
+        <style>sec_selector</style>
+    </field>
+    <field>
+        <id>node.sni</id>
+        <label>Server Name (SNI)</label>
+        <type>text</type>
+        <style>sec_tls sec_reality</style>
+        <help>SNI hostname used during TLS/REALITY handshake.</help>
+    </field>
+    <field>
+        <id>node.fingerprint</id>
+        <label>uTLS Fingerprint (fp)</label>
+        <type>dropdown</type>
+        <style>sec_tls sec_reality</style>
+    </field>
+    <field>
+        <id>node.alpn</id>
+        <label>ALPN</label>
+        <type>select_multiple</type>
+        <style>tokenize sec_tls</style>
+        <allownew>true</allownew>
+        <help>Optional ALPN values (e.g., h2, http/1.1).</help>
+    </field>
+    <field>
+        <id>node.allow_insecure</id>
+        <label>Allow Insecure TLS</label>
+        <type>checkbox</type>
+        <style>sec_tls</style>
+    </field>
+    <field>
+        <id>node.reality_pubkey</id>
+        <label>REALITY Public Key (pbk)</label>
+        <type>text</type>
+        <style>sec_reality</style>
+    </field>
+    <field>
+        <id>node.reality_shortid</id>
+        <label>REALITY ShortId (sid)</label>
+        <type>text</type>
+        <style>sec_reality</style>
+    </field>
+    <field>
+        <id>node.reality_spiderx</id>
+        <label>REALITY SpiderX (spx)</label>
+        <type>text</type>
+        <style>sec_reality</style>
+    </field>
+    <field>
+        <id>node.transport_host</id>
+        <label>Host Header / Authority</label>
+        <type>text</type>
+        <style>net_ws net_xhttp net_httpupgrade</style>
+    </field>
+    <field>
+        <id>node.transport_path</id>
+        <label>Path</label>
+        <type>text</type>
+        <style>net_ws net_xhttp net_httpupgrade</style>
+    </field>
+    <field>
+        <id>node.grpc_service_name</id>
+        <label>gRPC Service Name</label>
+        <type>text</type>
+        <style>net_grpc</style>
+    </field>
+    <field>
+        <id>node.grpc_multi_mode</id>
+        <label>gRPC MultiMode</label>
+        <type>checkbox</type>
+        <style>net_grpc</style>
+    </field>
+    <field>
+        <id>node.xhttp_mode</id>
+        <label>XHTTP Mode</label>
+        <type>dropdown</type>
+        <style>net_xhttp</style>
+    </field>
+    <field>
+        <id>node.mux_enabled</id>
+        <label>Enable Mux.Cool</label>
+        <type>checkbox</type>
+    </field>
+    <field>
+        <id>node.custom_stream_json</id>
+        <label>Custom StreamSettings Override (Optional JSON)</label>
+        <type>text</type>
+        <help>Optional JSON snippet to merge into streamSettings for experimental parameters.</help>
+    </field>
+</form>

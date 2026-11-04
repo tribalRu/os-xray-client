@@ -1,0 +1,324 @@
+<model>
+    <mount>//OPNsense/XrayClient</mount>
+    <description>Xray Client Plugin Configuration Model</description>
+    <version>1.0.0</version>
+    <items>
+        <general>
+            <enabled type="BooleanField">
+                <default>0</default>
+                <Required>Y</Required>
+            </enabled>
+            <config_mode type="OptionField">
+                <default>ui</default>
+                <Required>Y</Required>
+                <OptionValues>
+                    <ui>UI Builder (Nodes + Routing Rules)</ui>
+                    <raw>Raw JSON Configuration</raw>
+                </OptionValues>
+            </config_mode>
+            <loglevel type="OptionField">
+                <default>warning</default>
+                <Required>Y</Required>
+                <OptionValues>
+                    <debug>Debug</debug>
+                    <info>Info</info>
+                    <warning>Warning</warning>
+                    <error>Error</error>
+                    <none>None</none>
+                </OptionValues>
+            </loglevel>
+            <enable_tun type="BooleanField">
+                <default>1</default>
+                <Required>Y</Required>
+            </enable_tun>
+            <tun_iface type="TextField">
+                <default>tun_xray0</default>
+                <Required>Y</Required>
+                <Mask>/^[a-zA-Z0-9_]{3,15}$/</Mask>
+            </tun_iface>
+            <tun_address type="TextField">
+                <default>10.255.0.1/30</default>
+                <Required>Y</Required>
+            </tun_address>
+            <tun_mtu type="IntegerField">
+                <default>1500</default>
+                <MinimumValue>1280</MinimumValue>
+                <MaximumValue>9000</MaximumValue>
+                <Required>Y</Required>
+            </tun_mtu>
+            <enable_sniffing type="BooleanField">
+                <default>1</default>
+                <Required>Y</Required>
+            </enable_sniffing>
+            <enable_socks type="BooleanField">
+                <default>1</default>
+                <Required>Y</Required>
+            </enable_socks>
+            <socks_listen type="TextField">
+                <default>127.0.0.1</default>
+                <Required>Y</Required>
+            </socks_listen>
+            <socks_port type="PortField">
+                <default>10808</default>
+                <Required>Y</Required>
+            </socks_port>
+            <enable_http type="BooleanField">
+                <default>0</default>
+                <Required>Y</Required>
+            </enable_http>
+            <http_port type="PortField">
+                <default>10809</default>
+                <Required>Y</Required>
+            </http_port>
+            <stats_port type="PortField">
+                <default>10085</default>
+                <Required>Y</Required>
+            </stats_port>
+            <raw_json type="TextField">
+                <default></default>
+                <Required>N</Required>
+            </raw_json>
+        </general>
+
+        <nodes>
+            <node type="ArrayField">
+                <enabled type="BooleanField">
+                    <default>1</default>
+                    <Required>Y</Required>
+                </enabled>
+                <name type="TextField">
+                    <default>Main Server</default>
+                    <Required>Y</Required>
+                </name>
+                <protocol type="OptionField">
+                    <default>vless</default>
+                    <Required>Y</Required>
+                    <OptionValues>
+                        <vless>VLESS</vless>
+                        <vmess>VMess</vmess>
+                        <trojan>Trojan</trojan>
+                        <shadowsocks>Shadowsocks</shadowsocks>
+                    </OptionValues>
+                </protocol>
+                <address type="TextField">
+                    <default></default>
+                    <Required>Y</Required>
+                </address>
+                <port type="PortField">
+                    <default>443</default>
+                    <Required>Y</Required>
+                </port>
+                <uuid type="TextField">
+                    <default></default>
+                    <Required>Y</Required>
+                </uuid>
+                <flow type="OptionField">
+                    <default>xtls-rprx-vision</default>
+                    <Required>N</Required>
+                    <OptionValues>
+                        <none>None (Standard)</none>
+                        <xtls-rprx-vision>xtls-rprx-vision</xtls-rprx-vision>
+                        <xtls-rprx-vision-udp443>xtls-rprx-vision-udp443</xtls-rprx-vision-udp443>
+                    </OptionValues>
+                </flow>
+                <encryption type="TextField">
+                    <default>none</default>
+                    <Required>Y</Required>
+                </encryption>
+                <ss_method type="OptionField">
+                    <default>x2022-blake3-aes-128-gcm</default>
+                    <Required>N</Required>
+                    <OptionValues>
+                        <aes-128-gcm>aes-128-gcm</aes-128-gcm>
+                        <aes-256-gcm>aes-256-gcm</aes-256-gcm>
+                        <chacha20-ietf-poly1305>chacha20-ietf-poly1305</chacha20-ietf-poly1305>
+                        <x2022-blake3-aes-128-gcm>2022-blake3-aes-128-gcm</x2022-blake3-aes-128-gcm>
+                        <x2022-blake3-aes-256-gcm>2022-blake3-aes-256-gcm</x2022-blake3-aes-256-gcm>
+                    </OptionValues>
+                </ss_method>
+                <network type="OptionField">
+                    <default>tcp</default>
+                    <Required>Y</Required>
+                    <OptionValues>
+                        <tcp>TCP (RAW)</tcp>
+                        <ws>WebSocket (WS)</ws>
+                        <grpc>gRPC</grpc>
+                        <xhttp>XHTTP (SplitHTTP)</xhttp>
+                        <httpupgrade>HTTPUpgrade</httpupgrade>
+                    </OptionValues>
+                </network>
+                <security type="OptionField">
+                    <default>reality</default>
+                    <Required>Y</Required>
+                    <OptionValues>
+                        <none>None</none>
+                        <tls>TLS</tls>
+                        <reality>REALITY</reality>
+                    </OptionValues>
+                </security>
+                <sni type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </sni>
+                <fingerprint type="OptionField">
+                    <default>chrome</default>
+                    <Required>N</Required>
+                    <OptionValues>
+                        <chrome>chrome</chrome>
+                        <firefox>firefox</firefox>
+                        <safari>safari</safari>
+                        <ios>ios</ios>
+                        <android>android</android>
+                        <edge>edge</edge>
+                        <random>random</random>
+                        <randomized>randomized</randomized>
+                    </OptionValues>
+                </fingerprint>
+                <alpn type="CSVListField">
+                    <default></default>
+                    <Required>N</Required>
+                </alpn>
+                <allow_insecure type="BooleanField">
+                    <default>0</default>
+                    <Required>Y</Required>
+                </allow_insecure>
+                <reality_pubkey type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </reality_pubkey>
+                <reality_shortid type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </reality_shortid>
+                <reality_spiderx type="TextField">
+                    <default>/</default>
+                    <Required>N</Required>
+                </reality_spiderx>
+                <transport_host type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </transport_host>
+                <transport_path type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </transport_path>
+                <grpc_service_name type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </grpc_service_name>
+                <grpc_multi_mode type="BooleanField">
+                    <default>0</default>
+                    <Required>Y</Required>
+                </grpc_multi_mode>
+                <xhttp_mode type="OptionField">
+                    <default>auto</default>
+                    <Required>N</Required>
+                    <OptionValues>
+                        <auto>auto</auto>
+                        <packet-up>packet-up</packet-up>
+                        <stream-up>stream-up</stream-up>
+                        <stream-one>stream-one</stream-one>
+                    </OptionValues>
+                </xhttp_mode>
+                <mux_enabled type="BooleanField">
+                    <default>0</default>
+                    <Required>Y</Required>
+                </mux_enabled>
+                <custom_stream_json type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </custom_stream_json>
+            </node>
+        </nodes>
+
+        <rules>
+            <rule type="ArrayField">
+                <enabled type="BooleanField">
+                    <default>1</default>
+                    <Required>Y</Required>
+                </enabled>
+                <sequence type="IntegerField">
+                    <default>10</default>
+                    <MinimumValue>1</MinimumValue>
+                    <MaximumValue>9999</MaximumValue>
+                    <Required>Y</Required>
+                </sequence>
+                <description type="TextField">
+                    <default></default>
+                    <Required>Y</Required>
+                </description>
+                <domain type="CSVListField">
+                    <default></default>
+                    <Required>N</Required>
+                </domain>
+                <ip type="CSVListField">
+                    <default></default>
+                    <Required>N</Required>
+                </ip>
+                <port type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </port>
+                <network_proto type="OptionField">
+                    <default>tcp_udp</default>
+                    <Required>Y</Required>
+                    <OptionValues>
+                        <tcp_udp>TCP + UDP</tcp_udp>
+                        <tcp>TCP Only</tcp>
+                        <udp>UDP Only</udp>
+                    </OptionValues>
+                </network_proto>
+                <protocol type="CSVListField">
+                    <default></default>
+                    <Required>N</Required>
+                </protocol>
+                <outbound_tag type="OptionField">
+                    <default>direct</default>
+                    <Required>Y</Required>
+                    <OptionValues>
+                        <proxy>Proxy (Active Xray Node)</proxy>
+                        <direct>Direct (Bypass VPN via WAN)</direct>
+                        <block>Block (Drop Traffic)</block>
+                    </OptionValues>
+                </outbound_tag>
+            </rule>
+        </rules>
+
+        <maintenance>
+            <core_branch type="OptionField">
+                <default>stable</default>
+                <Required>Y</Required>
+                <OptionValues>
+                    <stable>Stable (Latest Official Release)</stable>
+                    <latest>Latest / Pre-release (Bleeding Edge)</latest>
+                </OptionValues>
+            </core_branch>
+            <geodata_preset type="OptionField">
+                <default>runetfreedom</default>
+                <Required>Y</Required>
+                <OptionValues>
+                    <official>Official (Loyalsoldier / v2fly)</official>
+                    <runetfreedom>Russia (runetfreedom / russia-v2ray-rules-dat)</runetfreedom>
+                    <zaborona>Russia Alternative (Chocolate4U / Extended)</zaborona>
+                    <custom>Custom Direct URLs (.dat)</custom>
+                </OptionValues>
+            </geodata_preset>
+            <custom_geoip_url type="TextField">
+                <default></default>
+                <Required>N</Required>
+            </custom_geoip_url>
+            <custom_geosite_url type="TextField">
+                <default></default>
+                <Required>N</Required>
+            </custom_geosite_url>
+            <plugin_repo_url type="TextField">
+                <default>https://github.com/tribalRu/os-xray-client</default>
+                <Required>Y</Required>
+            </plugin_repo_url>
+            <plugin_repo_branch type="TextField">
+                <default>main</default>
+                <Required>Y</Required>
+            </plugin_repo_branch>
+        </maintenance>
+    </items>
+</model>

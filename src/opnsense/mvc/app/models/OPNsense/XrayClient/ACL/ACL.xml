@@ -1,0 +1,9 @@
+<acl>
+    <page-services-xrayclient>
+        <name>Services: Xray Client</name>
+        <patterns>
+            <pattern>ui/xrayclient/*</pattern>
+            <pattern>api/xrayclient/*</pattern>
+        </patterns>
+    </page-services-xrayclient>
+</acl>
