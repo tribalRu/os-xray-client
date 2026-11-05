@@ -2,7 +2,6 @@
 ACTION="$1"
 CONFIG_XML="/conf/config.xml"
 
-# Значения по умолчанию на случай отсутствия конфига
 TUN_IFACE="tun_xray0"
 TUN_ADDR="10.255.0.1/30"
 
@@ -14,27 +13,8 @@ if [ -f "${CONFIG_XML}" ]; then
     [ -n "${VAL_ADDR}" ] && TUN_ADDR="${VAL_ADDR}"
 fi
 
-# Парсим IP и маску из строки вида 10.255.0.1/30
 LOCAL_IP=$(echo "${TUN_ADDR}" | cut -d'/' -f1)
-CIDR=$(echo "${TUN_ADDR}" | cut -d'/' -f2)
-[ -z "${CIDR}" ] && CIDR="30"
-
-# Функция для конвертации IP в число (для расчёта peer-адреса)
-ip_to_int() {
-    local a b c d
-    IFS=. read -r a b c d <<EOF
-$1
-EOF
-    echo $(( (a << 24) + (b << 16) + (c << 8) + d ))
-}
-
-# Функция для конвертации числа обратно в IP
-int_to_ip() {
-    local num=$1
-    echo "$(( (num >> 24) & 255 )).$(( (num >> 16) & 255 )).$(( (num >> 8) & 255 )).$(( num & 255 ))"
-}
-
-LOCAL_INT=$(ip_to_int "${LOCAL_IP}")
+PEER_IP="10.255.0.2"
 
 if [ "${ACTION}" = "up" ]; then
     if ! ifconfig "${TUN_IFACE}" >/dev/null 2>&1; then
@@ -42,20 +22,11 @@ if [ "${ACTION}" = "up" ]; then
         ifconfig "${NEW_TUN}" name "${TUN_IFACE}"
     fi
 
-    if [ "${CIDR}" = "30" ]; then
-        # Для /30 подсети: если роутер .1, то peer обычно .2 (и наоборот)
-        PEER_INT=$(( LOCAL_INT ^ 1 ))
-        PEER_IP=$(int_to_ip "${PEER_INT}")
-        
-        ifconfig "${TUN_IFACE}" inet "${LOCAL_IP}" "${PEER_IP}" netmask 255.255.255.252 up
-        route add "${PEER_IP}" -interface "${TUN_IFACE}" 2>/dev/null || true
-    else
-        # Для других масок поднимаем интерфейс с маской сети
-        NETMASK=$(( 0xFFFFFFFF ^ ((1 << (32 - CIDR)) - 1) ))
-        NETMASK_IP=$(int_to_ip "${NETMASK}")
-        
-        ifconfig "${TUN_IFACE}" inet "${LOCAL_IP}" netmask "${NETMASK_IP}" up
-    fi
+    # Назначаем IP и поднимаем интерфейс в режиме point-to-point
+    ifconfig "${TUN_IFACE}" inet "${LOCAL_IP}" "${PEER_IP}" netmask 255.255.255.252 up
+    
+    # Добавляем прямой хостовый маршрут на peer
+    route add -inet "${PEER_IP}" -iface "${TUN_IFACE}" 2>/dev/null || true
 
 elif [ "${ACTION}" = "down" ]; then
     if ifconfig "${TUN_IFACE}" >/dev/null 2>&1; then
