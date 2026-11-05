@@ -1,20 +1,8 @@
 <style>
-    /* Отключаем криво отображающуюся панель поиска по форме */
-    .bootgrid-search, .search-form, div.pull-right > .search, .modal-dialog .search, tr.show-help + tr td div.pull-right, .fa-search + input, .modal-content .fa-search {
-        /* оставляем стили прокрутки, которые мы делали ранее */
-    }
     #DialogNode .modal-body,
     #DialogRule .modal-body {
         max-height: calc(100vh - 210px);
         overflow-y: auto;
-    }
-    /* Скрываем пустой блок панели поиска OPNsense в модальных окнах */
-    .modal-content .col-md-4.pull-right,
-    .modal-header .pull-right {
-        display: none !important;
-    }
-    .modal-header .modal-title {
-        width: 100% !important;
     }
 </style>
 
@@ -142,7 +130,7 @@
             $('#DialogImportLink').modal('show');
         });
 
-$('#btn_parse_and_fill').on('click', function () {
+        $('#btn_parse_and_fill').on('click', function () {
             var raw = $('#import_link_input').val().trim();
             if (!raw) return;
 
@@ -172,51 +160,48 @@ $('#btn_parse_and_fill').on('click', function () {
                 var remark = url.hash ? decodeURIComponent(url.hash.substring(1)) : (url.hostname + ':' + url.port);
 
                 $('#DialogImportLink').one('hidden.bs.modal', function () {
-                    // Открываем штатное диалоговое окно добавления ноды
                     $('#grid-nodes').parent().find('.command-add').trigger('click');
 
                     setTimeout(function () {
                         $('body').addClass('modal-open');
 
-                        // Заполняем поля по их точным селекторам внутри DialogNode
-                        $('#DialogNode #node\\.enabled').prop('checked', true);
-                        $('#DialogNode #node\\.name').val(remark);
-                        $('#DialogNode #node\\.protocol').val(proto).selectpicker('refresh');
-                        $('#DialogNode #node\\.address').val(url.hostname);
-                        $('#DialogNode #node\\.port').val(url.port || '443');
-                        $('#DialogNode #node\\.uuid').val(decodeURIComponent(url.username));
+                        $('#node\\.enabled').prop('checked', true);
+                        $('#node\\.name').val(remark);
+                        $('#node\\.protocol').val(proto).selectpicker('refresh');
+                        $('#node\\.address').val(url.hostname);
+                        $('#node\\.port').val(url.port || '443');
+                        $('#node\\.uuid').val(decodeURIComponent(url.username));
 
                         var flow = params.get('flow') || 'none';
-                        $('#DialogNode #node\\.flow').val(flow).selectpicker('refresh');
-                        $('#DialogNode #node\\.encryption').val(params.get('encryption') || 'none');
+                        $('#node\\.flow').val(flow).selectpicker('refresh');
+                        $('#node\\.encryption').val(params.get('encryption') || 'none');
 
                         var netType = (params.get('type') || 'tcp').toLowerCase();
                         if (netType === 'splithttp') netType = 'xhttp';
-                        $('#DialogNode #node\\.network').val(netType).selectpicker('refresh');
+                        $('#node\\.network').val(netType).selectpicker('refresh');
 
                         var security = (params.get('security') || 'none').toLowerCase();
-                        $('#DialogNode #node\\.security').val(security).selectpicker('refresh');
+                        $('#node\\.security').val(security).selectpicker('refresh');
 
-                        $('#DialogNode #node\\.sni').val(params.get('sni') || params.get('serverName') || '');
+                        $('#node\\.sni').val(params.get('sni') || params.get('serverName') || '');
                         if (params.get('fp')) {
-                            $('#DialogNode #node\\.fingerprint').val(params.get('fp')).selectpicker('refresh');
+                            $('#node\\.fingerprint').val(params.get('fp')).selectpicker('refresh');
                         }
 
-                        $('#DialogNode #node\\.reality_pubkey').val(params.get('pbk') || '');
-                        $('#DialogNode #node\\.reality_shortid').val(params.get('sid') || '');
-                        $('#DialogNode #node\\.reality_spiderx').val(params.get('spx') ? decodeURIComponent(params.get('spx')) : '/');
+                        $('#node\\.reality_pubkey').val(params.get('pbk') || '');
+                        $('#node\\.reality_shortid').val(params.get('sid') || '');
+                        $('#node\\.reality_spiderx').val(params.get('spx') ? decodeURIComponent(params.get('spx')) : '/');
 
-                        $('#DialogNode #node\\.transport_host').val(params.get('host') || '');
-                        $('#DialogNode #node\\.transport_path').val(params.get('path') ? decodeURIComponent(params.get('path')) : '');
-                        $('#DialogNode #node\\.grpc_service_name').val(params.get('serviceName') || '');
+                        $('#node\\.transport_host').val(params.get('host') || '');
+                        $('#node\\.transport_path').val(params.get('path') ? decodeURIComponent(params.get('path')) : '');
+                        $('#node\\.grpc_service_name').val(params.get('serviceName') || '');
                         if (params.get('mode') && netType === 'xhttp') {
-                            $('#DialogNode #node\\.xhttp_mode').val(params.get('mode')).selectpicker('refresh');
+                            $('#node\\.xhttp_mode').val(params.get('mode')).selectpicker('refresh');
                         }
 
-                        // Вызываем триггер изменения, чтобы показать/скрыть нужные секции (например, Reality)
-                        $('#DialogNode #node\\.protocol').trigger('change');
-                        $('#DialogNode #node\\.network').trigger('change');
-                        $('#DialogNode #node\\.security').trigger('change');
+                        $('#node\\.protocol').trigger('change');
+                        $('#node\\.network').trigger('change');
+                        $('#node\\.security').trigger('change');
                     }, 350);
                 });
 
