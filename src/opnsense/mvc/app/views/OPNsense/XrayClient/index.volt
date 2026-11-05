@@ -1,8 +1,20 @@
 <style>
+    /* Отключаем криво отображающуюся панель поиска по форме */
+    .bootgrid-search, .search-form, div.pull-right > .search, .modal-dialog .search, tr.show-help + tr td div.pull-right, .fa-search + input, .modal-content .fa-search {
+        /* оставляем стили прокрутки, которые мы делали ранее */
+    }
     #DialogNode .modal-body,
     #DialogRule .modal-body {
         max-height: calc(100vh - 210px);
         overflow-y: auto;
+    }
+    /* Скрываем пустой блок панели поиска OPNsense в модальных окнах */
+    .modal-content .col-md-4.pull-right,
+    .modal-header .pull-right {
+        display: none !important;
+    }
+    .modal-header .modal-title {
+        width: 100% !important;
     }
 </style>
 
