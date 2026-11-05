@@ -131,14 +131,45 @@ class SettingsController extends ApiMutableModelControllerBase
             ]
         ];
 
+        // Collect existing descriptions to avoid duplicates on repeated clicks.
+        $existing = [];
+        foreach ($mdl->rules->rule->iterateItems() as $rule) {
+            $desc = (string)$rule->description;
+            if ($desc !== '') {
+                $existing[$desc] = true;
+            }
+        }
+
+        $added = 0;
+        $skipped = 0;
         foreach ($defaults as $ruleData) {
-            $node = $mdl->rules->rule->Add();
+            if (isset($existing[$ruleData['description']])) {
+                $skipped++;
+                continue;
+            }
+            $node = $mdl->rules->rule->add();
+            if ($node === null) {
+                return ['status' => 'error', 'message' => 'Failed to create routing rule'];
+            }
             $node->setNodes($ruleData);
+            $added++;
+        }
+
+        if ($added === 0) {
+            return ['status' => 'ok', 'message' => 'Default routing rules already exist'];
+        }
+
+        if (!$this->getModel()->isValid()) {
+            return [
+                'status' => 'error',
+                'message' => 'Validation failed',
+                'errors' => $this->getModel()->eventValidationErrors()
+            ];
         }
 
         $mdl->serializeToConfig();
         Config::getInstance()->save();
 
-        return ['status' => 'ok', 'message' => 'Default routing rules added'];
+        return ['status' => 'ok', 'message' => "Default routing rules added ({$added} new, {$skipped} skipped)"];
     }
 }

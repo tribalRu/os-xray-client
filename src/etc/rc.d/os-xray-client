@@ -38,23 +38,57 @@ xrayclient_prestart()
         return 1
     fi
 
+    # Respect the GUI "Enable Xray Client" toggle (the rc.conf flag alone
+    # cannot reflect it). Read general.enabled from /conf/config.xml.
+    XRAY_ENABLED=$(/usr/local/bin/python3 - << 'EOF' 2>/dev/null || echo ""
+import sys
+import xml.etree.ElementTree as ET
+try:
+    root = ET.parse("/conf/config.xml").getroot()
+    val = root.findtext(".//OPNsense/XrayClient/general/enabled")
+    print("enabled" if (val or "").strip() == "1" else "disabled")
+except Exception:
+    print("enabled")
+EOF
+    )
+    if [ "${XRAY_ENABLED}" = "disabled" ]; then
+        echo "Xray Client is disabled in the GUI (General > Enable Xray Client). Skipping start."
+        return 1
+    fi
+
+    # Fail fast on an invalid generated config instead of crash-looping
+    # under `daemon -r`. `xray run -test` exits 0 only for a valid config.
+    if [ ! -f "${xrayclient_config}" ]; then
+        echo "Error: Xray config not found at ${xrayclient_config}. Run 'configctl template reload OPNsense/XrayClient' or Apply settings."
+        return 1
+    fi
+    if ! "${xrayclient_bin}" run -test -c "${xrayclient_config}" >/dev/null 2>&1; then
+        echo "Error: Xray config test failed for ${xrayclient_config}. See /var/log/xray/error.log."
+        return 1
+    fi
+
+    # setup_tun.sh itself honours general.enable_tun, so it is safe to call.
     /usr/local/opnsense/scripts/OPNsense/XrayClient/setup_tun.sh up
 }
 
 xrayclient_poststop()
 {
+    # Clean up the TUN interface/route created in prestart (best effort).
+    /usr/local/opnsense/scripts/OPNsense/XrayClient/setup_tun.sh down || true
     rm -f "${pidfile}"
 }
 
 xrayclient_status()
 {
-    if [ -f "${pidfile}" ] && kill -0 $(cat "${pidfile}" 2>/dev/null) 2>/dev/null; then
-        echo "xrayclient is running as pid $(cat ${pidfile})."
-        return 0
-    else
-        echo "xrayclient is not running."
-        return 1
+    if [ -f "${pidfile}" ]; then
+        pid=$(cat "${pidfile}" 2>/dev/null)
+        if [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null; then
+            echo "xrayclient is running as pid ${pid}."
+            return 0
+        fi
     fi
+    echo "xrayclient is not running."
+    return 1
 }
 
 run_rc_command "$1"

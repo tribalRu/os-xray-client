@@ -1,0 +1,14 @@
+# OPNsense plugin runs on FreeBSD - enforce LF everywhere.
+# Without this, Windows checkout (autocrlf) can produce CRLF in *.sh/*.py
+# and break shebangs (#!/bin/sh\r -> "not found").
+* text=auto eol=lf
+*.sh text eol=lf
+*.py text eol=lf
+*.xml text eol=lf
+*.j2 text eol=lf
+*.volt text eol=lf
+*.php text eol=lf
+*.inc text eol=lf
+install.sh text eol=lf
+uninstall.sh text eol=lf
+*.conf text eol=lf

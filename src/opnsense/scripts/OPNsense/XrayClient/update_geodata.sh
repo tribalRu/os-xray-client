@@ -8,6 +8,7 @@ ASSET_DIR="/usr/local/share/xray"
 TMP_DIR="/tmp/xray_geodata_update"
 
 mkdir -p "${ASSET_DIR}" "${TMP_DIR}"
+FAILED=0
 
 case "${PRESET}" in
     official)
@@ -19,6 +20,7 @@ case "${PRESET}" in
         GEOSITE_URL="https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geosite.dat"
         ;;
     zaborona)
+        # NOTE: Chocolate4U publishes Iran-specific rules, not RU rules.
         GEOIP_URL="https://github.com/Chocolate4U/Iran-v2ray-rules/releases/latest/download/geoip.dat"
         GEOSITE_URL="https://github.com/Chocolate4U/Iran-v2ray-rules/releases/latest/download/geosite.dat"
         ;;
@@ -41,7 +43,10 @@ if [ -n "${GEOIP_URL}" ] && [ "${GEOIP_URL}" != "none" ]; then
         echo "geoip.dat updated successfully."
     else
         echo "ERROR: Failed to download geoip.dat or file is empty."
+        FAILED=1
     fi
+else
+    echo "geoip.dat: no URL configured, skipping."
 fi
 
 if [ -n "${GEOSITE_URL}" ] && [ "${GEOSITE_URL}" != "none" ]; then
@@ -51,10 +56,18 @@ if [ -n "${GEOSITE_URL}" ] && [ "${GEOSITE_URL}" != "none" ]; then
         echo "geosite.dat updated successfully."
     else
         echo "ERROR: Failed to download geosite.dat or file is empty."
+        FAILED=1
     fi
+else
+    echo "geosite.dat: no URL configured, skipping."
 fi
 
 rm -rf "${TMP_DIR}"
+
+if [ "${FAILED}" -ne 0 ]; then
+    echo "=== GeoData update FAILED ==="
+    exit 1
+fi
 
 if /usr/local/etc/rc.d/os-xray-client status >/dev/null 2>&1; then
     echo "Restarting Xray service to reload GeoData..."

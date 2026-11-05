@@ -5,7 +5,15 @@ LOG_TYPE="$2"
 LINES="$3"
 
 LOG_DIR="/var/log/xray"
-[ -z "${LINES}" ] && LINES=200
+
+# LINES must be a positive integer (ServiceController clamps too).
+case "${LINES}" in
+    ''|*[!0-9]*)
+        LINES=200
+        ;;
+esac
+if [ "${LINES}" -lt 1 ]; then LINES=200; fi
+if [ "${LINES}" -gt 1000 ]; then LINES=1000; fi
 
 if [ "${ACTION}" = "clear" ]; then
     : > "${LOG_DIR}/access.log" 2>/dev/null

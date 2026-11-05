@@ -34,6 +34,10 @@ def main():
         root = tree.getroot()
         for node_el in root.findall('.//OPNsense/XrayClient/nodes/node'):
             uuid = node_el.attrib.get('uuid', '')
+            # Only check nodes that will actually be rendered (enabled).
+            enabled = (node_el.findtext('enabled') or '0').strip()
+            if enabled != '1':
+                continue
             address = (node_el.findtext('address') or '').strip()
             port = (node_el.findtext('port') or '443').strip()
             if uuid:

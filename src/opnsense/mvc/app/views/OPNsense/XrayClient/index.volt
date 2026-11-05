@@ -20,6 +20,12 @@
 
         updateServiceControlUI('xrayclient');
 
+        // The Raw JSON textarea is rendered outside the generated
+        // <form id="frm_general">. saveFormToEndpoint() only serialises
+        // fields inside that form, so move the container inside it or
+        // Raw JSON would never be saved to config.xml.
+        $('#frm_general').append($('#raw_json_container'));
+
         function toggleConfigModeUI() {
             var mode = $('#xrayclient\\.general\\.config_mode').val();
             if (mode === 'raw') {
@@ -61,9 +67,6 @@
         }
 
         $('#node\\.protocol, #node\\.network, #node\\.security').on('change', toggleNodeDialogFields);
-        $('#DialogNode').on('shown.bs.modal', function () {
-            toggleNodeDialogFields();
-        });
 
         var nodeLatencyCache = {};
         var nodeTrafficCache = {};
@@ -130,6 +133,128 @@
             $('#DialogImportLink').modal('show');
         });
 
+        // Data for a parsed link, applied on DialogNode shown.bs.modal.
+        // Applying it immediately is racy: bootgrid's `get` response can
+        // overwrite the fields after a fixed setTimeout.
+        var pendingImport = null;
+
+        function setSelectValue($el, value) {
+            // Only set when the option exists (e.g. unknown fp values
+            // like "randomizedAlice" must not corrupt the select).
+            var found = false;
+            $el.find('option').each(function () {
+                if ($(this).val() === value) {
+                    found = true;
+                    return false;
+                }
+            });
+            if (found) {
+                $el.val(value).selectpicker('refresh');
+            }
+        }
+
+        function fillNodeDialog(data) {
+            $('body').addClass('modal-open');
+            $('#node\\.enabled').prop('checked', true);
+            $('#node\\.name').val(data.name);
+            setSelectValue($('#node\\.protocol'), data.protocol);
+            $('#node\\.address').val(data.address);
+            $('#node\\.port').val(data.port || '443');
+            $('#node\\.uuid').val(data.uuid);
+            setSelectValue($('#node\\.flow'), data.flow);
+            $('#node\\.encryption').val(data.encryption || 'none');
+            setSelectValue($('#node\\.ss_method'), data.ss_method);
+            setSelectValue($('#node\\.network'), data.network);
+            setSelectValue($('#node\\.security'), data.security);
+            $('#node\\.sni').val(data.sni);
+            setSelectValue($('#node\\.fingerprint'), data.fingerprint);
+            // Tokenize input accepts a comma-joined string.
+            if (data.alpn) {
+                $('#node\\.alpn').val(data.alpn);
+                if (typeof formatTokenizersUI === 'function') {
+                    formatTokenizersUI();
+                }
+                $('.selectpicker').selectpicker('refresh');
+            }
+            $('#node\\.reality_pubkey').val(data.reality_pubkey);
+            $('#node\\.reality_shortid').val(data.reality_shortid);
+            $('#node\\.reality_spiderx').val(data.reality_spiderx);
+            $('#node\\.transport_host').val(data.transport_host);
+            $('#node\\.transport_path').val(data.transport_path);
+            $('#node\\.grpc_service_name').val(data.grpc_service_name);
+            setSelectValue($('#node\\.xhttp_mode'), data.xhttp_mode);
+            $('#node\\.protocol').trigger('change');
+            $('#node\\.network').trigger('change');
+            $('#node\\.security').trigger('change');
+        }
+
+        $('#DialogNode').on('shown.bs.modal', function () {
+            toggleNodeDialogFields();
+            if (pendingImport) {
+                var data = pendingImport;
+                pendingImport = null;
+                fillNodeDialog(data);
+            }
+        });
+
+        function base64UrlDecode(s) {
+            s = s.replace(/-/g, '+').replace(/_/g, '/');
+            while (s.length % 4 !== 0) s += '=';
+            return decodeURIComponent(escape(atob(s)));
+        }
+
+        function parseSsLink(url, remarkFallback) {
+            // SIP002: ss://base64(method:password)@host:port#remark
+            // also: ss://method:password@host:port#remark (plain)
+            var user = '';
+            try {
+                user = decodeURIComponent(url.username);
+            } catch (e) {
+                user = url.username;
+            }
+            var method = '';
+            var password = '';
+            try {
+                var decoded = base64UrlDecode(user);
+                var sep = decoded.indexOf(':');
+                if (sep !== -1) {
+                    method = decoded.substring(0, sep);
+                    password = decoded.substring(sep + 1);
+                }
+            } catch (e) {
+                // Fall through to plain interpretation below.
+            }
+            if (!method) {
+                var sep = user.indexOf(':');
+                if (sep !== -1) {
+                    method = user.substring(0, sep);
+                    password = user.substring(sep + 1);
+                }
+            }
+            return {
+                name: url.hash ? decodeURIComponent(url.hash.substring(1)) : remarkFallback,
+                protocol: 'shadowsocks',
+                address: url.hostname,
+                port: url.port || '8388',
+                uuid: decodeURIComponent(password),
+                flow: 'none',
+                encryption: 'none',
+                ss_method: method || 'x2022-blake3-aes-128-gcm',
+                network: 'tcp',
+                security: 'none',
+                sni: '',
+                fingerprint: 'chrome',
+                alpn: '',
+                reality_pubkey: '',
+                reality_shortid: '',
+                reality_spiderx: '/',
+                transport_host: '',
+                transport_path: '',
+                grpc_service_name: '',
+                xhttp_mode: 'auto'
+            };
+        }
+
         $('#btn_parse_and_fill').on('click', function () {
             var raw = $('#import_link_input').val().trim();
             if (!raw) return;
@@ -152,57 +277,61 @@
             try {
                 var url = new URL(raw);
                 var proto = url.protocol.replace(':', '').toLowerCase();
+
+                if (proto === 'ss') {
+                    var fallback = url.hostname + ':' + (url.port || '8388');
+                    pendingImport = parseSsLink(url, fallback);
+                    $('#DialogImportLink').one('hidden.bs.modal', function () {
+                        $('#grid-nodes').parent().find('.command-add').trigger('click');
+                    });
+                    $('#DialogImportLink').modal('hide');
+                    return;
+                }
+
                 if (proto !== 'vless' && proto !== 'trojan') {
-                    throw new Error('Supported URI schemes: vless:// or trojan:// (or paste a full JSON object).');
+                    throw new Error('Supported URI schemes: vless://, trojan://, ss:// (or paste a full JSON object).');
                 }
 
                 var params = url.searchParams;
                 var remark = url.hash ? decodeURIComponent(url.hash.substring(1)) : (url.hostname + ':' + url.port);
 
+                var netType = (params.get('type') || 'tcp').toLowerCase();
+                if (netType === 'splithttp') netType = 'xhttp';
+                if (netType === 'http') netType = 'httpupgrade';
+
+                var alpn = params.get('alpn') || '';
+                if (!alpn) {
+                    var allAlpn = params.getAll('alpn');
+                    if (allAlpn.length > 1) {
+                        alpn = allAlpn.join(',');
+                    }
+                }
+
+                pendingImport = {
+                    name: remark,
+                    protocol: proto,
+                    address: url.hostname,
+                    port: url.port || '443',
+                    uuid: decodeURIComponent(url.username),
+                    flow: params.get('flow') || 'none',
+                    encryption: params.get('encryption') || 'none',
+                    ss_method: 'x2022-blake3-aes-128-gcm',
+                    network: netType,
+                    security: (params.get('security') || 'none').toLowerCase(),
+                    sni: params.get('sni') || params.get('serverName') || '',
+                    fingerprint: params.get('fp') || 'chrome',
+                    alpn: alpn,
+                    reality_pubkey: params.get('pbk') || '',
+                    reality_shortid: params.get('sid') || '',
+                    reality_spiderx: params.get('spx') ? decodeURIComponent(params.get('spx')) : '/',
+                    transport_host: params.get('host') || '',
+                    transport_path: params.get('path') ? decodeURIComponent(params.get('path')) : '',
+                    grpc_service_name: params.get('serviceName') || '',
+                    xhttp_mode: (params.get('mode') && netType === 'xhttp') ? params.get('mode') : 'auto'
+                };
+
                 $('#DialogImportLink').one('hidden.bs.modal', function () {
                     $('#grid-nodes').parent().find('.command-add').trigger('click');
-
-                    setTimeout(function () {
-                        $('body').addClass('modal-open');
-
-                        $('#node\\.enabled').prop('checked', true);
-                        $('#node\\.name').val(remark);
-                        $('#node\\.protocol').val(proto).selectpicker('refresh');
-                        $('#node\\.address').val(url.hostname);
-                        $('#node\\.port').val(url.port || '443');
-                        $('#node\\.uuid').val(decodeURIComponent(url.username));
-
-                        var flow = params.get('flow') || 'none';
-                        $('#node\\.flow').val(flow).selectpicker('refresh');
-                        $('#node\\.encryption').val(params.get('encryption') || 'none');
-
-                        var netType = (params.get('type') || 'tcp').toLowerCase();
-                        if (netType === 'splithttp') netType = 'xhttp';
-                        $('#node\\.network').val(netType).selectpicker('refresh');
-
-                        var security = (params.get('security') || 'none').toLowerCase();
-                        $('#node\\.security').val(security).selectpicker('refresh');
-
-                        $('#node\\.sni').val(params.get('sni') || params.get('serverName') || '');
-                        if (params.get('fp')) {
-                            $('#node\\.fingerprint').val(params.get('fp')).selectpicker('refresh');
-                        }
-
-                        $('#node\\.reality_pubkey').val(params.get('pbk') || '');
-                        $('#node\\.reality_shortid').val(params.get('sid') || '');
-                        $('#node\\.reality_spiderx').val(params.get('spx') ? decodeURIComponent(params.get('spx')) : '/');
-
-                        $('#node\\.transport_host').val(params.get('host') || '');
-                        $('#node\\.transport_path').val(params.get('path') ? decodeURIComponent(params.get('path')) : '');
-                        $('#node\\.grpc_service_name').val(params.get('serviceName') || '');
-                        if (params.get('mode') && netType === 'xhttp') {
-                            $('#node\\.xhttp_mode').val(params.get('mode')).selectpicker('refresh');
-                        }
-
-                        $('#node\\.protocol').trigger('change');
-                        $('#node\\.network').trigger('change');
-                        $('#node\\.security').trigger('change');
-                    }, 350);
                 });
 
                 $('#DialogImportLink').modal('hide');
@@ -341,7 +470,7 @@
     <div id="tab_nodes" class="tab-pane fade in">
         <div class="col-md-12" style="margin-top: 10px; margin-bottom: 10px;">
             <button id="btn_open_import_modal" type="button" class="btn btn-success">
-                <i class="fa fa-paste"></i> <b>Import vless:// Link or JSON</b>
+                <i class="fa fa-paste"></i> <b>Import vless://, trojan://, ss:// or JSON</b>
             </button>
             <button id="btn_check_nodes" type="button" class="btn btn-info">
                 <i class="fa fa-refresh"></i> <b>Check Latency (Ping) &amp; Traffic</b>
@@ -465,10 +594,10 @@
         <div class="modal-content">
             <div class="modal-header">
                 <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
-                <h4 class="modal-title">Import VLESS / Trojan Link or Raw JSON</h4>
+                <h4 class="modal-title">Import VLESS / Trojan / Shadowsocks Link or Raw JSON</h4>
             </div>
             <div class="modal-body">
-                <p>Paste a <code>vless://...</code> or <code>trojan://...</code> URI link below to automatically populate the server configuration fields, or paste a complete JSON configuration object:</p>
+                <p>Paste a <code>vless://...</code>, <code>trojan://...</code> or <code>ss://...</code> URI link below to automatically populate the server configuration fields, or paste a complete JSON configuration object:</p>
                 <textarea id="import_link_input" class="form-control" rows="6" style="font-family: monospace;" placeholder="vless://uuid@server:443?encryption=none&amp;flow=xtls-rprx-vision&amp;security=reality&amp;sni=...&amp;fp=chrome&amp;pbk=...&amp;sid=...&amp;type=tcp#MyServer"></textarea>
                 <div id="import_error_msg" class="alert alert-danger" style="display:none; margin-top: 10px;"></div>
             </div>

@@ -153,6 +153,6 @@
         <id>node.custom_stream_json</id>
         <label>Custom StreamSettings Override (Optional JSON)</label>
         <type>text</type>
-        <help>Optional JSON snippet to merge into streamSettings for experimental parameters.</help>
+        <help>Optional JSON object merged into streamSettings (e.g. {"wsSettings":{"path":"/"}}). Outer braces are stripped; leave empty to use the UI fields above. Must be valid JSON.</help>
     </field>
 </form>

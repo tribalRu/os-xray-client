@@ -28,16 +28,19 @@ chmod +x /usr/local/opnsense/scripts/OPNsense/XrayClient/*.py
 date "+1.0.1 (%Y-%m-%d %H:%M)" > /usr/local/opnsense/scripts/OPNsense/XrayClient/PLUGIN_VERSION
 
 echo "Running OPNsense MVC migrations..."
-/usr/local/opnsense/mvc/script/run_migrations.php || true
+if ! /usr/local/opnsense/mvc/script/run_migrations.php; then
+    echo "WARNING: model migrations returned an error - check OPNsense logs."
+fi
 
 echo "Clearing OPNsense UI, menu and Volt template cache..."
 rm -f /tmp/opnsense_menu_cache.xml
 rm -f /tmp/opnsense_acl_cache.json
-rm -f /tmp/*.php 2>/dev/null || true
+rm -rf /var/tmp/volt 2>/dev/null || true
+rm -rf /tmp/volt* 2>/dev/null || true
 
 echo "Restarting configd service..."
 service configd restart
-configctl template reload OPNsense/XrayClient || true
+configctl template reload OPNsense/XrayClient || echo "WARNING: template reload failed."
 
 if [ ! -x "/usr/local/bin/xray" ]; then
     echo "Xray binary not found. Downloading latest stable Xray-core..."
