@@ -17,7 +17,10 @@ class SettingsController extends ApiMutableModelControllerBase
 
     public function getNodeAction($uuid = null)
     {
-        return $this->getBase('node', 'nodes.node', $uuid);
+        if ($uuid != null) {
+            return $this->getBase('node', 'nodes.node', $uuid);
+        }
+        return ['node' => []];
     }
 
     public function addNodeAction()
@@ -51,7 +54,10 @@ class SettingsController extends ApiMutableModelControllerBase
 
     public function getRuleAction($uuid = null)
     {
-        return $this->getBase('rule', 'rules.rule', $uuid);
+        if ($uuid != null) {
+            return $this->getBase('rule', 'rules.rule', $uuid);
+        }
+        return ['rule' => []];
     }
 
     public function addRuleAction()
