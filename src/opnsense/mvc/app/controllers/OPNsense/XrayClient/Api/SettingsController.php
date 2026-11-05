@@ -10,6 +10,7 @@ class SettingsController extends ApiMutableModelControllerBase
     protected static $internalModelName = 'xrayclient';
     protected static $internalModelClass = 'OPNsense\XrayClient\XrayClient';
 
+    // --- Outbound Nodes CRUD ---
     public function searchNodeAction()
     {
         return $this->searchBase('nodes.node', ['enabled', 'name', 'protocol', 'address', 'port', 'security', 'network']);
@@ -17,20 +18,17 @@ class SettingsController extends ApiMutableModelControllerBase
 
     public function getNodeAction($uuid = null)
     {
-        if ($uuid != null) {
-            return $this->getBase('node', 'nodes.node', $uuid);
-        }
-        return ['node' => []];
+        return $this->getBase('nodes.node', $uuid);
     }
 
     public function addNodeAction()
     {
-        return $this->addBase('node', 'nodes.node');
+        return $this->addBase('nodes.node');
     }
 
     public function setNodeAction($uuid)
     {
-        return $this->setBase('node', 'nodes.node', $uuid);
+        return $this->setBase('nodes.node', $uuid);
     }
 
     public function delNodeAction($uuid)
@@ -43,6 +41,7 @@ class SettingsController extends ApiMutableModelControllerBase
         return $this->toggleBase('nodes.node', $uuid, $enabled);
     }
 
+    // --- Routing Rules CRUD ---
     public function searchRuleAction()
     {
         return $this->searchBase(
@@ -54,20 +53,17 @@ class SettingsController extends ApiMutableModelControllerBase
 
     public function getRuleAction($uuid = null)
     {
-        if ($uuid != null) {
-            return $this->getBase('rule', 'rules.rule', $uuid);
-        }
-        return ['rule' => []];
+        return $this->getBase('rules.rule', $uuid);
     }
 
     public function addRuleAction()
     {
-        return $this->addBase('rule', 'rules.rule');
+        return $this->addBase('rules.rule');
     }
 
     public function setRuleAction($uuid)
     {
-        return $this->setBase('rule', 'rules.rule', $uuid);
+        return $this->setBase('rules.rule', $uuid);
     }
 
     public function delRuleAction($uuid)
@@ -80,6 +76,7 @@ class SettingsController extends ApiMutableModelControllerBase
         return $this->toggleBase('rules.rule', $uuid, $enabled);
     }
 
+    // --- Seed Default RU Bypass Rules ---
     public function seedDefaultRulesAction()
     {
         if (!$this->request->isPost()) {
