@@ -1,3 +1,11 @@
+<style>
+    #DialogNode .modal-body,
+    #DialogRule .modal-body {
+        max-height: calc(100vh - 210px);
+        overflow-y: auto;
+    }
+</style>
+
 <script>
     $(document).ready(function () {
         mapDataToFormUI({
@@ -151,46 +159,50 @@
                 var params = url.searchParams;
                 var remark = url.hash ? decodeURIComponent(url.hash.substring(1)) : (url.hostname + ':' + url.port);
 
+                $('#DialogImportLink').one('hidden.bs.modal', function () {
+                    $('#grid-nodes').parent().find('.command-add').trigger('click');
+
+                    setTimeout(function () {
+                        $('body').addClass('modal-open');
+                        $('#node\\.enabled').prop('checked', true);
+                        $('#node\\.name').val(remark);
+                        $('#node\\.protocol').val(proto).selectpicker('refresh');
+                        $('#node\\.address').val(url.hostname);
+                        $('#node\\.port').val(url.port || '443');
+                        $('#node\\.uuid').val(decodeURIComponent(url.username));
+
+                        var flow = params.get('flow') || 'none';
+                        $('#node\\.flow').val(flow).selectpicker('refresh');
+                        $('#node\\.encryption').val(params.get('encryption') || 'none');
+
+                        var netType = (params.get('type') || 'tcp').toLowerCase();
+                        if (netType === 'splithttp') netType = 'xhttp';
+                        $('#node\\.network').val(netType).selectpicker('refresh');
+
+                        var security = (params.get('security') || 'none').toLowerCase();
+                        $('#node\\.security').val(security).selectpicker('refresh');
+
+                        $('#node\\.sni').val(params.get('sni') || params.get('serverName') || '');
+                        if (params.get('fp')) {
+                            $('#node\\.fingerprint').val(params.get('fp')).selectpicker('refresh');
+                        }
+
+                        $('#node\\.reality_pubkey').val(params.get('pbk') || '');
+                        $('#node\\.reality_shortid').val(params.get('sid') || '');
+                        $('#node\\.reality_spiderx').val(params.get('spx') ? decodeURIComponent(params.get('spx')) : '/');
+
+                        $('#node\\.transport_host').val(params.get('host') || '');
+                        $('#node\\.transport_path').val(params.get('path') ? decodeURIComponent(params.get('path')) : '');
+                        $('#node\\.grpc_service_name').val(params.get('serviceName') || '');
+                        if (params.get('mode') && netType === 'xhttp') {
+                            $('#node\\.xhttp_mode').val(params.get('mode')).selectpicker('refresh');
+                        }
+
+                        toggleNodeDialogFields();
+                    }, 300);
+                });
+
                 $('#DialogImportLink').modal('hide');
-                $('#grid-nodes').parent().find('.command-add').trigger('click');
-
-                setTimeout(function () {
-                    $('#node\\.enabled').prop('checked', true);
-                    $('#node\\.name').val(remark);
-                    $('#node\\.protocol').val(proto).selectpicker('refresh');
-                    $('#node\\.address').val(url.hostname);
-                    $('#node\\.port').val(url.port || '443');
-                    $('#node\\.uuid').val(decodeURIComponent(url.username));
-
-                    var flow = params.get('flow') || 'none';
-                    $('#node\\.flow').val(flow).selectpicker('refresh');
-                    $('#node\\.encryption').val(params.get('encryption') || 'none');
-
-                    var netType = (params.get('type') || 'tcp').toLowerCase();
-                    if (netType === 'splithttp') netType = 'xhttp';
-                    $('#node\\.network').val(netType).selectpicker('refresh');
-
-                    var security = (params.get('security') || 'none').toLowerCase();
-                    $('#node\\.security').val(security).selectpicker('refresh');
-
-                    $('#node\\.sni').val(params.get('sni') || params.get('serverName') || '');
-                    if (params.get('fp')) {
-                        $('#node\\.fingerprint').val(params.get('fp')).selectpicker('refresh');
-                    }
-
-                    $('#node\\.reality_pubkey').val(params.get('pbk') || '');
-                    $('#node\\.reality_shortid').val(params.get('sid') || '');
-                    $('#node\\.reality_spiderx').val(params.get('spx') ? decodeURIComponent(params.get('spx')) : '/');
-
-                    $('#node\\.transport_host').val(params.get('host') || '');
-                    $('#node\\.transport_path').val(params.get('path') ? decodeURIComponent(params.get('path')) : '');
-                    $('#node\\.grpc_service_name').val(params.get('serviceName') || '');
-                    if (params.get('mode') && netType === 'xhttp') {
-                        $('#node\\.xhttp_mode').val(params.get('mode')).selectpicker('refresh');
-                    }
-
-                    toggleNodeDialogFields();
-                }, 250);
 
             } catch (err) {
                 $('#import_error_msg').text('Failed to parse link: ' + err.message).show();
@@ -245,7 +257,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '1.0.0');
+                    $('#lbl_plugin_version').text(data.plugin_version || '1.0.1');
                 }
             });
         }
@@ -409,7 +421,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.0.0</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.0.1</span>
             </div>
         </div>
         {{ partial("layout_partials/base_form", ['fields': maintenanceForm, 'id': 'frm_maintenance']) }}

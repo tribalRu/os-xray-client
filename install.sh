@@ -25,15 +25,15 @@ chmod +x /usr/local/etc/rc.d/os-xray-client
 chmod +x /usr/local/opnsense/scripts/OPNsense/XrayClient/*.sh
 chmod +x /usr/local/opnsense/scripts/OPNsense/XrayClient/*.py
 
-date "+1.0.0 (%Y-%m-%d %H:%M)" > /usr/local/opnsense/scripts/OPNsense/XrayClient/PLUGIN_VERSION
+date "+1.0.1 (%Y-%m-%d %H:%M)" > /usr/local/opnsense/scripts/OPNsense/XrayClient/PLUGIN_VERSION
 
 echo "Running OPNsense MVC migrations..."
 /usr/local/opnsense/mvc/script/run_migrations.php || true
 
-echo "Clearing OPNsense UI and menu cache..."
+echo "Clearing OPNsense UI, menu and Volt template cache..."
 rm -f /tmp/opnsense_menu_cache.xml
 rm -f /tmp/opnsense_acl_cache.json
-rm -rf /var/lib/php/tmp/* 2>/dev/null || true
+rm -f /tmp/*.php 2>/dev/null || true
 
 echo "Restarting configd service..."
 service configd restart
@@ -45,4 +45,4 @@ if [ ! -x "/usr/local/bin/xray" ]; then
     /usr/local/opnsense/scripts/OPNsense/XrayClient/update_geodata.sh runetfreedom none none || true
 fi
 
-echo "=== Installation complete! Refresh your OPNsense Web UI and go to Services -> Xray Client ==="
+echo "=== Installation complete! ==="

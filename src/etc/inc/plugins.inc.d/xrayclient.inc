@@ -2,8 +2,9 @@
 
 function xrayclient_enabled()
 {
-    $model = new \OPNsense\XrayClient\XrayClient();
-    return (string)$model->general->enabled === '1';
+    global $config;
+    return isset($config['OPNsense']['XrayClient']['general']['enabled']) &&
+           (string)$config['OPNsense']['XrayClient']['general']['enabled'] === '1';
 }
 
 function xrayclient_services()
