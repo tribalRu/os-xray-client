@@ -1,8 +1,21 @@
 <style>
     #DialogNode .modal-body,
     #DialogRule .modal-body {
-        max-height: calc(100vh - 210px);
+        max-height: calc(100vh - 190px);
         overflow-y: auto;
+    }
+    /* OPNsense 26 full-help sidebar squeezes the form into a narrow
+       column and the dialog becomes wider than the viewport.
+       Keep the dialog centred and the form readable. */
+    #DialogNode .modal-dialog,
+    #DialogRule .modal-dialog {
+        width: 95%;
+        max-width: 900px;
+        margin: 30px auto;
+    }
+    #DialogNode .modal-body .form-group,
+    #DialogRule .modal-body .form-group {
+        margin-bottom: 10px;
     }
 </style>
 
@@ -38,10 +51,11 @@
 
         function toggleGeoDataCustomUI() {
             var preset = $('#xrayclient\\.maintenance\\.geodata_preset').val();
+            var $rows = $('.geodata_custom').closest('tr, .form-group');
             if (preset === 'custom') {
-                $('.geodata_custom').closest('tr').show();
+                $rows.show();
             } else {
-                $('.geodata_custom').closest('tr').hide();
+                $rows.hide();
             }
         }
         $('#xrayclient\\.maintenance\\.geodata_preset').on('change', toggleGeoDataCustomUI);
@@ -51,19 +65,29 @@
             var net = $('#node\\.network').val();
             var sec = $('#node\\.security').val();
 
-            $('.proto_vless, .proto_shadowsocks').closest('tr').hide();
-            if (proto === 'vless') $('.proto_vless').closest('tr').show();
-            if (proto === 'shadowsocks') $('.proto_shadowsocks').closest('tr').show();
+            // OPNsense <=25 wraps fields in <tr>, >=26 in .form-group.
+            function setBlock(sel, show) {
+                var $b = $(sel).closest('tr, .form-group');
+                if ($b.length === 0) {
+                    $b = $(sel).parent();
+                }
+                if (show) {
+                    $b.show();
+                } else {
+                    $b.hide();
+                }
+            }
 
-            $('.net_ws, .net_grpc, .net_xhttp, .net_httpupgrade').closest('tr').hide();
-            if (net === 'ws') $('.net_ws').closest('tr').show();
-            if (net === 'grpc') $('.net_grpc').closest('tr').show();
-            if (net === 'xhttp') $('.net_xhttp').closest('tr').show();
-            if (net === 'httpupgrade') $('.net_httpupgrade').closest('tr').show();
+            setBlock('.proto_vless', proto === 'vless');
+            setBlock('.proto_shadowsocks', proto === 'shadowsocks');
 
-            $('.sec_tls, .sec_reality').closest('tr').hide();
-            if (sec === 'tls') $('.sec_tls').closest('tr').show();
-            if (sec === 'reality') $('.sec_reality').closest('tr').show();
+            setBlock('.net_ws', net === 'ws');
+            setBlock('.net_grpc', net === 'grpc');
+            setBlock('.net_xhttp', net === 'xhttp');
+            setBlock('.net_httpupgrade', net === 'httpupgrade');
+
+            setBlock('.sec_tls', sec === 'tls');
+            setBlock('.sec_reality', sec === 'reality');
         }
 
         $('#node\\.protocol, #node\\.network, #node\\.security').on('change', toggleNodeDialogFields);
