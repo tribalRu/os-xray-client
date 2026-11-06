@@ -16,6 +16,10 @@
                     <raw>Raw JSON Configuration</raw>
                 </OptionValues>
             </config_mode>
+            <expert_mode type="BooleanField">
+                <default>0</default>
+                <Required>Y</Required>
+            </expert_mode>
             <loglevel type="OptionField">
                 <default>warning</default>
                 <Required>Y</Required>

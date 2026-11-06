@@ -37,6 +37,8 @@ The prestart/poststop hooks honour `enable_tun` and clean up stale interfaces au
 ## Notes
 
 - **Raw JSON mode**: paste a complete Xray config into *Raw Xray JSON*; it's validated (`json_decode`) and tested (`xray run -test`) before restart. In UI mode the template escapes all string values (`tojson`), so quotes in names/addresses won't break `config.json`.
+- **Expert Mode**: General → *Expert Mode* shows an extra **Expert Config** tab with the exact `/usr/local/etc/xray/config.json` Xray runs. View it read-only or edit it manually; saving validates (`xray run -test`), backs up the previous file (`config.json.bak-*`), switches the plugin to Raw JSON mode and restarts Xray. The UI builder no longer regenerates the file until you switch back.
+- **Routing rules**: drag-free reordering with the ↑/↓ buttons in the Actions column (rules renumber automatically to 10/20/30…). Adding from dialog offers built-in presets (bypass LAN/private, bypass RU domains/IPs, block ads); "geosite:ru"-style tags need the matching GeoData preset.
 - **Latency/Traffic**: *Check Latency* is a bare TCP connect to each enabled node's address:port (not a full VLESS/REALITY handshake). Traffic counters come from Xray's StatsService (`127.0.0.1:10085`).
 - **GeoData presets**: `official` (Loyalsoldier), `runetfreedom` (RU), `zaborona` (Iran-specific, Chocolate4U), `custom` (your `.dat` URLs).
 - **Self-update**: *Maintenance* can update Xray-core, GeoData, or the plugin itself. Plugin self-update only accepts `https://github.com/owner/repo` URLs and a safe branch name.

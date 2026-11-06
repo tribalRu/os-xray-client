@@ -60,6 +60,9 @@
             $('.selectpicker').selectpicker('refresh');
             toggleConfigModeUI();
             toggleGeoDataCustomUI();
+            if (typeof toggleExpertTab === 'function') {
+                toggleExpertTab($('#xrayclient\\.general\\.expert_mode').prop('checked'));
+            }
         });
 
         updateServiceControlUI('xrayclient');
@@ -150,6 +153,92 @@
                 $('#rule\\.outbound_tag').val(p.outbound_tag).selectpicker('refresh');
             });
         })();
+
+        // Expert Config tab: view the effective /usr/local/etc/xray/config.json
+        // or edit it manually. Saving routes through saveRawConfigAction
+        // (validate -> backup -> xray run -test -> atomic write -> restart).
+        window.toggleExpertTab = function toggleExpertTab(show) {
+            $('#tab_expert_li').toggle(!!show);
+            if (!show && $('a[href="#tab_expert"]').parent().hasClass('active')) {
+                $('a[href="#tab_general"]').tab('show');
+            }
+        };
+
+        $('#xrayclient\\.general\\.expert_mode').on('change', function () {
+            toggleExpertTab($(this).prop('checked'));
+        });
+
+        var expertConfigLoaded = false;
+
+        function loadExpertConfig() {
+            $('#expert_config_view').text('Loading…');
+            ajaxCall('/api/xrayclient/service/getConfig', {}, function (data) {
+                if (data && data.status === 'ok') {
+                    $('#expert_config_view').text(data.content);
+                    $('#expert_config_status').text('Loaded from ' + data.path).removeClass('text-danger').addClass('text-muted');
+                } else {
+                    $('#expert_config_view').text('Failed to read config.json: ' + ((data && data.message) || 'unknown error'));
+                    $('#expert_config_status').text('');
+                }
+            });
+        }
+
+        $('a[href="#tab_expert"]').on('shown.bs.tab', function () {
+            if (!expertConfigLoaded) {
+                expertConfigLoaded = true;
+                loadExpertConfig();
+            }
+        });
+
+        $('#btn_expert_refresh').on('click', loadExpertConfig);
+
+        function expertEditing(editing) {
+            $('#expert_view_wrap').toggle(!editing);
+            $('#expert_edit_wrap').toggle(editing);
+            $('#btn_expert_edit, #btn_expert_refresh').toggle(!editing);
+            $('#btn_expert_save, #btn_expert_cancel').toggle(editing);
+            $('#expert_edit_error').hide();
+        }
+
+        $('#btn_expert_edit').on('click', function () {
+            $('#expert_config_edit').val($('#expert_config_view').text());
+            expertEditing(true);
+        });
+
+        $('#btn_expert_cancel').on('click', function () {
+            expertEditing(false);
+            loadExpertConfig();
+        });
+
+        $('#btn_expert_save').on('click', function () {
+            var content = $('#expert_config_edit').val();
+            try {
+                JSON.parse(content);
+            } catch (e) {
+                $('#expert_edit_error').text('Invalid JSON: ' + e.message).show();
+                return;
+            }
+            var $btn = $(this);
+            $('#expert_edit_error').hide();
+            $btn.prop('disabled', true);
+            $('#expert_save_spin').show();
+            $('#expert_config_status').text('Saving & applying…');
+            ajaxCall('/api/xrayclient/service/saveRawConfig', { content: content }, function (data) {
+                $btn.prop('disabled', false);
+                $('#expert_save_spin').hide();
+                if (data && data.status === 'ok') {
+                    $('#expert_config_status').text(data.message || 'Saved').removeClass('text-danger').addClass('text-success');
+                    expertEditing(false);
+                    loadExpertConfig();
+                    // The model now says config_mode=raw — sync the dropdown.
+                    $('#xrayclient\\.general\\.config_mode').val('raw').selectpicker('refresh');
+                    updateServiceControlUI('xrayclient');
+                } else {
+                    $('#expert_edit_error').text((data && data.message) || 'Save failed').show();
+                    $('#expert_config_status').text('');
+                }
+            });
+        });
 
         // The Raw JSON textarea is rendered outside the generated
         // <form id="frm_general">. saveFormToEndpoint() only serialises
@@ -266,7 +355,25 @@
             set: '/api/xrayclient/settings/setRule/',
             add: '/api/xrayclient/settings/addRule/',
             del: '/api/xrayclient/settings/delRule/',
-            toggle: '/api/xrayclient/settings/toggleRule/'
+            toggle: '/api/xrayclient/settings/toggleRule/',
+            options: {
+                formatters: {
+                    "commands": function (column, row) {
+                        return '<button type="button" class="btn btn-xs btn-default command-edit bootgrid-tooltip" data-row-id="' + row.uuid + '"><span class="fa fa-fw fa-pencil"></span></button> ' +
+                               '<button type="button" class="btn btn-xs btn-default command-copy bootgrid-tooltip" data-row-id="' + row.uuid + '"><span class="fa fa-fw fa-clone"></span></button> ' +
+                               '<button type="button" class="btn btn-xs btn-default command-move-up" data-row-id="' + row.uuid + '" title="Move rule up"><span class="fa fa-fw fa-arrow-up"></span></button> ' +
+                               '<button type="button" class="btn btn-xs btn-default command-move-down" data-row-id="' + row.uuid + '" title="Move rule down"><span class="fa fa-fw fa-arrow-down"></span></button> ' +
+                               '<button type="button" class="btn btn-xs btn-default command-delete bootgrid-tooltip" data-row-id="' + row.uuid + '"><span class="fa fa-fw fa-trash-o"></span></button>';
+                    },
+                    "rowtoggle": function (column, row) {
+                        if (parseInt(row[column.id], 2) === 1) {
+                            return '<span style="cursor: pointer;" class="fa fa-fw fa-check-square-o command-toggle bootgrid-tooltip" data-value="1" data-row-id="' + row.uuid + '"></span>';
+                        } else {
+                            return '<span style="cursor: pointer;" class="fa fa-fw fa-square-o command-toggle bootgrid-tooltip" data-value="0" data-row-id="' + row.uuid + '"></span>';
+                        }
+                    }
+                }
+            }
         });
 
         $('#btn_open_import_modal').on('click', function () {
@@ -507,8 +614,11 @@
             }, 2000);
         });
 
-        $('#btn_seed_rules').on('click', function () {
-            ajaxCall('/api/xrayclient/settings/seedDefaultRules', {}, function () {
+        $(document).on('click', '#grid-rules .command-move-up, #grid-rules .command-move-down', function () {
+            var $btn = $(this);
+            var direction = $btn.hasClass('command-move-up') ? 'up' : 'down';
+            var uuid = $btn.data('row-id');
+            ajaxCall('/api/xrayclient/settings/moveRule/' + uuid + '/' + direction, {}, function () {
                 $('#grid-rules').bootgrid('reload');
             });
         });
@@ -588,6 +698,7 @@
     <li class="active"><a data-toggle="tab" href="#tab_general"><b>General Settings</b></a></li>
     <li><a data-toggle="tab" href="#tab_nodes"><b>Outbound Nodes (Servers)</b></a></li>
     <li><a data-toggle="tab" href="#tab_rules"><b>Routing Rules</b></a></li>
+    <li id="tab_expert_li" style="display: none;"><a data-toggle="tab" href="#tab_expert"><b>Expert Config</b></a></li>
     <li><a data-toggle="tab" href="#tab_maintenance"><b>Maintenance &amp; Updates</b></a></li>
     <li><a data-toggle="tab" href="#tab_logs"><b>Log Viewer</b></a></li>
 </ul>
@@ -653,10 +764,8 @@
     </div>
 
     <div id="tab_rules" class="tab-pane fade in">
-        <div class="col-md-12" style="margin-top: 10px; margin-bottom: 10px;">
-            <button id="btn_seed_rules" type="button" class="btn btn-default">
-                <i class="fa fa-magic"></i> <b>Add Default RU Bypass Rules (geoip:ru, geosite:ru, private)</b>
-            </button>
+        <div class="col-md-12" style="margin-top: 10px; margin-bottom: 4px;">
+            <small class="text-muted">Rules are evaluated top-to-bottom by priority. Use the &#8593;/&#8595; arrows in the Actions column to reorder them. Add a built-in preset from the dialog via «Start from a built-in preset».</small>
         </div>
         <table id="grid-rules" class="table table-condensed table-hover table-striped" data-editDialog="DialogRule">
             <thead>
@@ -668,7 +777,7 @@
                     <th data-column-id="domain" data-type="string">Domain / GeoSite</th>
                     <th data-column-id="ip" data-type="string">IP / GeoIP</th>
                     <th data-column-id="outbound_tag" data-width="10em" data-type="string">Action (Outbound)</th>
-                    <th data-column-id="commands" data-width="8em" data-formatter="commands" data-sortable="false">Actions</th>
+                    <th data-column-id="commands" data-width="12em" data-formatter="commands" data-sortable="false">Actions</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -687,6 +796,28 @@
             <button class="btn btn-primary btn_save_apply" type="button">
                 <b>Apply Routing Rules</b> <i class="fa fa-spinner fa-pulse" style="display: none;"></i>
             </button>
+        </div>
+    </div>
+
+    <div id="tab_expert" class="tab-pane fade">
+        <div class="col-md-12" style="margin-top: 15px; padding-bottom: 15px;">
+            <div class="alert alert-warning" style="margin-bottom: 10px;">
+                <b>Expert Mode.</b> This is the exact <code>/usr/local/etc/xray/config.json</code> Xray is running (or would run). Saving here validates the JSON with <code>xray run -test</code>, stores a backup next to the file (<code>config.json.bak-*</code>), switches the plugin to <b>Raw JSON</b> mode and restarts Xray. The UI tabs will no longer regenerate the file — switch back to <i>UI Builder</i> in General settings to restore template-based generation.
+            </div>
+            <div class="form-inline" style="margin-bottom: 8px;">
+                <button id="btn_expert_refresh" type="button" class="btn btn-default"><i class="fa fa-refresh"></i> <b>Refresh</b></button>
+                <button id="btn_expert_edit" type="button" class="btn btn-info"><i class="fa fa-pencil"></i> <b>Edit manually</b></button>
+                <button id="btn_expert_save" type="button" class="btn btn-primary" style="display: none;"><i class="fa fa-save"></i> <b>Save &amp; Apply</b> <i class="fa fa-spinner fa-pulse" id="expert_save_spin" style="display: none;"></i></button>
+                <button id="btn_expert_cancel" type="button" class="btn btn-default" style="display: none;">Cancel</button>
+                <span id="expert_config_status" class="text-muted" style="margin-left: 12px;"></span>
+            </div>
+            <div id="expert_view_wrap">
+                <pre id="expert_config_view" style="max-height: 560px; overflow: auto; background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 4px; font-size: 12px; white-space: pre;">Loading…</pre>
+            </div>
+            <div id="expert_edit_wrap" style="display: none;">
+                <textarea id="expert_config_edit" class="form-control" spellcheck="false" style="width: 100%; height: 560px; font-family: Consolas, Menlo, monospace; font-size: 12px; white-space: pre;"></textarea>
+                <div id="expert_edit_error" class="alert alert-danger" style="display: none; margin-top: 8px; margin-bottom: 0;"></div>
+            </div>
         </div>
     </div>
 

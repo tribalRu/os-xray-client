@@ -76,99 +76,54 @@ class SettingsController extends ApiMutableModelControllerBase
         return $this->toggleBase('rules.rule', $uuid, $enabled);
     }
 
-    // --- Seed Default RU Bypass Rules ---
-    public function seedDefaultRulesAction()
+    // --- Routing Rules: reorder (move one position up/down) ---
+    public function moveRuleAction($uuid = null, $direction = null)
     {
         if (!$this->request->isPost()) {
             return ['status' => 'error', 'message' => 'POST required'];
         }
+        if (!in_array($direction, ['up', 'down'], true)) {
+            return ['status' => 'error', 'message' => 'Invalid direction (expected up|down)'];
+        }
 
         $mdl = $this->getModel();
-        $defaults = [
-            [
-                'enabled' => '1',
-                'sequence' => '10',
-                'description' => 'Bypass Local & Private Subnets (LAN)',
-                'domain' => '',
-                'ip' => 'geoip:private',
-                'port' => '',
-                'network_proto' => 'tcp_udp',
-                'protocol' => '',
-                'outbound_tag' => 'direct'
-            ],
-            [
-                'enabled' => '1',
-                'sequence' => '20',
-                'description' => 'Bypass Russian Domains (.ru, .рф, geosite:ru)',
-                'domain' => 'geosite:ru,domain:ru,domain:xn--p1ai',
-                'ip' => '',
-                'port' => '',
-                'network_proto' => 'tcp_udp',
-                'protocol' => '',
-                'outbound_tag' => 'direct'
-            ],
-            [
-                'enabled' => '1',
-                'sequence' => '30',
-                'description' => 'Bypass Russian IP Ranges (geoip:ru)',
-                'domain' => '',
-                'ip' => 'geoip:ru',
-                'port' => '',
-                'network_proto' => 'tcp_udp',
-                'protocol' => '',
-                'outbound_tag' => 'direct'
-            ],
-            [
-                'enabled' => '1',
-                'sequence' => '90',
-                'description' => 'Block Ads (geosite:category-ads-all)',
-                'domain' => 'geosite:category-ads-all',
-                'ip' => '',
-                'port' => '',
-                'network_proto' => 'tcp_udp',
-                'protocol' => '',
-                'outbound_tag' => 'block'
-            ]
-        ];
-
-        // Collect existing descriptions to avoid duplicates on repeated clicks.
-        $existing = [];
-        foreach ($mdl->rules->rule->iterateItems() as $rule) {
-            $desc = (string)$rule->description;
-            if ($desc !== '') {
-                $existing[$desc] = true;
-            }
+        $rules = [];
+        foreach ($mdl->rules->rule->iterateItems() as $key => $rule) {
+            $rules[$key] = [$rule, (int)((string)$rule->sequence)];
+        }
+        if (!isset($rules[$uuid])) {
+            return ['status' => 'error', 'message' => 'Rule not found'];
         }
 
-        $added = 0;
-        $skipped = 0;
-        foreach ($defaults as $ruleData) {
-            if (isset($existing[$ruleData['description']])) {
-                $skipped++;
-                continue;
-            }
-            $node = $mdl->rules->rule->add();
-            if ($node === null) {
-                return ['status' => 'error', 'message' => 'Failed to create routing rule'];
-            }
-            $node->setNodes($ruleData);
-            $added++;
+        // Sort by sequence (stable: PHP sorts are stable, ties keep config order).
+        uasort($rules, function ($a, $b) {
+            return $a[1] <=> $b[1];
+        });
+        $order = array_keys($rules);
+        $idx = array_search($uuid, $order, true);
+        $swapWith = ($direction === 'up') ? $idx - 1 : $idx + 1;
+        if ($swapWith < 0 || $swapWith >= count($order)) {
+            return ['status' => 'ok', 'message' => 'Already at the edge'];
         }
+        [$order[$idx], $order[$swapWith]] = [$order[$swapWith], $order[$idx]];
 
-        if ($added === 0) {
-            return ['status' => 'ok', 'message' => 'Default routing rules already exist'];
+        // Renumber everything sequentially so repeated moves keep the order stable.
+        $sequence = 10;
+        foreach ($order as $key) {
+            $rules[$key][0]->sequence = $sequence;
+            $sequence += 10;
         }
 
         try {
             $mdl->serializeToConfig();
-        } catch (\OPNsense\Base\ValidationException $e) {
+            Config::getInstance()->save();
+        } catch (\Throwable $e) {
             return [
                 'status' => 'error',
-                'message' => 'Validation failed: ' . preg_replace('/\s+/', ' ', trim($e->getMessage()))
+                'message' => 'Validation failed: ' . preg_replace('/\s+/', ' ', $e->getMessage())
             ];
         }
-        Config::getInstance()->save();
 
-        return ['status' => 'ok', 'message' => "Default routing rules added ({$added} new, {$skipped} skipped)"];
+        return ['status' => 'ok', 'message' => 'Rule order updated'];
     }
 }

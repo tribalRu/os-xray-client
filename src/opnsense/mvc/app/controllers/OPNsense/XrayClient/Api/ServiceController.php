@@ -74,6 +74,110 @@ class ServiceController extends ApiMutableServiceControllerBase
         return ['status' => 'ok'];
     }
 
+    /**
+     * Return the effective Xray configuration (read-only view for the
+     * Expert Config tab). Values are shown to the authenticated user only
+     * (same exposure as the Raw JSON textarea).
+     */
+    public function getConfigAction()
+    {
+        $file = '/usr/local/etc/xray/config.json';
+        if (!is_readable($file)) {
+            return [
+                'status' => 'error',
+                'message' => 'config.json does not exist yet; apply the configuration first.'
+            ];
+        }
+        $content = @file_get_contents($file);
+        if ($content === false) {
+            return ['status' => 'error', 'message' => 'Failed to read ' . $file];
+        }
+        return [
+            'status' => 'ok',
+            'path' => $file,
+            'content' => $content
+        ];
+    }
+
+    /**
+     * Save a manually-edited Xray configuration (Expert Config tab).
+     * Validates JSON, writes the file (with a timestamped backup of the
+     * previous one), re-tests it with `xray run -test` and restarts the
+     * service. On test failure the backup is restored. The plugin is
+     * switched to Raw JSON mode and raw_json is updated, so later
+     * "Apply & Restart" keeps the manually-written configuration.
+     */
+    public function saveRawConfigAction()
+    {
+        if (!$this->request->isPost()) {
+            return ['status' => 'error', 'message' => 'POST required'];
+        }
+
+        $content = (string)$this->request->getPost('content', null, '');
+        if (trim($content) === '') {
+            return ['status' => 'error', 'message' => 'Empty configuration supplied.'];
+        }
+
+        json_decode($content, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return ['status' => 'error', 'message' => 'Invalid JSON: ' . json_last_error_msg()];
+        }
+
+        $file = '/usr/local/etc/xray/config.json';
+        $backup = $file . '.bak-' . date('Ymd-His');
+        @mkdir(dirname($file), 0755, true);
+
+        // Back up the current config before overwriting it.
+        if (file_exists($file)) {
+            if (!@copy($file, $backup)) {
+                return ['status' => 'error', 'message' => 'Failed to back up existing config.json'];
+            }
+        } else {
+            $backup = null;
+        }        $tmp = $file . '.tmp';
+        if (file_put_contents($tmp, $content) === false || !rename($tmp, $file)) {
+            @unlink($tmp);
+            return ['status' => 'error', 'message' => 'Failed to write ' . $file];
+        }
+        @chmod($file, 0640);
+
+        // Validate the written config with Xray itself.
+        $backend = new Backend();
+        $testOut = $backend->configdRun('xrayclient test_config');
+        $testData = json_decode(trim($testOut), true);
+        $testOk = is_array($testData) && (($testData['status'] ?? '') === 'ok');
+        if (!$testOk) {
+            // Roll back to the previous configuration.
+            if ($backup !== null) {
+                @copy($backup, $file);
+            } else {
+                @unlink($file);
+            }
+            $message = is_array($testData) ? ($testData['message'] ?? 'Xray config test failed') : trim($testOut);
+            return ['status' => 'error', 'message' => $message];
+        }
+
+        // Persist raw mode so future Applies keep the manual config.
+        $mdl = new XrayClient();
+        $mdl->general->raw_json = $content;
+        $mdl->general->config_mode = 'raw';
+        try {
+            $mdl->serializeToConfig();
+            \OPNsense\Core\Config::getInstance()->save();
+        } catch (\Throwable $e) {
+            return [
+                'status' => 'error',
+                'message' => 'Config was written and tested, but saving plugin settings failed: ' . preg_replace('/\s+/', ' ', $e->getMessage())
+            ];
+        }
+
+        if ((string)$mdl->general->enabled === '1') {
+            $backend->configdRun('xrayclient restart');
+        }
+
+        return ['status' => 'ok', 'message' => 'Configuration saved, validated and applied.'];
+    }
+
     public function healthcheckAction()
     {
         $backend = new Backend();

@@ -12,6 +12,12 @@
         <help>Select whether to generate config.json from UI tabs (Nodes + Routing Rules) or use a raw JSON config.</help>
     </field>
     <field>
+        <id>xrayclient.general.expert_mode</id>
+        <label>Expert Mode</label>
+        <type>checkbox</type>
+        <help>Show an extra "Expert Config" tab with the exact /usr/local/etc/xray/config.json Xray is running (or would run). You can view it or edit it manually; saving there switches the plugin to Raw JSON mode, and the config is validated with xray run -test before it is applied.</help>
+    </field>
+    <field>
         <id>xrayclient.general.loglevel</id>
         <label>Log Level</label>
         <type>dropdown</type>
