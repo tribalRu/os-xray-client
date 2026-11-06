@@ -159,15 +159,14 @@ class SettingsController extends ApiMutableModelControllerBase
             return ['status' => 'ok', 'message' => 'Default routing rules already exist'];
         }
 
-        if (!$this->getModel()->isValid()) {
+        try {
+            $mdl->serializeToConfig();
+        } catch (\OPNsense\Base\ValidationException $e) {
             return [
                 'status' => 'error',
-                'message' => 'Validation failed',
-                'errors' => $this->getModel()->eventValidationErrors()
+                'message' => 'Validation failed: ' . preg_replace('/\s+/', ' ', trim($e->getMessage()))
             ];
         }
-
-        $mdl->serializeToConfig();
         Config::getInstance()->save();
 
         return ['status' => 'ok', 'message' => "Default routing rules added ({$added} new, {$skipped} skipped)"];

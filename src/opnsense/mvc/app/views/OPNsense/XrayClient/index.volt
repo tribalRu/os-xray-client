@@ -91,6 +91,66 @@
             });
         })();
 
+        // Built-in rule presets in the Add/Edit rule dialog (instead of
+        // memorising sequences by hand). The preset box lives outside the
+        // generated <form>, so it is never submitted with the form.
+        (function setupRulePresets() {
+            var presets = {
+                lan_private: { sequence: 10, description: 'Bypass Local & Private Subnets (geoip:private)', domain: [], ip: ['geoip:private'], outbound_tag: 'direct' },
+                ru_domains: { sequence: 20, description: 'Bypass Russian Domains (geosite:ru + .ru/.рф)', domain: ['geosite:ru', 'domain:ru', 'domain:xn--p1ai'], ip: [], outbound_tag: 'direct' },
+                ru_ips: { sequence: 30, description: 'Bypass Russian IP Ranges (geoip:ru)', domain: [], ip: ['geoip:ru'], outbound_tag: 'direct' },
+                block_ads: { sequence: 90, description: 'Block Ads (geosite:category-ads-all)', domain: ['geosite:category-ads-all'], ip: [], outbound_tag: 'block' }
+            };
+            var $preset = $(
+                '<div id="rule_preset_container" style="padding: 12px 15px 0 15px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 10px; margin-bottom: 5px;">' +
+                    '<label for="rule_preset" style="width: 100%; margin-bottom: 4px;"><b>Start from a built-in preset</b></label>' +
+                    '<select id="rule_preset" class="form-control">' +
+                        '<option value="">— Custom (empty form) —</option>' +
+                        '<option value="lan_private">Bypass LAN / private subnets (geoip:private → direct)</option>' +
+                        '<option value="ru_domains">Bypass Russian domains (geosite:ru + .ru/.рф → direct)</option>' +
+                        '<option value="ru_ips">Bypass Russian IP ranges (geoip:ru → direct)</option>' +
+                        '<option value="block_ads">Block ads (geosite:category-ads-all → block)</option>' +
+                    '</select>' +
+                '</div>'
+            );
+            $('#DialogRule .modal-body').prepend($preset);
+
+            function setTokens(id, values) {
+                var $sel = $('#rule\\.' + id);
+                if (!$sel.length) {
+                    return;
+                }
+                var merged = [];
+                values.forEach(function (v) {
+                    if (v && merged.indexOf(v) === -1) {
+                        merged.push(v);
+                    }
+                });
+                $sel.empty();
+                merged.forEach(function (v) {
+                    $('<option/>').val(v).text(v).prop('selected', true).appendTo($sel);
+                });
+                if (typeof formatTokenizersUI === 'function') {
+                    formatTokenizersUI();
+                }
+            }
+
+            $('#rule_preset').on('change', function () {
+                var key = $(this).val();
+                if (!key || !presets[key]) {
+                    return;
+                }
+                var p = presets[key];
+                $('#rule\\.enabled').prop('checked', true);
+                $('#rule\\.sequence').val(p.sequence);
+                $('#rule\\.description').val(p.description);
+                setTokens('domain', p.domain);
+                setTokens('ip', p.ip);
+                $('#rule\\.network_proto').val('tcp_udp').selectpicker('refresh');
+                $('#rule\\.outbound_tag').val(p.outbound_tag).selectpicker('refresh');
+            });
+        })();
+
         // The Raw JSON textarea is rendered outside the generated
         // <form id="frm_general">. saveFormToEndpoint() only serialises
         // fields inside that form, so move the container inside it or
