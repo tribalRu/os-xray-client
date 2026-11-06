@@ -32,9 +32,12 @@ if ! /usr/local/opnsense/mvc/script/run_migrations.php; then
     echo "WARNING: model migrations returned an error - check OPNsense logs."
 fi
 
-echo "Clearing OPNsense UI, menu and Volt template cache..."
-rm -f /tmp/opnsense_menu_cache.xml
-rm -f /tmp/opnsense_acl_cache.json
+echo "Clearing OPNsense UI, menu, ACL and compiled Volt cache..."
+# Volt compiles .volt templates into $cacheDir (/var/lib/php/cache);
+# menu/ACL XML caches live in /var/lib/php/tmp on OPNsense 26.
+rm -f /var/lib/php/tmp/opnsense_menu_cache.xml /tmp/opnsense_menu_cache.xml
+rm -f /var/lib/php/tmp/opnsense_acl_cache.json /tmp/opnsense_acl_cache.json
+rm -rf /var/lib/php/cache/* 2>/dev/null || true
 rm -rf /var/tmp/volt 2>/dev/null || true
 rm -rf /tmp/volt* 2>/dev/null || true
 

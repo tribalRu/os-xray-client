@@ -20,8 +20,9 @@ rm -rf /usr/local/opnsense/scripts/OPNsense/XrayClient
 rm -rf /usr/local/opnsense/service/templates/OPNsense/XrayClient
 
 rm -f /var/run/xrayclient.pid
-rm -f /tmp/opnsense_menu_cache.xml
-rm -f /tmp/opnsense_acl_cache.json
+rm -f /var/lib/php/tmp/opnsense_menu_cache.xml /tmp/opnsense_menu_cache.xml
+rm -f /var/lib/php/tmp/opnsense_acl_cache.json /tmp/opnsense_acl_cache.json
+rm -rf /var/lib/php/cache/* 2>/dev/null || true
 rm -rf /var/tmp/volt /tmp/volt* 2>/dev/null || true
 
 if command -v service >/dev/null 2>&1; then
