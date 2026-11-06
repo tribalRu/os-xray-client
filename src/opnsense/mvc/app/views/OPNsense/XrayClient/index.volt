@@ -1,9 +1,4 @@
 <style>
-    #DialogNode .modal-body,
-    #DialogRule .modal-body {
-        max-height: calc(100vh - 190px);
-        overflow-y: auto;
-    }
     /* OPNsense 26 full-help sidebar squeezes the form into a narrow
        column and the dialog becomes wider than the viewport.
        Keep the dialog centred and the form readable. */
@@ -11,11 +6,31 @@
     #DialogRule .modal-dialog {
         width: 95%;
         max-width: 900px;
-        margin: 30px auto;
+        margin: 8px auto;
+        max-height: calc(100vh - 16px);
+        display: flex;
+        flex-direction: column;
     }
+    #DialogNode .modal-dialog .modal-content,
+    #DialogRule .modal-dialog .modal-content {
+        display: flex;
+        flex-direction: column;
+        max-height: calc(100vh - 16px);
+    }
+    /* Fill all the vertical space between the header and the footer;
+       the body itself scrolls, so the dialog always fits the screen. */
     #DialogNode .modal-body,
     #DialogRule .modal-body {
-        width: 100%;
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: none;
+        overflow-y: auto;
+    }
+    #DialogNode .modal-header,
+    #DialogRule .modal-header,
+    #DialogNode .modal-footer,
+    #DialogRule .modal-footer {
+        flex: 0 0 auto;
     }
     #DialogNode .form-search-section,
     #DialogRule .form-search-section,
