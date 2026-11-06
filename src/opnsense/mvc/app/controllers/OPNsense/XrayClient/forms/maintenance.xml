@@ -34,20 +34,4 @@
         <style>geodata_custom</style>
         <help>Full https:// URL to download geosite.dat (used only when preset is set to Custom).</help>
     </field>
-    <field>
-        <type>header</type>
-        <label>Plugin Self-Update from GitHub</label>
-    </field>
-    <field>
-        <id>xrayclient.maintenance.plugin_repo_url</id>
-        <label>GitHub Repository URL</label>
-        <type>text</type>
-        <help>Public GitHub repository URL for os-xray-client.</help>
-    </field>
-    <field>
-        <id>xrayclient.maintenance.plugin_repo_branch</id>
-        <label>GitHub Branch</label>
-        <type>text</type>
-        <help>Branch name to pull updates from (default: main).</help>
-    </field>
 </form>

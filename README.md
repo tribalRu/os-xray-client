@@ -41,7 +41,7 @@ The prestart/poststop hooks honour `enable_tun` and clean up stale interfaces au
 - **Routing rules**: drag-free reordering with the ↑/↓ buttons in the Actions column (rules renumber automatically to 10/20/30…). Adding from dialog offers built-in presets (bypass LAN/private, bypass RU domains/IPs, block ads); "geosite:ru"-style tags need the matching GeoData preset.
 - **Latency/Traffic**: *Check Latency* is a bare TCP connect to each enabled node's address:port (not a full VLESS/REALITY handshake). Traffic counters come from Xray's StatsService (`127.0.0.1:10085`).
 - **GeoData presets**: `official` (Loyalsoldier), `runetfreedom` (RU), `zaborona` (Iran-specific, Chocolate4U), `custom` (your `.dat` URLs).
-- **Self-update**: *Maintenance* can update Xray-core, GeoData, or the plugin itself. Plugin self-update only accepts `https://github.com/owner/repo` URLs and a safe branch name.
+- **Maintenance**: *Maintenance* shows installed Xray-core / GeoData / plugin versions and a **Check for Updates** button that queries GitHub for the latest Xray-core release and the latest plugin commit (it needs outbound HTTPS to github.com). From there you can update Xray-core or the plugin itself in one click.
 
 ## Uninstall
 

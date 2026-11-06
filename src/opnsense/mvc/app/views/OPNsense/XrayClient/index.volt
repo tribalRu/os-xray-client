@@ -652,11 +652,57 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '1.0.2');
+                    $('#lbl_plugin_version').text(data.plugin_version || '1.1.0');
                 }
             });
         }
+
+        function renderUpdateRow(prefix, info) {
+            $('#upd_' + prefix + '_current').text(info.current || 'unknown');
+            $('#upd_' + prefix + '_latest').text(info.latest || 'unreachable');
+            var $badge = $('#upd_' + prefix + '_badge');
+            if (!info.latest) {
+                $badge.html('<span class="label label-default">offline</span>');
+            } else if (info.updateAvailable) {
+                $badge.html('<span class="label label-warning">update available</span>');
+            } else {
+                $badge.html('<span class="label label-success">up to date</span>');
+            }
+            var $link = $('#upd_' + prefix + '_link');
+            if (info.releaseUrl) {
+                $link.attr('href', info.releaseUrl).show();
+            } else {
+                $link.hide();
+            }
+        }
+
+        var updatesInFlight = false;
+        function checkForUpdates() {
+            if (updatesInFlight) {
+                return;
+            }
+            updatesInFlight = true;
+            $('#lbl_updates_status').text('Checking GitHub…').removeClass('text-danger').addClass('text-muted');
+            ajaxCall('/api/xrayclient/service/checkUpdates', {}, function (data) {
+                updatesInFlight = false;
+                if (!data || data.status !== 'ok') {
+                    $('#lbl_updates_status').text('Check failed' + ((data && data.message) ? ': ' + data.message : '')).removeClass('text-muted').addClass('text-danger');
+                    return;
+                }
+                renderUpdateRow('core', data.core || {});
+                renderUpdateRow('plugin', data.plugin || {});
+                $('#updates_details').show();
+                if (data.message) {
+                    $('#lbl_updates_status').text(data.message).removeClass('text-muted').addClass('text-warning');
+                } else {
+                    $('#lbl_updates_status').text('Checked ' + (data.checkedAt || '')).removeClass('text-danger').addClass('text-muted');
+                }
+            });
+        }
+
+        $('#btn_check_updates').on('click', checkForUpdates);
         $('a[href="#tab_maintenance"]').on('shown.bs.tab', loadVersionInfo);
+        $('a[href="#tab_maintenance"]').on('shown.bs.tab', checkForUpdates);
 
         $('#btn_update_core').on('click', function () {
             $('#maintenance_output').text('Updating Xray-core binary from GitHub... Please wait.').show();
@@ -840,7 +886,27 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.0.2</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.1.0</span>
+            </div>
+        </div>
+        <div class="col-md-12">
+            <div style="border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; padding: 12px 15px; margin-bottom: 10px; background: rgba(255,255,255,0.02);">
+                <div class="form-inline" style="margin-bottom: 0;">
+                    <button id="btn_check_updates" type="button" class="btn btn-default"><i class="fa fa-refresh"></i> <b>Check for Updates</b></button>
+                    <span id="lbl_updates_status" class="text-muted" style="margin-left: 12px;">Not checked yet.</span>
+                </div>
+                <div id="updates_details" style="display: none; margin-top: 12px; font-size: 13px;">
+                    <div style="margin-bottom: 6px;">
+                        <b>Xray-core:</b> <span id="upd_core_current"></span> &nbsp;→&nbsp; <span id="upd_core_latest"></span>
+                        <span id="upd_core_badge" style="margin-left: 8px;"></span>
+                        <a id="upd_core_link" href="#" target="_blank" rel="noopener" style="margin-left: 8px; display: none;">release notes</a>
+                    </div>
+                    <div>
+                        <b>Plugin:</b> <span id="upd_plugin_current"></span> &nbsp;→&nbsp; <span id="upd_plugin_latest"></span>
+                        <span id="upd_plugin_badge" style="margin-left: 8px;"></span>
+                        <a id="upd_plugin_link" href="#" target="_blank" rel="noopener" style="margin-left: 8px; display: none;">GitHub</a>
+                    </div>
+                </div>
             </div>
         </div>
         {{ partial("layout_partials/base_form", ['fields': maintenanceForm, 'id': 'frm_maintenance']) }}

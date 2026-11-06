@@ -202,7 +202,18 @@ class ServiceController extends ApiMutableServiceControllerBase
         return is_array($data) ? $data : [
             'core_version' => 'Not installed',
             'geodata_date' => 'N/A',
-            'plugin_version' => '1.0.2'
+            'plugin_version' => '1.1.0'
+        ];
+    }
+
+    public function checkUpdatesAction()
+    {
+        $backend = new Backend();
+        $response = $backend->configdRun('xrayclient check_updates');
+        $data = json_decode(trim($response), true);
+        return is_array($data) ? $data : [
+            'status' => 'error',
+            'message' => 'Update check failed; see /var/log for details.'
         ];
     }
 
@@ -241,9 +252,8 @@ class ServiceController extends ApiMutableServiceControllerBase
         if (!$this->request->isPost()) {
             return ['status' => 'error'];
         }
-        $mdl = new XrayClient();
-        $repoUrl = (string)$mdl->maintenance->plugin_repo_url;
-        $branch = (string)$mdl->maintenance->plugin_repo_branch ?: 'main';
+        $repoUrl = 'https://github.com/tribalRu/os-xray-client';
+        $branch = 'main';
 
         // Only allow GitHub https URLs and safe branch names; the updater
         // executes install.sh from the fetched archive.

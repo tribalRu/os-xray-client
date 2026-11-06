@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>1.0.2</version>
+    <version>1.1.0</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -317,14 +317,6 @@
                 <default></default>
                 <Required>N</Required>
             </custom_geosite_url>
-            <plugin_repo_url type="TextField">
-                <default>https://github.com/tribalRu/os-xray-client</default>
-                <Required>Y</Required>
-            </plugin_repo_url>
-            <plugin_repo_branch type="TextField">
-                <default>main</default>
-                <Required>Y</Required>
-            </plugin_repo_branch>
         </maintenance>
     </items>
 </model>
