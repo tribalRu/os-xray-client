@@ -24,6 +24,20 @@ start_precmd="xrayclient_prestart"
 stop_postcmd="xrayclient_poststop"
 status_cmd="xrayclient_status"
 
+xrayclient_pid_is_ours()
+{
+    _pid="$1"
+    [ -n "${_pid}" ] || return 1
+    kill -0 "${_pid}" 2>/dev/null || return 1
+    # Defend against recycled PIDs: the pidfile carries the daemon
+    # supervisor PID, so verify the command really is ours.
+    _cmd=$(ps -p "${_pid}" -o command= 2>/dev/null)
+    case "${_cmd}" in
+        *xray*run*) return 0 ;;
+    esac
+    return 1
+}
+
 xrayclient_prestart()
 {
     install -d -m 0755 /var/log/xray
@@ -67,6 +81,10 @@ EOF
         return 1
     fi
 
+    # Kill stray Xray instances (e.g. after a crashed/killed supervisor
+    # left the child behind) before starting a new one.
+    pkill -f "${xrayclient_bin} run -c ${xrayclient_config}" 2>/dev/null || true
+
     # Reconcile a stale TUN interface (created by the old plugin version or
     # leaked by a crashed Xray). Xray creates the interface itself on start.
     /usr/local/opnsense/scripts/OPNsense/XrayClient/setup_tun.sh up
@@ -77,6 +95,8 @@ xrayclient_poststop()
     # Remove any leftover TUN interface (best effort; Xray destroys its
     # own interface on a clean shutdown).
     /usr/local/opnsense/scripts/OPNsense/XrayClient/setup_tun.sh down || true
+    # Best effort: kill a leaked Xray child if the supervisor died first.
+    pkill -f "${xrayclient_bin} run -c ${xrayclient_config}" 2>/dev/null || true
     rm -f "${pidfile}"
 }
 
@@ -84,7 +104,7 @@ xrayclient_status()
 {
     if [ -f "${pidfile}" ]; then
         pid=$(cat "${pidfile}" 2>/dev/null)
-        if [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null; then
+        if xrayclient_pid_is_ours "${pid}"; then
             echo "xrayclient is running as pid ${pid}."
             return 0
         fi
