@@ -625,12 +625,23 @@
 
         $('.btn_save_apply').on('click', function () {
             var $btn = $(this);
-            $btn.find('.fa-spinner').show();
+            var originalHtml = $btn.html();
+            $btn.prop('disabled', true).find('.fa-spinner').show();
             saveFormToEndpoint("/api/xrayclient/settings/set", 'frm_general', function () {
                 saveFormToEndpoint("/api/xrayclient/settings/set", 'frm_maintenance', function () {
-                    ajaxCall("/api/xrayclient/service/reconfigure", {}, function () {
+                    ajaxCall("/api/xrayclient/service/reconfigure", {}, function (data) {
                         updateServiceControlUI('xrayclient');
-                        $btn.find('.fa-spinner').hide();
+                        if (data && data.status === 'ok') {
+                            $btn.html('<b>Applied <span class="fa fa-check"></span></b>');
+                            setTimeout(function () {
+                                $btn.html(originalHtml).prop('disabled', false);
+                            }, 1500);
+                        } else {
+                            $btn.html('<b>Failed — see logs</b>');
+                            setTimeout(function () {
+                                $btn.html(originalHtml).prop('disabled', false);
+                            }, 2500);
+                        }
                     });
                 });
             });
@@ -713,7 +724,7 @@
             </div>
             <div class="col-md-12">
                 <hr/>
-                <button class="btn btn-primary btn_save_apply" type="button">
+                <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves General + Maintenance settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
                     <b>Apply &amp; Restart Xray</b> <i class="fa fa-spinner fa-pulse" style="display: none;"></i>
                 </button>
             </div>
@@ -721,7 +732,10 @@
     </div>
 
     <div id="tab_nodes" class="tab-pane fade in">
-        <div class="col-md-12" style="margin-top: 10px; margin-bottom: 10px;">
+        <div class="col-md-12" style="margin-top: 10px; margin-bottom: 4px;">
+            <small class="text-muted">Entries here are saved immediately on every add/edit/delete/toggle. <b>Apply &amp; Restart Xray</b> rebuilds config.json and restarts Xray.</small>
+        </div>
+        <div class="col-md-12" style="margin-bottom: 10px;">
             <button id="btn_open_import_modal" type="button" class="btn btn-success">
                 <i class="fa fa-paste"></i> <b>Import vless://, trojan://, ss:// or JSON</b>
             </button>
@@ -757,15 +771,15 @@
         </table>
         <div class="col-md-12" style="padding-bottom: 15px;">
             <hr/>
-            <button class="btn btn-primary btn_save_apply" type="button">
-                <b>Apply Changes</b> <i class="fa fa-spinner fa-pulse" style="display: none;"></i>
+            <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves General + Maintenance settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
+                <b>Apply &amp; Restart Xray</b> <i class="fa fa-spinner fa-pulse" style="display: none;"></i>
             </button>
         </div>
     </div>
 
     <div id="tab_rules" class="tab-pane fade in">
         <div class="col-md-12" style="margin-top: 10px; margin-bottom: 4px;">
-            <small class="text-muted">Rules are evaluated top-to-bottom by priority. Use the &#8593;/&#8595; arrows in the Actions column to reorder them. Add a built-in preset from the dialog via «Start from a built-in preset».</small>
+            <small class="text-muted">Rules are evaluated top-to-bottom by priority. Use the &#8593;/&#8595; arrows in the Actions column to reorder them. Add a built-in preset from the dialog via «Start from a built-in preset». Entries here are saved immediately; <b>Apply &amp; Restart Xray</b> rebuilds config.json and restarts Xray.</small>
         </div>
         <table id="grid-rules" class="table table-condensed table-hover table-striped" data-editDialog="DialogRule">
             <thead>
@@ -793,8 +807,8 @@
         </table>
         <div class="col-md-12" style="padding-bottom: 15px;">
             <hr/>
-            <button class="btn btn-primary btn_save_apply" type="button">
-                <b>Apply Routing Rules</b> <i class="fa fa-spinner fa-pulse" style="display: none;"></i>
+            <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves General + Maintenance settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
+                <b>Apply &amp; Restart Xray</b> <i class="fa fa-spinner fa-pulse" style="display: none;"></i>
             </button>
         </div>
     </div>
