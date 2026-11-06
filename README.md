@@ -18,14 +18,21 @@ fetch -o /tmp/main.tar.gz https://github.com/tribalRu/os-xray-client/archive/ref
 
 Then open **Services > Xray Client**, configure nodes/rules under **General**, and click **Apply & Restart Xray**.
 
-## TUN (`Variant A`) — assigning the interface
+## TUN (`Variant A`) — transparent L3 routing
 
-1. In **General > TUN Interface Settings**, enable *Enable Native TUN Inbound* (default `tun_xray0`, `10.255.0.1/30`).
-2. Click **Apply & Restart Xray** — `setup_tun.sh` creates the interface and `xray` creates its own `tun-in` inbound on the same name.
-3. Add a gateway and LAN→wan firewall rule that points traffic to the TUN gateway, then assign under **Interfaces > Assignments** if needed.
-4. To use domain rules (`geosite:ru`, …) leave *Enable Domain Sniffing* on.
+Xray-core **creates the TUN interface itself** while the service runs (FreeBSD `tun(4)`); it does not exist otherwise, and the plugin deliberately never pre-creates it (a pre-created interface makes Xray fail with `interface already exists`).
 
-The prestart script honours `enable_tun`: with TUN disabled no interface is created.
+1. In **General > TUN Interface Settings**, enable *Enable Native TUN Inbound* (default interface `tun_xray0`, gateway prefix `10.255.0.1/30`, MTU `1500`).
+   - `TUN Tunnel Subnet` is the **gateway prefix** Xray uses for the tunnel: Xray keeps the gateway address (`10.255.0.1`) as the in-tunnel endpoint and assigns the next address to the interface (`10.255.0.2` for a `/30`). CIDR must be `1..31` so a local address exists inside the prefix.
+2. Click **Apply & Restart Xray**. The prestart hook removes a stale interface left by an older plugin version / an unclean Xray crash, then Xray creates `tun_xray0` itself.
+3. Assign it under **Interfaces > Assignments**, save, enable it (e.g. `opt5`), and create a gateway pointing at `10.255.0.1` **with gateway monitoring disabled** (the far end has no real host to ping).
+4. Add a LAN firewall rule that routes selected (or all) traffic to that gateway (Firewall > Rules > LAN > Advanced > Gateway).
+5. To use domain rules (`geosite:ru`, …) keep *Enable Domain Sniffing* on.
+6. Traffic is decided per connection by Xray's routing rules (`proxy` / `direct` / `block`); `direct` traffic exits via the normal WAN route.
+
+Full-tunnel auto-routing (`autoSystemRoutingTable`, which replaces the system routing table and binds outbounds to a physical interface via a second FIB) is not wired up yet: on FreeBSD it requires `net.fibs=2` in `/boot/loader.conf` and a reboot. Manual policy routing above works out of the box.
+
+The prestart/poststop hooks honour `enable_tun` and clean up stale interfaces automatically.
 
 ## Notes
 

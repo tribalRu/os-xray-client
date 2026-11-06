@@ -25,19 +25,19 @@
         <id>xrayclient.general.enable_tun</id>
         <label>Enable Native TUN Inbound</label>
         <type>checkbox</type>
-        <help>Creates a virtual network interface in OPNsense for transparent L3 routing via Firewall Rules / Gateways.</help>
+        <help>Xray creates the interface itself while the service runs (it does not exist otherwise). Enable this, Apply, then assign it under Interfaces -&gt; Assignments.</help>
     </field>
     <field>
         <id>xrayclient.general.tun_iface</id>
         <label>TUN Interface Name</label>
         <type>text</type>
-        <help>System interface name (default: tun_xray0). Can be assigned in Interfaces -&gt; Assignments.</help>
+        <help>System interface name Xray creates for the TUN inbound (default: tun_xray0). Visible in Interfaces -&gt; Assignments while Xray is running.</help>
     </field>
     <field>
         <id>xrayclient.general.tun_address</id>
         <label>TUN Tunnel Subnet</label>
         <type>text</type>
-        <help>Point-to-point IPv4 address with CIDR for the TUN interface (default: 10.255.0.1/30).</help>
+        <help>Gateway prefix for the TUN inbound (default: 10.255.0.1/30, CIDR 1..31). Xray keeps the gateway address for itself as the in-tunnel endpoint and assigns the next address to the interface (10.255.0.2 for a /30). Route traffic to the gateway via an assigned gateway + policy rule.</help>
     </field>
     <field>
         <id>xrayclient.general.tun_mtu</id>

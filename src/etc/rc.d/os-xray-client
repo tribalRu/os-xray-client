@@ -67,13 +67,15 @@ EOF
         return 1
     fi
 
-    # setup_tun.sh itself honours general.enable_tun, so it is safe to call.
+    # Reconcile a stale TUN interface (created by the old plugin version or
+    # leaked by a crashed Xray). Xray creates the interface itself on start.
     /usr/local/opnsense/scripts/OPNsense/XrayClient/setup_tun.sh up
 }
 
 xrayclient_poststop()
 {
-    # Clean up the TUN interface/route created in prestart (best effort).
+    # Remove any leftover TUN interface (best effort; Xray destroys its
+    # own interface on a clean shutdown).
     /usr/local/opnsense/scripts/OPNsense/XrayClient/setup_tun.sh down || true
     rm -f "${pidfile}"
 }

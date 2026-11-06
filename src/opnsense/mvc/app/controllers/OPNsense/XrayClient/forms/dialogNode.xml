@@ -28,7 +28,7 @@
         <type>text</type>
     </field>
     <field>
-        <id>node.uuid</id>
+        <id>node.user_uuid</id>
         <label>UUID / Password</label>
         <type>text</type>
         <help>User UUID (for VLESS/VMess) or Password (for Trojan/Shadowsocks).</help>

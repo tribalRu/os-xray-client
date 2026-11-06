@@ -17,6 +17,27 @@
     #DialogRule .modal-body .form-group {
         margin-bottom: 10px;
     }
+    /* The OPNsense base_dialog partial renders a third, 35%-wide column
+       reserved for validation messages (span.help-block). When empty it
+       shows up as a useless grey sidebar. Collapse it while every
+       help-block is empty; it re-appears automatically as soon as a
+       validation message is inserted (see MutationObserver setup). */
+    #DialogNode.help-collapsed colgroup > col:nth-child(3),
+    #DialogRule.help-collapsed colgroup > col:nth-child(3) {
+        display: none;
+    }
+    #DialogNode.help-collapsed tr > td:nth-child(3),
+    #DialogRule.help-collapsed tr > td:nth-child(3) {
+        display: none;
+    }
+    #DialogNode.help-collapsed colgroup > col:first-child,
+    #DialogRule.help-collapsed colgroup > col:first-child {
+        width: 32% !important;
+    }
+    #DialogNode.help-collapsed colgroup > col:nth-child(2),
+    #DialogRule.help-collapsed colgroup > col:nth-child(2) {
+        width: 68% !important;
+    }
 </style>
 
 <script>
@@ -32,6 +53,33 @@
         });
 
         updateServiceControlUI('xrayclient');
+
+        // Collapse the empty 35%-wide validation column (span.help-block)
+        // in the node/rule dialogs. It re-appears automatically when a
+        // validation message is inserted (watched by MutationObserver).
+        (function setupHelpBlockCollapse() {
+            function refresh($dialog) {
+                var anyContent = false;
+                $dialog.find('span.help-block').each(function () {
+                    if ($.trim($(this).text()) !== '' || $(this).children().length > 0) {
+                        anyContent = true;
+                        return false;
+                    }
+                });
+                $dialog.toggleClass('help-collapsed', !anyContent);
+            }
+            $('#DialogNode, #DialogRule').each(function () {
+                var $dialog = $(this);
+                refresh($dialog);
+                var observer = new MutationObserver(function () {
+                    refresh($dialog);
+                });
+                observer.observe(this, { childList: true, subtree: true, characterData: true });
+                $dialog.on('shown.bs.modal', function () {
+                    refresh($dialog);
+                });
+            });
+        })();
 
         // The Raw JSON textarea is rendered outside the generated
         // <form id="frm_general">. saveFormToEndpoint() only serialises
@@ -184,7 +232,7 @@
             setSelectValue($('#node\\.protocol'), data.protocol);
             $('#node\\.address').val(data.address);
             $('#node\\.port').val(data.port || '443');
-            $('#node\\.uuid').val(data.uuid);
+            $('#node\\.user_uuid').val(data.user_uuid);
             setSelectValue($('#node\\.flow'), data.flow);
             $('#node\\.encryption').val(data.encryption || 'none');
             setSelectValue($('#node\\.ss_method'), data.ss_method);
@@ -260,7 +308,7 @@
                 protocol: 'shadowsocks',
                 address: url.hostname,
                 port: url.port || '8388',
-                uuid: decodeURIComponent(password),
+                user_uuid: decodeURIComponent(password),
                 flow: 'none',
                 encryption: 'none',
                 ss_method: method || 'x2022-blake3-aes-128-gcm',
@@ -336,7 +384,7 @@
                     protocol: proto,
                     address: url.hostname,
                     port: url.port || '443',
-                    uuid: decodeURIComponent(url.username),
+                    user_uuid: decodeURIComponent(url.username),
                     flow: params.get('flow') || 'none',
                     encryption: params.get('encryption') || 'none',
                     ss_method: 'x2022-blake3-aes-128-gcm',
@@ -413,7 +461,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '1.0.1');
+                    $('#lbl_plugin_version').text(data.plugin_version || '1.0.2');
                 }
             });
         }
@@ -577,7 +625,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.0.1</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.0.2</span>
             </div>
         </div>
         {{ partial("layout_partials/base_form", ['fields': maintenanceForm, 'id': 'frm_maintenance']) }}

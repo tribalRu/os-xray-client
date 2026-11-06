@@ -41,7 +41,8 @@
       "protocol": "tun",
       "settings": {
         "name": {{ (general.tun_iface or 'tun_xray0') | tojson }},
-        "MTU": {{ general.tun_mtu | default('1500') | int }},
+        "mtu": {{ general.tun_mtu | default('1500') | int }},
+        "gateway": [ {{ (general.tun_address or '10.255.0.1/30') | tojson }} ],
         "userLevel": 0
       },
       "sniffing": {
@@ -114,7 +115,7 @@
             "port": {{ node.port | int }},
             "users": [
               {
-                "id": {{ (node.uuid or '') | tojson }},
+                "id": {{ (node.user_uuid or '') | tojson }},
 {% if node.protocol == 'vless' %}
                 "encryption": {{ (node.encryption or 'none') | tojson }},
                 "flow": {{ ('' if node.flow == 'none' else (node.flow or '')) | tojson }}
@@ -131,7 +132,7 @@
           {
             "address": {{ (node.address or '') | tojson }},
             "port": {{ node.port | int }},
-            "password": {{ (node.uuid or '') | tojson }}
+            "password": {{ (node.user_uuid or '') | tojson }}
           }
         ]
 {% elif node.protocol == 'shadowsocks' %}
@@ -140,7 +141,7 @@
             "address": {{ (node.address or '') | tojson }},
             "port": {{ node.port | int }},
             "method": {{ ((node.ss_method or '') | replace('x2022-', '2022-')) | tojson }},
-            "password": {{ (node.uuid or '') | tojson }}
+            "password": {{ (node.user_uuid or '') | tojson }}
           }
         ]
 {% endif %}
