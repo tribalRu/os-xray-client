@@ -13,6 +13,16 @@
         max-width: 900px;
         margin: 30px auto;
     }
+    #DialogNode .modal-body,
+    #DialogRule .modal-body {
+        width: 100%;
+    }
+    #DialogNode .form-search-section,
+    #DialogRule .form-search-section,
+    #frm_DialogNode,
+    #frm_DialogRule {
+        width: 100%;
+    }
     #DialogNode .modal-body .form-group,
     #DialogRule .modal-body .form-group {
         margin-bottom: 10px;
