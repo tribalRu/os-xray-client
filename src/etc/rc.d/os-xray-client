@@ -30,10 +30,12 @@ xrayclient_pid_is_ours()
     [ -n "${_pid}" ] || return 1
     kill -0 "${_pid}" 2>/dev/null || return 1
     # Defend against recycled PIDs: the pidfile carries the daemon
-    # supervisor PID, so verify the command really is ours.
+    # supervisor PID, whose command looks like
+    # "daemon: /usr/local/bin/xray[<child>] (daemon)" — it always contains
+    # "xray" (and so would an xray child, should the pidfile be rewritten).
     _cmd=$(ps -p "${_pid}" -o command= 2>/dev/null)
     case "${_cmd}" in
-        *xray*run*) return 0 ;;
+        *xray*) return 0 ;;
     esac
     return 1
 }
