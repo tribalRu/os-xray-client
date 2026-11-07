@@ -754,35 +754,80 @@
             }, 2000);
         });
 
-        // --- Automatic latency / traffic telemetry (background refresh) ---
-        var telemetryTimer = null;
-        function telemetryStatus(active, interval) {
+        // --- Automatic telemetry (background refresh) ---
+        // Traffic is refreshed at the user-configured interval. Latency is a
+        // TCP connect probe, so it is measured less often on a separate
+        // hardcoded timer (5 minutes) — it does not need constant polling.
+        var trafficTimer = null;
+        var latencyTimer = null;
+        var LATENCY_AUTO_INTERVAL = 300; // seconds (5 min), hardcoded
+
+        function telemetryStatus(trafficActive, trafficInterval, latencyActive) {
             var $s = $('#telemetry_status');
-            if (active) {
-                if ($s.length === 0) {
-                    $s = $('<span id="telemetry_status" class="label label-success" style="margin-left:8px;"></span>')
+            var parts = [];
+            if (trafficActive) parts.push('traffic: ' + trafficInterval + ' s');
+            if (latencyActive) parts.push('latency: ' + LATENCY_AUTO_INTERVAL + ' s');
+            var text = parts.length ? 'Auto: ' + parts.join('; ') : '';
+            if ($s.length === 0) {
+                if (text) {
+                    $s = $('<span id="telemetry_status" class="label label-info" style="margin-left:8px;"></span>')
                         .insertAfter('#btn_check_nodes');
                 }
-                $s.text('Auto: ' + interval + ' s').show();
-            } else {
-                if ($s.length) { $s.remove(); }
+            }
+            if ($s.length) {
+                if (text) { $s.text(text).show(); } else { $s.remove(); }
             }
         }
-        function startTelemetryAutoRefresh() {
-            if (telemetryTimer !== null) {
-                clearInterval(telemetryTimer);
-                telemetryTimer = null;
+
+        function refreshNodeLatency() {
+            ajaxCall('/api/xrayclient/service/healthcheck', {}, function (data) {
+                if (data && data.nodes) {
+                    nodeLatencyCache = data.nodes;
+                    $('#grid-nodes').bootgrid('reload');
+                }
+            });
+        }
+
+        function refreshNodeTraffic() {
+            ajaxCall('/api/xrayclient/service/stats', {}, function (data) {
+                if (data && data.stats) {
+                    nodeTrafficCache = data.stats;
+                    $('#grid-nodes').bootgrid('reload');
+                    updateTotalTraffic(data.stats);
+                }
+            });
+        }
+
+        function updateTotalTraffic(stats) {
+            var totalDown = 0, totalUp = 0;
+            $.each(stats, function (uuid, t) {
+                totalDown += parseInt(t.downlink || 0, 10);
+                totalUp += parseInt(t.uplink || 0, 10);
+            });
+            var $t = $('#telemetry_total');
+            if ($t.length === 0) {
+                $t = $('<span id="telemetry_total" style="margin-left:12px;"></span>')
+                    .insertAfter('#btn_check_nodes');
             }
-            telemetryStatus(false, 0);
+            $t.text('Total traffic: ↓ ' + formatBytes(totalDown) + ' / ↑ ' + formatBytes(totalUp));
+        }
+
+        function startTelemetryAutoRefresh() {
+            if (trafficTimer !== null) { clearInterval(trafficTimer); trafficTimer = null; }
+            if (latencyTimer !== null) { clearInterval(latencyTimer); latencyTimer = null; }
+            telemetryStatus(false, 0, false);
+
             var $cb = $('#xrayclient\\.general\\.auto_telemetry');
             var $int = $('#xrayclient\\.general\\.telemetry_interval');
-            if ($cb.length && $cb.prop('checked')) {
-                var interval = parseInt($int.val(), 10) || 60;
-                if (interval < 30) { interval = 30; }
-                if (interval > 3600) { interval = 3600; }
-                telemetryTimer = setInterval(refreshNodeTelemetry, interval * 1000);
-                telemetryStatus(true, interval);
-            }
+            if (!$cb.length || !$cb.prop('checked')) return;
+
+            var trafficInterval = parseInt($int.val(), 10) || 60;
+            if (trafficInterval < 30) { trafficInterval = 30; }
+            if (trafficInterval > 3600) { trafficInterval = 3600; }
+
+            trafficTimer = setInterval(refreshNodeTraffic, trafficInterval * 1000);
+            latencyTimer = setInterval(refreshNodeLatency, LATENCY_AUTO_INTERVAL * 1000);
+            telemetryStatus(true, trafficInterval, true);
         }
 
         $(document).on('click', '#grid-rules .command-move-up, #grid-rules .command-move-down', function () {
@@ -825,7 +870,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '1.2.3');
+                    $('#lbl_plugin_version').text(data.plugin_version || '1.2.4');
                 }
             });
         }
@@ -1059,7 +1104,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.2.3</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.2.4</span>
             </div>
         </div>
         <div class="col-md-12">

@@ -105,12 +105,12 @@
         <id>xrayclient.general.auto_telemetry</id>
         <label>Enable Automatic Latency &amp; Traffic Polling</label>
         <type>checkbox</type>
-        <help>When enabled, the Outbound Nodes table refreshes latency and traffic for all servers automatically at the interval below, without clicking the button.</help>
+        <help>When enabled, the Outbound Nodes table refreshes traffic automatically at the interval below, and latency every 5 minutes on a separate timer, without clicking the button.</help>
     </field>
     <field>
         <id>xrayclient.general.telemetry_interval</id>
-        <label>Polling Interval (seconds)</label>
+        <label>Traffic Polling Interval (seconds)</label>
         <type>text</type>
-        <help>How often to re-check latency and fetch traffic counters in the background (30-3600 seconds, default 60).</help>
+        <help>How often to fetch traffic counters in the background (30-3600 seconds, default 60). Latency is polled every 5 minutes independently.</help>
     </field>
 </form>
