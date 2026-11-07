@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>1.2.1</version>
+    <version>1.2.2</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -95,6 +95,8 @@
                 <name type="TextField">
                     <default>Main Server</default>
                     <Required>Y</Required>
+                    <Mask>/^$|^[^\x00-\x1F\x7F]{1,192}$/</Mask>
+                    <ValidationMessage>Node name must be 1-64 characters and must not contain control characters.</ValidationMessage>
                 </name>
                 <protocol type="OptionField">
                     <default>vless</default>
@@ -118,6 +120,8 @@
                 <address type="TextField">
                     <default></default>
                     <Required>N</Required>
+                    <Mask>/^$|^[A-Za-z0-9._:\[\]-]{1,253}$/</Mask>
+                    <ValidationMessage>Enter a valid hostname, IPv4 or IPv6 address (max 253 characters, no scheme or spaces).</ValidationMessage>
                 </address>
                 <port type="PortField">
                     <default>443</default>
@@ -126,18 +130,26 @@
                 <user_uuid type="TextField">
                     <default></default>
                     <Required>N</Required>
+                    <Mask>/^$|^[^\x00-\x1F\x7F]{1,256}$/</Mask>
+                    <ValidationMessage>Value must be 1-256 printable characters without control characters.</ValidationMessage>
                 </user_uuid>
                 <auth_user type="TextField">
                     <default></default>
                     <Required>N</Required>
+                    <Mask>/^$|^[^\x00-\x1F\x7F]{1,255}$/</Mask>
+                    <ValidationMessage>Username must be 1-255 printable characters without control characters.</ValidationMessage>
                 </auth_user>
                 <auth_pass type="TextField">
                     <default></default>
                     <Required>N</Required>
+                    <Mask>/^$|^[^\x00-\x1F\x7F]{1,255}$/</Mask>
+                    <ValidationMessage>Password must be 1-255 printable characters without control characters.</ValidationMessage>
                 </auth_pass>
                 <http_headers type="TextField">
                     <default></default>
                     <Required>N</Required>
+                    <Mask>/^$|^\s*\{[\s\S]*\}\s*$/</Mask>
+                    <ValidationMessage>Must be a JSON object, e.g. {"User-Agent":"Mozilla/5.0"}.</ValidationMessage>
                 </http_headers>
                 <flow type="OptionField">
                     <default>xtls-rprx-vision</default>
@@ -151,6 +163,8 @@
                 <encryption type="TextField">
                     <default>none</default>
                     <Required>Y</Required>
+                    <Mask>/^$|^[^\x00-\x1F\x7F]{1,512}$/</Mask>
+                    <ValidationMessage>Encryption must be 1-512 printable characters (use "none" for standard VLESS).</ValidationMessage>
                 </encryption>
                 <ss_method type="OptionField">
                     <default>x2022-blake3-aes-128-gcm</default>
@@ -175,6 +189,8 @@
                 <vmess_experiments type="TextField">
                     <default></default>
                     <Required>N</Required>
+                    <Mask>/^$|^(AuthenticatedLength|NoTerminationSignal)(\|(AuthenticatedLength|NoTerminationSignal))*$/</Mask>
+                    <ValidationMessage>Use only AuthenticatedLength and/or NoTerminationSignal, separated by "|".</ValidationMessage>
                 </vmess_experiments>
                 <network type="OptionField">
                     <default>tcp</default>
@@ -199,6 +215,8 @@
                 <sni type="TextField">
                     <default></default>
                     <Required>N</Required>
+                    <Mask>/^$|^[A-Za-z0-9._-]{1,253}$/</Mask>
+                    <ValidationMessage>Enter a valid SNI hostname (max 253 characters, no scheme, spaces or wildcards).</ValidationMessage>
                 </sni>
                 <fingerprint type="OptionField">
                     <default>chrome</default>
@@ -217,6 +235,9 @@
                 <alpn type="CSVListField">
                     <default></default>
                     <Required>N</Required>
+                    <Mask>/^[A-Za-z0-9._\/-]{1,32}$/</Mask>
+                    <MaskPerItem>Y</MaskPerItem>
+                    <ValidationMessage>Each ALPN value may contain only letters, digits, dot, slash, underscore and hyphen (max 32).</ValidationMessage>
                 </alpn>
                 <allow_insecure type="BooleanField">
                     <default>0</default>
@@ -225,26 +246,38 @@
                 <reality_pubkey type="TextField">
                     <default></default>
                     <Required>N</Required>
+                    <Mask>/^$|^[A-Za-z0-9_-]{43}$/</Mask>
+                    <ValidationMessage>REALITY public key must be 43 base64url characters (A-Z, a-z, 0-9, -, _).</ValidationMessage>
                 </reality_pubkey>
                 <reality_shortid type="TextField">
                     <default></default>
                     <Required>N</Required>
+                    <Mask>/^$|^([0-9A-Fa-f]{2}){1,8}$/</Mask>
+                    <ValidationMessage>REALITY ShortId must be 1-8 bytes as hex (2-16 characters, even length).</ValidationMessage>
                 </reality_shortid>
                 <reality_spiderx type="TextField">
                     <default>/</default>
                     <Required>N</Required>
+                    <Mask>/^$|^\/[^\x00-\x1F\x7F ]{0,255}$/</Mask>
+                    <ValidationMessage>SpiderX must start with "/" and contain no spaces.</ValidationMessage>
                 </reality_spiderx>
                 <transport_host type="TextField">
                     <default></default>
                     <Required>N</Required>
+                    <Mask>/^$|^[A-Za-z0-9._:\[\]-]{1,253}$/</Mask>
+                    <ValidationMessage>Enter a valid host or host:port (max 253 characters, no scheme or spaces).</ValidationMessage>
                 </transport_host>
                 <transport_path type="TextField">
                     <default></default>
                     <Required>N</Required>
+                    <Mask>/^$|^\/[^\x00-\x1F\x7F ]{0,1023}$/</Mask>
+                    <ValidationMessage>Path must start with "/", contain no spaces and be at most 1024 characters.</ValidationMessage>
                 </transport_path>
                 <grpc_service_name type="TextField">
                     <default></default>
                     <Required>N</Required>
+                    <Mask>/^$|^[A-Za-z0-9._-]{0,255}$/</Mask>
+                    <ValidationMessage>gRPC service name may contain only letters, digits, dot, underscore and hyphen (max 255).</ValidationMessage>
                 </grpc_service_name>
                 <grpc_multi_mode type="BooleanField">
                     <default>0</default>
@@ -267,50 +300,73 @@
                 <custom_stream_json type="TextField">
                     <default></default>
                     <Required>N</Required>
+                    <Mask>/^$|^\s*\{[\s\S]*\}\s*$/</Mask>
+                    <ValidationMessage>Must be a JSON object (starts with { and ends with }).</ValidationMessage>
                 </custom_stream_json>
                 <wg_secret_key type="TextField">
                     <default></default>
                     <Required>N</Required>
+                    <Mask>/^$|^[A-Za-z0-9+/]{43}=$/</Mask>
+                    <ValidationMessage>WireGuard key must be 44 base64 characters (32 bytes + padding "=").</ValidationMessage>
                 </wg_secret_key>
                 <wg_public_key type="TextField">
                     <default></default>
                     <Required>N</Required>
+                    <Mask>/^$|^[A-Za-z0-9+/]{43}=$/</Mask>
+                    <ValidationMessage>WireGuard key must be 44 base64 characters (32 bytes + padding "=").</ValidationMessage>
                 </wg_public_key>
                 <wg_preshared_key type="TextField">
                     <default></default>
                     <Required>N</Required>
+                    <Mask>/^$|^[A-Za-z0-9+/]{43}=$/</Mask>
+                    <ValidationMessage>WireGuard key must be 44 base64 characters (32 bytes + padding "=").</ValidationMessage>
                 </wg_preshared_key>
                 <wg_endpoint type="TextField">
                     <default></default>
                     <Required>N</Required>
+                    <Mask>/^$|^(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9._-]{1,253}):(0|[1-9][0-9]{0,4})$/</Mask>
+                    <ValidationMessage>Enter peer endpoint as host:port, e.g. example.com:51820 (IPv6: [2001:db8::1]:51820).</ValidationMessage>
                 </wg_endpoint>
                 <wg_address type="CSVListField">
                     <default>10.0.0.1</default>
                     <Required>N</Required>
+                    <Mask>/^([0-9]{1,3}(\.[0-9]{1,3}){3}(\/[0-9]{1,3})?|[0-9A-Fa-f:]+(\/[0-9]{1,3})?)$/</Mask>
+                    <MaskPerItem>Y</MaskPerItem>
+                    <ValidationMessage>Each entry must be an IPv4/IPv6 address or CIDR, e.g. 10.0.0.1 or fd00::1/128. Prefix length is checked by Xray on apply.</ValidationMessage>
                 </wg_address>
                 <wg_allowed_ips type="CSVListField">
                     <default>0.0.0.0/0,::/0</default>
                     <Required>N</Required>
+                    <Mask>/^([0-9]{1,3}(\.[0-9]{1,3}){3}(\/[0-9]{1,3})?|[0-9A-Fa-f:]+(\/[0-9]{1,3})?)$/</Mask>
+                    <MaskPerItem>Y</MaskPerItem>
+                    <ValidationMessage>Each entry must be an IPv4/IPv6 address or CIDR, e.g. 0.0.0.0/0 or ::/0. Prefix length is checked by Xray on apply.</ValidationMessage>
                 </wg_allowed_ips>
                 <wg_keepalive type="IntegerField">
                     <default>0</default>
                     <MinimumValue>0</MinimumValue>
                     <MaximumValue>65535</MaximumValue>
                     <Required>N</Required>
+                    <ValidationMessage>Persistent keepalive must be an integer between 0 and 65535 seconds.</ValidationMessage>
                 </wg_keepalive>
                 <wg_mtu type="IntegerField">
                     <default>1420</default>
                     <MinimumValue>1280</MinimumValue>
                     <MaximumValue>9000</MaximumValue>
                     <Required>N</Required>
+                    <ValidationMessage>Inner MTU must be an integer between 1280 and 9000.</ValidationMessage>
                 </wg_mtu>
                 <wg_reserved type="TextField">
                     <default>0,0,0</default>
                     <Required>N</Required>
+                    <Mask>/^$|^(25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})\s*,\s*(25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})\s*,\s*(25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})$/</Mask>
+                    <ValidationMessage>Reserved bytes must be exactly three numbers 0-255 separated by commas, e.g. 0,0,0.</ValidationMessage>
                 </wg_reserved>
                 <wg_remote_dns type="CSVListField">
                     <default>1.1.1.1,1.0.0.1</default>
                     <Required>N</Required>
+                    <Mask>/^([0-9]{1,3}(\.[0-9]{1,3}){3}|[0-9A-Fa-f:.]+)$/</Mask>
+                    <MaskPerItem>Y</MaskPerItem>
+                    <ValidationMessage>Each DNS server must be an IPv4 or IPv6 address.</ValidationMessage>
                 </wg_remote_dns>
                 <wg_no_kernel_tun type="BooleanField">
                     <default>0</default>
@@ -319,6 +375,8 @@
                 <freedom_redirect type="TextField">
                     <default></default>
                     <Required>N</Required>
+                    <Mask>/^$|^(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9._-]{0,253}):(0|[0-9]{1,5})$/</Mask>
+                    <ValidationMessage>Enter host:port, :port or host:0, e.g. 127.0.0.1:3366.</ValidationMessage>
                 </freedom_redirect>
                 <freedom_proxy_protocol type="OptionField">
                     <default>off</default>
@@ -332,6 +390,8 @@
                 <freedom_final_rules type="TextField">
                     <default></default>
                     <Required>N</Required>
+                    <Mask>/^$|^\s*\[[\s\S]*\]\s*$/</Mask>
+                    <ValidationMessage>Must be a JSON array, e.g. [{"action":"block","network":"tcp","port":"25,465"}].</ValidationMessage>
                 </freedom_final_rules>
                 <blackhole_response type="OptionField">
                     <default>none</default>
@@ -353,40 +413,58 @@
                 <dns_rewrite_address type="TextField">
                     <default></default>
                     <Required>N</Required>
+                    <Mask>/^$|^[A-Za-z0-9._:\[\]-]{1,253}$/</Mask>
+                    <ValidationMessage>Enter a valid hostname, IPv4 or IPv6 address.</ValidationMessage>
                 </dns_rewrite_address>
                 <dns_rewrite_port type="TextField">
                     <default></default>
                     <Required>N</Required>
+                    <Mask>/^$|^[0-9]{1,5}$/</Mask>
+                    <ValidationMessage>Enter a port number 1-65535 or leave empty.</ValidationMessage>
                 </dns_rewrite_port>
                 <dns_rules_json type="TextField">
                     <default></default>
                     <Required>N</Required>
+                    <Mask>/^$|^\s*\[[\s\S]*\]\s*$/</Mask>
+                    <ValidationMessage>Must be a JSON array, e.g. [{"action":"return","rCode":3}].</ValidationMessage>
                 </dns_rules_json>
                 <loopback_inbound_tag type="TextField">
                     <default>loopback-in</default>
                     <Required>N</Required>
+                    <Mask>/^$|^[^\x00-\x1F\x7F]{1,64}$/</Mask>
+                    <ValidationMessage>Inbound tag must be 1-64 printable characters without control characters.</ValidationMessage>
                 </loopback_inbound_tag>
                 <hysteria_auth type="TextField">
                     <default></default>
                     <Required>N</Required>
+                    <Mask>/^$|^[^\x00-\x1F\x7F]{1,256}$/</Mask>
+                    <ValidationMessage>Hysteria auth must be 1-256 printable characters without control characters.</ValidationMessage>
                 </hysteria_auth>
                 <hysteria_udp_idle_timeout type="IntegerField">
                     <default>60</default>
                     <MinimumValue>1</MinimumValue>
                     <MaximumValue>3600</MaximumValue>
                     <Required>N</Required>
+                    <ValidationMessage>UDP idle timeout must be an integer between 1 and 3600 seconds.</ValidationMessage>
                 </hysteria_udp_idle_timeout>
                 <masque_host type="TextField">
                     <default></default>
                     <Required>N</Required>
+                    <Mask>/^$|^(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9._-]{1,253})(:[0-9]{1,5})?$/</Mask>
+                    <ValidationMessage>Enter a valid host or host:port (max 253 characters), e.g. example.com:443.</ValidationMessage>
                 </masque_host>
                 <masque_path type="TextField">
                     <default>/.well-known/masque/ip/{target}/{ipproto}/</default>
                     <Required>N</Required>
+                    <Mask>/^$|^(?=.*\{target\})(?=.*\{ipproto\})\/[^\x00-\x1F\x7F ]{1,255}$/</Mask>
+                    <ValidationMessage>MASQUE path must start with "/" and contain both {target} and {ipproto} placeholders.</ValidationMessage>
                 </masque_path>
                 <masque_remote_dns type="CSVListField">
                     <default>1.1.1.1,1.0.0.1</default>
                     <Required>N</Required>
+                    <Mask>/^([0-9]{1,3}(\.[0-9]{1,3}){3}|[0-9A-Fa-f:.]+)$/</Mask>
+                    <MaskPerItem>Y</MaskPerItem>
+                    <ValidationMessage>Each DNS server must be an IPv4 or IPv6 address.</ValidationMessage>
                 </masque_remote_dns>
             </node>
         </nodes>

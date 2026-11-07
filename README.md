@@ -64,6 +64,7 @@ Protocol-specific fields, the Transport section, Mux.Cool and the custom `stream
 - **Latency/Traffic**: *Check Latency* is a bare TCP connect to each enabled node's address:port (not a full VLESS/REALITY handshake). Traffic counters come from Xray's StatsService (`127.0.0.1:10085`).
 - **GeoData presets**: `official` (Loyalsoldier), `runetfreedom` (RU), `zaborona` (Iran-specific, Chocolate4U), `custom` (your `.dat` URLs).
 - **Maintenance**: *Maintenance* shows installed Xray-core / GeoData / plugin versions and a **Check for Updates** button that queries GitHub for the latest Xray-core release and the latest plugin commit (it needs outbound HTTPS to github.com). From there you can update Xray-core or the plugin itself in one click.
+- **Input validation**: node fields that are critical for Xray are validated on save — WireGuard keys (44 base64 chars), endpoints (`host:port`), SNI/host/path formats, JSON fields (`http_headers`, `custom_stream_json`, `freedom_final_rules`, `dns_rules_json`), CIDR lists and MTU/keepalive/timeouts. Invalid values are rejected with a message before the config is written; `xray run -test` is still the final gate on Apply & Restart.
 
 ## Uninstall
 
