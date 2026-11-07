@@ -602,46 +602,6 @@
             }
         });
 
-        // --- Rule dialog: populate Target Outbound Action with node list ---
-        function fillRuleNodeSelector() {
-            var $sel = $('#rule\\.outbound_tag');
-            if ($sel.length === 0) return;
-            $sel.empty();
-            // Built-in actions
-            var builtin = [
-                { value: 'proxy', label: 'Proxy (Active Xray Node)' },
-                { value: 'direct', label: 'Direct (Bypass VPN via WAN)' },
-                { value: 'block', label: 'Block (Drop Traffic)' }
-            ];
-            builtin.forEach(function (b) {
-                var $opt = $('<option/>').attr('value', b.value).text(b.label);
-                if ($sel.data('curval') === b.value) $opt.prop('selected', true);
-                $sel.append($opt);
-            });
-            $sel.find('option[node]').remove();
-            ajaxCall('/api/xrayclient/settings/searchNode', {}, function (data) {
-                if (!data || !data.rows || !data.rows.length) {
-                    try { $sel.selectpicker('refresh'); } catch (e) {}
-                    return;
-                }
-                data.rows.forEach(function (node) {
-                    if (!node.uuid || !node.name) return;
-                    var tag = 'node_' + node.uuid;
-                    var label = node.name + ' (' + node.protocol + ')';
-                    var $opt = $('<option/>').attr('value', tag).attr('node', '1').text(label);
-                    if ($sel.data('curval') === tag) $opt.prop('selected', true);
-                    $sel.append($opt);
-                });
-                try { $sel.selectpicker('refresh'); } catch (e) {}
-            });
-        }
-
-        $('#DialogRule').on('shown.bs.modal', function () {
-            var $sel = $('#rule\\.outbound_tag');
-            $sel.data('curval', $sel.val());
-            fillRuleNodeSelector();
-        });
-
         // --- WARP auto-config generation for WireGuard ---
         // Injects a "Generate WARP config" button into the WireGuard section
         // of the node dialog. Clicking it calls the backend WARP generator
@@ -1039,7 +999,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '1.4.1');
+                    $('#lbl_plugin_version').text(data.plugin_version || '1.4.2');
                 }
             });
         }
@@ -1273,7 +1233,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.4.1</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.4.2</span>
             </div>
         </div>
         <div class="col-md-12">
