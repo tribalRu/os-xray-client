@@ -18,7 +18,8 @@ rm -rf /usr/local/opnsense/mvc/app/models/OPNsense/XrayClient
 rm -rf /usr/local/opnsense/mvc/app/views/OPNsense/XrayClient
 rm -rf /usr/local/opnsense/scripts/OPNsense/XrayClient
 rm -rf /usr/local/opnsense/service/templates/OPNsense/XrayClient
-
+rm -f /usr/local/opnsense/www/js/widgets/XrayClient.js
+rm -f /usr/local/opnsense/www/js/widgets/Metadata/XrayClient.xml
 rm -f /var/run/xrayclient.pid
 rm -f /var/lib/php/tmp/opnsense_menu_cache.xml /tmp/opnsense_menu_cache.xml
 rm -f /var/lib/php/tmp/opnsense_acl_cache.json /tmp/opnsense_acl_cache.json
