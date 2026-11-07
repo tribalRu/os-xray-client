@@ -569,13 +569,7 @@
         <style>stream_sockopt</style>
         <help>Optional interface name to bind outbound connections to (Linux/macOS/Windows).</help>
     </field>
-    <field>
-        <id>node.sockopt_tproxy</id>
-        <label>Sockopt TPROXY</label>
-        <type>text</type>
-        <style>stream_sockopt</style>
-        <help>Optional on Linux: off, redirect or tproxy.</help>
-    </field>
+
     <field>
         <id>node.sockopt_mark</id>
         <label>Sockopt Mark (SO_MARK)</label>

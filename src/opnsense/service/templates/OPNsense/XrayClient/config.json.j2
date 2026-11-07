@@ -383,7 +383,7 @@
 {%       if node.sockopt_domainStrategy is defined and (node.sockopt_domainStrategy | string | trim) != '' %}{% do sockopt.append('"domainStrategy": ' ~ (node.sockopt_domainStrategy | tojson)) %}{% endif %}
 {%       if node.sockopt_dialer_proxy is defined and (node.sockopt_dialer_proxy | string | trim) != '' %}{% do sockopt.append('"dialerProxy": ' ~ (node.sockopt_dialer_proxy | string | trim | tojson)) %}{% endif %}
 {%       if node.sockopt_interface is defined and (node.sockopt_interface | string | trim) != '' %}{% do sockopt.append('"interface": ' ~ (node.sockopt_interface | string | trim | tojson)) %}{% endif %}
-{%       if node.sockopt_tproxy is defined and (node.sockopt_tproxy | string | trim) != '' %}{% do sockopt.append('"tproxy": ' ~ (node.sockopt_tproxy | string | trim | tojson)) %}{% endif %}
+
 {%       if node.sockopt_mark is defined and (node.sockopt_mark | string | trim) != '' %}{% do sockopt.append('"mark": ' ~ (node.sockopt_mark | int)) %}{% endif %}
 {%       if node.sockopt_tcp_congestion is defined and (node.sockopt_tcp_congestion | string | trim) != '' %}{% do sockopt.append('"tcpcongestion": ' ~ (node.sockopt_tcp_congestion | string | trim | tojson)) %}{% endif %}
 {%       if node.sockopt_tcp_fast_open is defined and node.sockopt_tcp_fast_open == '1' %}{% do sockopt.append('"tcpFastOpen": true') %}{% endif %}

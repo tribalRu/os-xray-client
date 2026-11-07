@@ -51,6 +51,11 @@
     #DialogRule .modal-body .form-group {
         margin-bottom: 10px;
     }
+    /* "Show advanced fields" OFF: hide rows containing .expert_only inputs. */
+    #DialogNode.optional-hidden tr:has(.expert_only),
+    #DialogNode.optional-hidden div.form-group:has(.expert_only) {
+        display: none !important;
+    }
     /* The OPNsense base_dialog partial renders a third, 35%-wide column
        reserved for validation messages (span.help-block). When empty it
        shows up as a useless grey sidebar. Collapse it while every
@@ -594,7 +599,7 @@
             $('#node\\.sockopt_domainStrategy').val(data.sockopt_domainStrategy || 'AsIs');
             $('#node\\.sockopt_dialer_proxy').val(data.sockopt_dialer_proxy);
             $('#node\\.sockopt_interface').val(data.sockopt_interface);
-            $('#node\\.sockopt_tproxy').val(data.sockopt_tproxy || '');
+
             $('#node\\.sockopt_mark').val(data.sockopt_mark);
             $('#node\\.sockopt_tcp_congestion').val(data.sockopt_tcp_congestion);
             $('#node\\.sockopt_tcp_keepalive_idle').val(data.sockopt_tcp_keepalive_idle);
@@ -664,6 +669,49 @@
                 fillNodeDialog(data);
             }
         });
+
+        // --- Advanced fields toggle (Kea-style eye icon) ---
+        // Hides .expert_only rows (rarely needed knobs); persisted per browser.
+        (function injectAdvancedToggle() {
+            var expertIds = [
+                'node.grpc_authority', 'node.grpc_user_agent', 'node.grpc_idle_timeout', 'node.grpc_health_check_timeout', 'node.grpc_permit_without_stream', 'node.grpc_initial_windows_size',
+                'node.tls_verify_peer_cert_by_name', 'node.tls_pinned_peer_cert_sha256', 'node.tls_ech_config_list', 'node.tls_min_version', 'node.tls_max_version',
+                'node.reality_mldsa65_verify', 'node.ws_heartbeat_period',
+                'node.sockopt_domainStrategy', 'node.sockopt_dialer_proxy', 'node.sockopt_interface', 'node.sockopt_mark',
+                'node.sockopt_tcp_congestion', 'node.sockopt_tcp_fast_open',
+                'node.sockopt_tcp_keepalive_idle', 'node.sockopt_tcp_keepalive_interval', 'node.sockopt_tcp_user_timeout',
+                'node.vmess_experiments',
+                'node.wg_reserved', 'node.wg_mtu', 'node.wg_no_kernel_tun',
+                'node.hysteria_udp_idle_timeout',
+                'node.masque_remote_dns',
+                'node.dns_rewrite_address', 'node.dns_rewrite_port', 'node.dns_rules_json',
+                'node.freedom_proxy_protocol', 'node.freedom_final_rules',
+                'node.blackhole_response',
+                'node.loopback_inbound_tag',
+                'node.http_headers',
+                'node.custom_stream_json', 'node.finalmask'
+            ];
+            expertIds.forEach(function (id) {
+                $('[id="' + id + '"]').addClass('expert_only');
+            });
+            var saved = localStorage.getItem('osxray_show_advanced') === '1';
+            var $row = $(
+                '<div class="xray-advanced-toggle" style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid rgba(255,255,255,0.08);">' +
+                '<i class="fa fa-eye fa-fw text-muted"></i>' +
+                '<label style="margin:0;cursor:pointer;user-select:none;font-weight:normal;">' +
+                '<input type="checkbox" id="chk_show_advanced" style="margin-right:6px;">Show advanced fields' +
+                '</label>' +
+                '<span class="small text-muted">(optional, rarely needed)</span>' +
+                '</div>'
+            );
+            $('#DialogNode .modal-body').prepend($row);
+            $('#DialogNode').toggleClass('optional-hidden', !saved);
+            $('#chk_show_advanced').prop('checked', saved).on('change', function () {
+                var show = $(this).prop('checked');
+                localStorage.setItem('osxray_show_advanced', show ? '1' : '0');
+                $('#DialogNode').toggleClass('optional-hidden', !show);
+            });
+        })();
 
         // --- WARP auto-config generation for WireGuard ---
         // Injects a "Generate WARP config" button into the WireGuard section
@@ -1068,7 +1116,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '2.1.6');
+                    $('#lbl_plugin_version').text(data.plugin_version || '2.2.0');
                 }
             });
         }
@@ -1302,7 +1350,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.1.6</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.2.0</span>
             </div>
         </div>
         <div class="col-md-12">

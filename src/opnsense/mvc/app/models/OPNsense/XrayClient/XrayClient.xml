@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>2.1.6</version>
+    <version>2.2.0</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -413,10 +413,12 @@
                     <default>AsIs</default>
                     <Required>N</Required>
                     <OptionValues>
+                        <AsIs>AsIs</AsIs>
                         <UseIP>UseIP</UseIP>
                         <UseIPv4>UseIPv4</UseIPv4>
                         <UseIPv6>UseIPv6</UseIPv6>
-                        <IfNonMatch>IfNonMatch</IfNonMatch>
+                        <UseIPv4v6>UseIPv4v6</UseIPv4v6>
+                        <UseIPv6v4>UseIPv6v4</UseIPv6v4>
                         <ForceIP>ForceIP</ForceIP>
                         <ForceIPv4>ForceIPv4</ForceIPv4>
                         <ForceIPv6>ForceIPv6</ForceIPv6>
@@ -436,12 +438,7 @@
                     <Mask>/^$|^[A-Za-z0-9._-]{1,32}$/</Mask>
                     <ValidationMessage>Interface name must be letters, digits, dot, underscore or hyphen (max 32).</ValidationMessage>
                 </sockopt_interface>
-                <sockopt_tproxy type="TextField">
-                    <default></default>
-                    <Required>N</Required>
-                    <Mask>/^$|^(off|redirect|tproxy)$/</Mask>
-                    <ValidationMessage>tproxy must be one of: off, redirect, tproxy (or empty).</ValidationMessage>
-                </sockopt_tproxy>
+
                 <sockopt_mark type="TextField">
                     <default></default>
                     <Required>N</Required>
