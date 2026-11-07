@@ -427,6 +427,11 @@
         <help>Optional JSON object with extra headers, e.g. {"User-Agent":"Mozilla/5.0"}. Used by HTTP outbound and MASQUE.</help>
     </field>
     <field>
+        <type>header</type>
+        <label>Mux &amp; Custom Overrides</label>
+        <style>stream_custom</style>
+    </field>
+    <field>
         <id>node.mux_enabled</id>
         <label>Enable Mux.Cool</label>
         <type>checkbox</type>

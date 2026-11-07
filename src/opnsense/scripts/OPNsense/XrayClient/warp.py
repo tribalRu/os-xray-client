@@ -32,21 +32,50 @@ socket.setdefaulttimeout(10)
 
 CONFIG_PATH = '/conf/config.xml'
 
-# Cloudflare WARP registration API version (from warpy - known working).
-WARP_API_VERSION = "v0a884"
+# Optional user override: /usr/local/etc/xray/warp.json
+# Allows updating WARP API version and endpoints without modifying the script.
+WARP_CONFIG_FILE = '/usr/local/etc/xray/warp.json'
 
-# Cloudflare WARP registration endpoints (tried in order).
-WARP_REGISTRATION_URLS = [
-    "https://api.cloudflareclient.com/{}/reg".format(WARP_API_VERSION),
-]
+# Built-in defaults (from warpy — known working as of 2026).
+_DEFAULTS = {
+    'api_version': 'v0a884',
+    'registration_urls': [
+        'https://api.cloudflareclient.com/v0a884/reg',
+    ],
+    'fallback_public_key': 'bmXOC+F1FxEMF9dyiK2H5/1SUlzH7xJzvV6PZuLgLVs=',
+    'fallback_endpoint': '162.159.193.10:2408',
+    'fallback_allowed_ips': '0.0.0.0/0,::/0',
+    'fallback_dns': '1.1.1.1,1.0.0.1',
+    'fallback_mtu': '1280',
+}
 
-# WARP fallback values used when the API registration fails or is unreachable.
-# These are public WireGuard values published by Cloudflare for WARP.
-WARP_FALLBACK_PUBLIC_KEY = "bmXOC+F1FxEMF9dyiK2H5/1SUlzH7xJzvV6PZuLgLVs="
-WARP_FALLBACK_ENDPOINT = "162.159.193.10:2408"
-WARP_FALLBACK_ALLOWED_IPS = "0.0.0.0/0,::/0"
-WARP_FALLBACK_DNS = "1.1.1.1,1.0.0.1"
-WARP_FALLBACK_MTU = "1280"
+
+def _load_warp_config():
+    """Load WARP configuration from /usr/local/etc/xray/warp.json if present,
+    otherwise return built-in defaults."""
+    try:
+        with open(WARP_CONFIG_FILE, 'r') as fh:
+            user_cfg = json.load(fh)
+            if isinstance(user_cfg, dict):
+                merged = dict(_DEFAULTS)
+                merged.update(user_cfg)
+                return merged
+    except FileNotFoundError:
+        pass
+    except Exception as exc:
+        sys.stderr.write('warp.py: failed to load %s: %s\n' % (WARP_CONFIG_FILE, exc))
+    return _DEFAULTS
+
+
+_WARP_CFG = _load_warp_config()
+
+WARP_API_VERSION = _WARP_CFG['api_version']
+WARP_REGISTRATION_URLS = _WARP_CFG['registration_urls']
+WARP_FALLBACK_PUBLIC_KEY = _WARP_CFG['fallback_public_key']
+WARP_FALLBACK_ENDPOINT = _WARP_CFG['fallback_endpoint']
+WARP_FALLBACK_ALLOWED_IPS = _WARP_CFG['fallback_allowed_ips']
+WARP_FALLBACK_DNS = _WARP_CFG['fallback_dns']
+WARP_FALLBACK_MTU = _WARP_CFG['fallback_mtu']
 
 
 def generate_wg_keypair():
