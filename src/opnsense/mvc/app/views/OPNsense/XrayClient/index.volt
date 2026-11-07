@@ -1185,7 +1185,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '2.4.3');
+                    $('#lbl_plugin_version').text(data.plugin_version || '2.4.4');
                 }
             });
         }
@@ -1358,7 +1358,7 @@
 
     <div id="tab_rules" class="tab-pane fade in">
         <div class="col-md-12" style="margin-top: 10px; margin-bottom: 4px;">
-            <small class="text-muted">Rules are evaluated top-to-bottom by priority. Use the &#8593;/&#8595; arrows in the Actions column to reorder them. Add a built-in preset from the dialog via «Start from a built-in preset». Entries here are saved immediately; <b>Apply &amp; Restart Xray</b> rebuilds config.json and restarts Xray.</small>
+            <span class="text-muted" style="font-size: 13px;">Rules are applied top-to-bottom (&#8593;/&#8595; to reorder). Entries save instantly &mdash; click <b>Apply &amp; Restart Xray</b>.</span>
         </div>
         <table id="grid-rules" class="table table-condensed table-hover table-striped" data-editDialog="DialogRule">
             <thead>
@@ -1420,7 +1420,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.4.3</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.4.4</span>
             </div>
         </div>
         <div class="col-md-12">

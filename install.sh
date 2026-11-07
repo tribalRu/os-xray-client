@@ -25,7 +25,7 @@ chmod +x /usr/local/etc/rc.d/os-xray-client
 chmod +x /usr/local/opnsense/scripts/OPNsense/XrayClient/*.sh
 chmod +x /usr/local/opnsense/scripts/OPNsense/XrayClient/*.py
 
-echo "2.4.3" > /usr/local/opnsense/scripts/OPNsense/XrayClient/PLUGIN_VERSION
+echo "2.4.4" > /usr/local/opnsense/scripts/OPNsense/XrayClient/PLUGIN_VERSION
 
 echo "Running OPNsense MVC migrations..."
 /usr/local/opnsense/mvc/script/run_migrations.php || {
