@@ -52,6 +52,11 @@
     </field>
 
     <field>
+        <type>header</type>
+        <label>VLESS Settings</label>
+        <style>proto_vless</style>
+    </field>
+    <field>
         <id>node.flow</id>
         <label>XTLS Flow</label>
         <type>dropdown</type>
@@ -81,10 +86,20 @@
         <help>VLESS extra settings as JSON (e.g. xPaddingBytes, headers). Imported from vless:// link. Leave empty to use the Encryption field above.</help>
     </field>
     <field>
+        <type>header</type>
+        <label>Shadowsocks Settings</label>
+        <style>proto_shadowsocks</style>
+    </field>
+    <field>
         <id>node.ss_method</id>
         <label>Shadowsocks Cipher</label>
         <type>dropdown</type>
         <style>proto_shadowsocks</style>
+    </field>
+    <field>
+        <type>header</type>
+        <label>VMess Settings</label>
+        <style>proto_vmess</style>
     </field>
     <field>
         <id>node.vmess_security</id>
@@ -383,6 +398,11 @@
         <style>sec_reality</style>
     </field>
     <field>
+        <type>header</type>
+        <label>Transport Settings</label>
+        <style>net_ws net_xhttp net_httpupgrade net_grpc</style>
+    </field>
+    <field>
         <id>node.transport_host</id>
         <label>Host Header / Authority</label>
         <type>text</type>
@@ -411,6 +431,10 @@
         <label>XHTTP Mode</label>
         <type>dropdown</type>
         <style>net_xhttp</style>
+    </field>
+    <field>
+        <type>header</type>
+        <label>Domain Resolution &amp; Local Binding</label>
     </field>
     <field>
         <id>node.sockopt_domainStrategy</id>
