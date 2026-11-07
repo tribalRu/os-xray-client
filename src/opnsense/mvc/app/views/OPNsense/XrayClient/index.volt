@@ -593,27 +593,30 @@
         // (keypair + Cloudflare WARP registration) and fills all WireGuard fields.
         function injectWarpButton() {
             if ($('#btn_warp_generate').length > 0) return;
-            // Find the WireGuard Settings header row directly by its label text.
+            // Find the WireGuard Settings section div by its header label text.
             var $b = $('#DialogNode .modal-body b:contains("WireGuard Settings")');
             if ($b.length === 0) return;
-            var $headerRow = $b.closest('tr');
-            var $btn = $(
+            var $section = $b.closest('.table-responsive.form-search-section');
+            if ($section.length === 0) return;
+            var $tbody = $section.find('> table > tbody');
+            if ($tbody.length === 0) return;
+            var $btnRow = $(
+                '<tr style="text-align:left;">' +
+                '<td colspan="3" style="padding-top:6px; padding-bottom:6px;">' +
                 '<button id="btn_warp_generate" type="button" class="btn btn-xs btn-info" style="margin-top:6px;">' +
                 '<i class="fa fa-cloud-download"></i> <b>Generate WARP config</b>' +
                 '<i id="btn_warp_generate_spin" class="fa fa-spinner fa-pulse" style="display:none; margin-left:6px;"></i>' +
                 '</button> ' +
-                '<span id="warp_gen_status" class="text-muted" style="margin-left:8px; font-size:12px;"></span>'
+                '<span id="warp_gen_status" class="text-muted" style="margin-left:8px; font-size:12px;"></span>' +
+                '</td>' +
+                '</tr>'
             );
-            $headerRow.after(
-                '<tr><td colspan="3" style="text-align:left; padding-top:6px;">' +
-                '<small style="color:#888;">Cloudflare WARP is a WireGuard-based service. This generates a local ' +
-                'WireGuard keypair and registers with Cloudflare WARP to fill all fields.</small>' +
-                '</td></tr>'
-            );
-            $headerRow.next().find('td').append($btn);
-            $btn.on('click', function () {
+            $tbody.prepend($btnRow);
+            $btnRow.find('#btn_warp_generate').on('click', function () {
                 generateWarpConfig();
             });
+            // Make sure WireGuard fields are visible (in case protocol was just switched)
+            toggleNodeDialogFields();
         }
 
         function generateWarpConfig() {
@@ -980,7 +983,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '1.2.7');
+                    $('#lbl_plugin_version').text(data.plugin_version || '1.2.8');
                 }
             });
         }
@@ -1214,7 +1217,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.2.7</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.2.8</span>
             </div>
         </div>
         <div class="col-md-12">
