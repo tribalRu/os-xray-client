@@ -416,8 +416,20 @@
         <id>node.sockopt_domainStrategy</id>
         <label>Sockopt Domain Strategy</label>
         <type>dropdown</type>
-        <style>transport_selector</style>
-        <help>Domain resolution strategy for outbound connections.</help>
+        <style>stream_sockopt</style>
+        <help>Domain resolution strategy for the proxy server connection (stream protocols only).</help>
+    </field>
+    <field>
+        <id>node.target_strategy</id>
+        <label>Target Strategy</label>
+        <type>dropdown</type>
+        <help>How the target domain is resolved before being proxied. Applies to all protocols.</help>
+    </field>
+    <field>
+        <id>node.send_through</id>
+        <label>Send Through (Local IP)</label>
+        <type>text</type>
+        <help>Optional local IP address to bind outbound traffic to (e.g. 192.168.1.10), or 'origin'/'srcip'.</help>
     </field>
     <field>
         <id>node.http_headers</id>

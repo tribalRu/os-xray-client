@@ -155,6 +155,10 @@
     {
       "tag": {{ ('proxy' if loop.first else 'node_' ~ node['@uuid']) | tojson }},
       "protocol": {{ proto | tojson }},
+      "targetStrategy": {{ (node.target_strategy or 'AsIs') | tojson }},
+{%   if node.send_through %}
+      "sendThrough": {{ node.send_through | tojson }},
+{%   endif %}
 {%   if proto == 'wireguard' %}
       "settings": {
         "secretKey": {{ (node.wg_secret_key or '') | tojson }},

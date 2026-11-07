@@ -359,6 +359,7 @@
                 '.proto_http_masque': proto === 'http' || isMasque,
                 '.proto_transport': hasTransport,
                 '.transport_selector': hasStream,
+                '.stream_sockopt': hasStream,
                 '.stream_custom': hasStream,
                 '.mux_supported': hasMux,
                 '.net_ws': hasStream && effNet === 'ws',
@@ -543,6 +544,8 @@
             $('#node\\.grpc_service_name').val(data.grpc_service_name);
             setSelectValue($('#node\\.xhttp_mode'), data.xhttp_mode);
             $('#node\\.sockopt_domainStrategy').val(data.sockopt_domainStrategy || 'AsIs');
+            $('#node\\.target_strategy').val(data.target_strategy || 'AsIs');
+            $('#node\\.send_through').val(data.send_through || '');
             $('#node\\.mux_concurrency').val(data.mux_concurrency || '');
             $('#node\\.finalmask').val(prettyJson(data.finalmask));
 
@@ -1002,7 +1005,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '2.0.2');
+                    $('#lbl_plugin_version').text(data.plugin_version || '2.0.3');
                 }
             });
         }
@@ -1236,7 +1239,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.0.2</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.0.3</span>
             </div>
         </div>
         <div class="col-md-12">
