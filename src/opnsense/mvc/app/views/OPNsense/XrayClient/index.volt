@@ -593,8 +593,10 @@
         // (keypair + Cloudflare WARP registration) and fills all WireGuard fields.
         function injectWarpButton() {
             if ($('#btn_warp_generate').length > 0) return;
-            var $wgHeader = $('#DialogNode .modal-body .proto_wireguard').closest('table').prevAll('thead').find('b:contains("WireGuard Settings")');
-            if ($wgHeader.length === 0) return;
+            // Find the WireGuard Settings header row directly by its label text.
+            var $b = $('#DialogNode .modal-body b:contains("WireGuard Settings")');
+            if ($b.length === 0) return;
+            var $headerRow = $b.closest('tr');
             var $btn = $(
                 '<button id="btn_warp_generate" type="button" class="btn btn-xs btn-info" style="margin-top:6px;">' +
                 '<i class="fa fa-cloud-download"></i> <b>Generate WARP config</b>' +
@@ -602,13 +604,13 @@
                 '</button> ' +
                 '<span id="warp_gen_status" class="text-muted" style="margin-left:8px; font-size:12px;"></span>'
             );
-            $wgHeader.closest('tr').after(
+            $headerRow.after(
                 '<tr><td colspan="3" style="text-align:left; padding-top:6px;">' +
                 '<small style="color:#888;">Cloudflare WARP is a WireGuard-based service. This generates a local ' +
                 'WireGuard keypair and registers with Cloudflare WARP to fill all fields.</small>' +
                 '</td></tr>'
             );
-            $wgHeader.closest('tr').next().find('td').append($btn);
+            $headerRow.next().find('td').append($btn);
             $btn.on('click', function () {
                 generateWarpConfig();
             });
@@ -957,7 +959,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '1.2.5');
+                    $('#lbl_plugin_version').text(data.plugin_version || '1.2.6');
                 }
             });
         }
@@ -1191,7 +1193,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.2.5</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.2.6</span>
             </div>
         </div>
         <div class="col-md-12">
