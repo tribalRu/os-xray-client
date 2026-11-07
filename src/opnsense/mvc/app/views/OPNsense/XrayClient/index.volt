@@ -1,30 +1,39 @@
 <style>
     /* OPNsense 26 full-help sidebar squeezes the form into a narrow
        column and the dialog becomes wider than the viewport.
-       Keep the dialog centred and the form readable. */
+       Keep the dialog centred and the form readable.
+
+       Geometry intentionally mirrors the native OPNsense dialogs:
+       a 62px top margin keeps the orange title bar below the fixed
+       page header (so it stays visible and draggable), while the
+       content column is capped to the viewport and only the form
+       area scrolls.  Do not use display:flex on .modal-dialog here:
+       OPNsense drags the dialog by moving the .modal wrapper, and a
+       plain block child keeps that behaviour intact. */
     #DialogNode .modal-dialog,
     #DialogRule .modal-dialog {
         width: 95%;
         max-width: 900px;
-        margin: 8px auto;
-        max-height: calc(100vh - 16px);
-        display: flex;
-        flex-direction: column;
+        margin: 62px auto 10px;
     }
     #DialogNode .modal-dialog .modal-content,
     #DialogRule .modal-dialog .modal-content {
         display: flex;
         flex-direction: column;
-        max-height: calc(100vh - 16px);
+        max-height: calc(100vh - 72px);
+        max-height: calc(100dvh - 72px);
     }
     /* Fill all the vertical space between the header and the footer;
-       the body itself scrolls, so the dialog always fits the screen. */
+       the body itself scrolls, so the dialog always fits the screen.
+       Height stays auto, therefore collapsing a section shrinks the
+       dialog as long as the remaining content fits the viewport. */
     #DialogNode .modal-body,
     #DialogRule .modal-body {
         flex: 1 1 auto;
         min-height: 0;
         max-height: none;
         overflow-y: auto;
+        overscroll-behavior: contain;
     }
     #DialogNode .modal-header,
     #DialogRule .modal-header,
@@ -667,7 +676,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '1.1.1');
+                    $('#lbl_plugin_version').text(data.plugin_version || '1.1.2');
                 }
             });
         }
@@ -901,7 +910,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.1.1</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.1.2</span>
             </div>
         </div>
         <div class="col-md-12">
