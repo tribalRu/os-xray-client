@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>1.2.2</version>
+    <version>1.2.3</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -80,6 +80,16 @@
                 <default>10085</default>
                 <Required>Y</Required>
             </stats_port>
+            <auto_telemetry type="BooleanField">
+                <default>0</default>
+                <Required>Y</Required>
+            </auto_telemetry>
+            <telemetry_interval type="IntegerField">
+                <default>60</default>
+                <MinimumValue>30</MinimumValue>
+                <MaximumValue>3600</MaximumValue>
+                <Required>Y</Required>
+            </telemetry_interval>
             <raw_json type="TextField">
                 <default></default>
                 <Required>N</Required>

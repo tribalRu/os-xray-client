@@ -84,6 +84,7 @@
             $('.selectpicker').selectpicker('refresh');
             toggleConfigModeUI();
             toggleGeoDataCustomUI();
+            startTelemetryAutoRefresh();
             if (typeof toggleExpertTab === 'function') {
                 toggleExpertTab($('#xrayclient\\.general\\.expert_mode').prop('checked'));
             }
@@ -753,6 +754,37 @@
             }, 2000);
         });
 
+        // --- Automatic latency / traffic telemetry (background refresh) ---
+        var telemetryTimer = null;
+        function telemetryStatus(active, interval) {
+            var $s = $('#telemetry_status');
+            if (active) {
+                if ($s.length === 0) {
+                    $s = $('<span id="telemetry_status" class="label label-success" style="margin-left:8px;"></span>')
+                        .insertAfter('#btn_check_nodes');
+                }
+                $s.text('Auto: ' + interval + ' s').show();
+            } else {
+                if ($s.length) { $s.remove(); }
+            }
+        }
+        function startTelemetryAutoRefresh() {
+            if (telemetryTimer !== null) {
+                clearInterval(telemetryTimer);
+                telemetryTimer = null;
+            }
+            telemetryStatus(false, 0);
+            var $cb = $('#xrayclient\\.general\\.auto_telemetry');
+            var $int = $('#xrayclient\\.general\\.telemetry_interval');
+            if ($cb.length && $cb.prop('checked')) {
+                var interval = parseInt($int.val(), 10) || 60;
+                if (interval < 30) { interval = 30; }
+                if (interval > 3600) { interval = 3600; }
+                telemetryTimer = setInterval(refreshNodeTelemetry, interval * 1000);
+                telemetryStatus(true, interval);
+            }
+        }
+
         $(document).on('click', '#grid-rules .command-move-up, #grid-rules .command-move-down', function () {
             var $btn = $(this);
             var direction = $btn.hasClass('command-move-up') ? 'up' : 'down';
@@ -767,6 +799,8 @@
             var originalHtml = $btn.html();
             $btn.prop('disabled', true).find('.fa-spinner').show();
             saveFormToEndpoint("/api/xrayclient/settings/set", 'frm_general', function () {
+                // (re)start background telemetry polling with the new interval
+                startTelemetryAutoRefresh();
                 saveFormToEndpoint("/api/xrayclient/settings/set", 'frm_maintenance', function () {
                     ajaxCall("/api/xrayclient/service/reconfigure", {}, function (data) {
                         updateServiceControlUI('xrayclient');
@@ -791,7 +825,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '1.2.2');
+                    $('#lbl_plugin_version').text(data.plugin_version || '1.2.3');
                 }
             });
         }
@@ -922,7 +956,7 @@
         </div>
         <div class="col-md-12" style="margin-bottom: 10px;">
             <button id="btn_open_import_modal" type="button" class="btn btn-success">
-                <i class="fa fa-paste"></i> <b>Import vless://, trojan://, ss:// or JSON</b>
+                <i class="fa fa-paste"></i> <b>Import link</b>
             </button>
             <button id="btn_check_nodes" type="button" class="btn btn-info">
                 <i class="fa fa-refresh"></i> <b>Check Latency (Ping) &amp; Traffic</b>
@@ -938,7 +972,7 @@
                     <th data-column-id="address" data-type="string">Address</th>
                     <th data-column-id="port" data-width="6em" data-type="string">Port</th>
                     <th data-column-id="security" data-width="8em" data-type="string">Security</th>
-                    <th data-column-id="latency" data-width="9em" data-formatter="latency" data-sortable="false">Availability</th>
+                    <th data-column-id="latency" data-width="9em" data-formatter="latency" data-sortable="false">Latency</th>
                     <th data-column-id="traffic" data-width="14em" data-formatter="traffic" data-sortable="false">Traffic (DL / UL)</th>
                     <th data-column-id="commands" data-width="8em" data-formatter="commands" data-sortable="false">Actions</th>
                 </tr>
@@ -1025,7 +1059,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.2.2</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.2.3</span>
             </div>
         </div>
         <div class="col-md-12">
