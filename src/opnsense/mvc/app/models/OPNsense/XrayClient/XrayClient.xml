@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>2.0.9</version>
+    <version>2.0.10</version>
     <items>
         <general>
             <enabled type="BooleanField">

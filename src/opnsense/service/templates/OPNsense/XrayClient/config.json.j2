@@ -194,7 +194,7 @@
 {%       endif %}
                 "flow": {{ ('' if node.flow == 'none' else (node.flow or '')) | tojson }}
 {%       if node.extra %}
-                ,"extra": {{ node.extra | fromjson | tojson(indent=2) }}
+                ,"extra": { {{ header_object(node.extra) }} }
 {%       endif %}
 {%     else %}
                 "alterId": 0,
@@ -350,7 +350,7 @@
 {%       endif %}
       }{% endif %}
 {%       if node.finalmask %}
-      ,"finalmask": {{ node.finalmask | fromjson | tojson }}
+      ,"finalmask": { {{ header_object(node.finalmask) }} }
 {%       endif %}
 {%   elif proto == 'hysteria' %}
       },
