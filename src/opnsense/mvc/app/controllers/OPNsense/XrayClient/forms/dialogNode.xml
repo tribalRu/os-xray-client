@@ -367,14 +367,14 @@
         <id>node.sni</id>
         <label>Server Name (SNI)</label>
         <type>text</type>
-        <style>sec_tls sec_reality</style>
+        <style>sec_tls_reality</style>
         <help>SNI hostname used during TLS/REALITY handshake.</help>
     </field>
     <field>
         <id>node.fingerprint</id>
         <label>uTLS Fingerprint (fp)</label>
         <type>dropdown</type>
-        <style>sec_tls sec_reality</style>
+        <style>sec_tls_reality</style>
     </field>
     <field>
         <id>node.alpn</id>
