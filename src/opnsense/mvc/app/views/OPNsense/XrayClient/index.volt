@@ -309,16 +309,52 @@
                 }
             }
 
+            var streamProtos = ['vless', 'vmess', 'trojan', 'shadowsocks', 'socks', 'http'];
+            var directProtos = ['freedom', 'blackhole', 'dns', 'loopback', 'wireguard'];
+            var passwordProtos = ['vless', 'vmess', 'trojan', 'shadowsocks'];
+            var authProtos = ['socks', 'http', 'masque'];
+
+            var hasStream = streamProtos.indexOf(proto) !== -1;
+            var isHysteria = proto === 'hysteria';
+            var isMasque = proto === 'masque';
+            var hasTransport = hasStream || isHysteria || isMasque;
+            var hasEndpoint = directProtos.indexOf(proto) === -1;
+            var hasPassword = passwordProtos.indexOf(proto) !== -1;
+            var hasAuth = authProtos.indexOf(proto) !== -1;
+            var hasMux = ['vless', 'vmess', 'trojan', 'shadowsocks'].indexOf(proto) !== -1;
+
+            // Hysteria and MASQUE transport is implied by the protocol.
+            var effNet = isHysteria ? 'hysteria' : (isMasque ? 'masque' : net);
+            var effSec = (isHysteria || isMasque) ? 'tls' : sec;
+
+            setBlock('.proto_endpoint', hasEndpoint);
+            setBlock('.proto_password', hasPassword);
+            setBlock('.proto_auth', hasAuth);
+
             setBlock('.proto_vless', proto === 'vless');
+            setBlock('.proto_vmess', proto === 'vmess');
             setBlock('.proto_shadowsocks', proto === 'shadowsocks');
+            setBlock('.proto_wireguard', proto === 'wireguard');
+            setBlock('.proto_freedom', proto === 'freedom');
+            setBlock('.proto_blackhole', proto === 'blackhole');
+            setBlock('.proto_dns', proto === 'dns');
+            setBlock('.proto_loopback', proto === 'loopback');
+            setBlock('.proto_hysteria', isHysteria);
+            setBlock('.proto_masque', isMasque);
+            setBlock('.proto_http_masque', proto === 'http' || isMasque);
 
-            setBlock('.net_ws', net === 'ws');
-            setBlock('.net_grpc', net === 'grpc');
-            setBlock('.net_xhttp', net === 'xhttp');
-            setBlock('.net_httpupgrade', net === 'httpupgrade');
+            setBlock('.proto_transport', hasTransport);
+            setBlock('.transport_selector', hasStream);
+            setBlock('.stream_custom', hasStream);
+            setBlock('.mux_supported', hasMux);
 
-            setBlock('.sec_tls', sec === 'tls');
-            setBlock('.sec_reality', sec === 'reality');
+            setBlock('.net_ws', hasStream && effNet === 'ws');
+            setBlock('.net_grpc', hasStream && effNet === 'grpc');
+            setBlock('.net_xhttp', hasStream && effNet === 'xhttp');
+            setBlock('.net_httpupgrade', hasStream && effNet === 'httpupgrade');
+
+            setBlock('.sec_tls', hasTransport && effSec === 'tls');
+            setBlock('.sec_reality', hasTransport && effSec === 'reality');
         }
 
         $('#node\\.protocol, #node\\.network, #node\\.security').on('change', toggleNodeDialogFields);
@@ -426,6 +462,28 @@
             }
         }
 
+        function fillTokenizeField(selector, value) {
+            if (!value) {
+                return;
+            }
+            var values = Array.isArray(value) ? value : String(value).split(',');
+            var $sel = $(selector);
+            if (!$sel.length) {
+                return;
+            }
+            $sel.empty();
+            values.forEach(function (v) {
+                v = String(v).trim();
+                if (v !== '') {
+                    $('<option/>').val(v).text(v).prop('selected', true).appendTo($sel);
+                }
+            });
+            if (typeof formatTokenizersUI === 'function') {
+                formatTokenizersUI();
+            }
+            $('.selectpicker').selectpicker('refresh');
+        }
+
         function fillNodeDialog(data) {
             $('body').addClass('modal-open');
             $('#node\\.enabled').prop('checked', true);
@@ -434,21 +492,19 @@
             $('#node\\.address').val(data.address);
             $('#node\\.port').val(data.port || '443');
             $('#node\\.user_uuid').val(data.user_uuid);
+            $('#node\\.auth_user').val(data.auth_user);
+            $('#node\\.auth_pass').val(data.auth_pass);
+            $('#node\\.http_headers').val(data.http_headers);
             setSelectValue($('#node\\.flow'), data.flow);
             $('#node\\.encryption').val(data.encryption || 'none');
             setSelectValue($('#node\\.ss_method'), data.ss_method);
+            setSelectValue($('#node\\.vmess_security'), data.vmess_security);
+            $('#node\\.vmess_experiments').val(data.vmess_experiments);
             setSelectValue($('#node\\.network'), data.network);
             setSelectValue($('#node\\.security'), data.security);
             $('#node\\.sni').val(data.sni);
             setSelectValue($('#node\\.fingerprint'), data.fingerprint);
-            // Tokenize input accepts a comma-joined string.
-            if (data.alpn) {
-                $('#node\\.alpn').val(data.alpn);
-                if (typeof formatTokenizersUI === 'function') {
-                    formatTokenizersUI();
-                }
-                $('.selectpicker').selectpicker('refresh');
-            }
+            fillTokenizeField('#node\\.alpn', data.alpn);
             $('#node\\.reality_pubkey').val(data.reality_pubkey);
             $('#node\\.reality_shortid').val(data.reality_shortid);
             $('#node\\.reality_spiderx').val(data.reality_spiderx);
@@ -456,9 +512,54 @@
             $('#node\\.transport_path').val(data.transport_path);
             $('#node\\.grpc_service_name').val(data.grpc_service_name);
             setSelectValue($('#node\\.xhttp_mode'), data.xhttp_mode);
+
+            // WireGuard
+            $('#node\\.wg_secret_key').val(data.wg_secret_key);
+            $('#node\\.wg_public_key').val(data.wg_public_key);
+            $('#node\\.wg_preshared_key').val(data.wg_preshared_key);
+            $('#node\\.wg_endpoint').val(data.wg_endpoint);
+            fillTokenizeField('#node\\.wg_address', data.wg_address);
+            fillTokenizeField('#node\\.wg_allowed_ips', data.wg_allowed_ips);
+            $('#node\\.wg_keepalive').val(data.wg_keepalive || '0');
+            $('#node\\.wg_mtu').val(data.wg_mtu || '1420');
+            $('#node\\.wg_reserved').val(data.wg_reserved || '0,0,0');
+            fillTokenizeField('#node\\.wg_remote_dns', data.wg_remote_dns);
+            $('#node\\.wg_no_kernel_tun').prop('checked', data.wg_no_kernel_tun == '1');
+
+            // Freedom / Blackhole / DNS / Loopback
+            $('#node\\.freedom_redirect').val(data.freedom_redirect);
+            var fpp = data.freedom_proxy_protocol;
+            if (fpp === '1') {
+                fpp = 'v1';
+            } else if (fpp === '2') {
+                fpp = 'v2';
+            } else if (!fpp || fpp === '0') {
+                fpp = 'off';
+            }
+            setSelectValue($('#node\\.freedom_proxy_protocol'), fpp);
+            $('#node\\.freedom_final_rules').val(data.freedom_final_rules);
+            setSelectValue($('#node\\.blackhole_response'), data.blackhole_response || 'none');
+            setSelectValue($('#node\\.dns_rewrite_network'), data.dns_rewrite_network || 'keep');
+            $('#node\\.dns_rewrite_address').val(data.dns_rewrite_address);
+            $('#node\\.dns_rewrite_port').val(data.dns_rewrite_port);
+            $('#node\\.dns_rules_json').val(data.dns_rules_json);
+            $('#node\\.loopback_inbound_tag').val(data.loopback_inbound_tag || 'loopback-in');
+
+            // Hysteria 2
+            $('#node\\.hysteria_auth').val(data.hysteria_auth);
+            $('#node\\.hysteria_udp_idle_timeout').val(data.hysteria_udp_idle_timeout || '60');
+
+            // MASQUE
+            $('#node\\.masque_host').val(data.masque_host);
+            $('#node\\.masque_path').val(data.masque_path);
+            fillTokenizeField('#node\\.masque_remote_dns', data.masque_remote_dns);
+
+            $('#node\\.mux_enabled').prop('checked', data.mux_enabled == '1');
+
             $('#node\\.protocol').trigger('change');
             $('#node\\.network').trigger('change');
             $('#node\\.security').trigger('change');
+            toggleNodeDialogFields();
         }
 
         $('#DialogNode').on('shown.bs.modal', function () {
@@ -676,7 +777,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '1.1.2');
+                    $('#lbl_plugin_version').text(data.plugin_version || '1.2.0');
                 }
             });
         }
@@ -910,7 +1011,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.1.2</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.2.0</span>
             </div>
         </div>
         <div class="col-md-12">

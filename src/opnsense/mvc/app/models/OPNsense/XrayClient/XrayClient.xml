@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>1.1.2</version>
+    <version>1.2.0</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -104,20 +104,41 @@
                         <vmess>VMess</vmess>
                         <trojan>Trojan</trojan>
                         <shadowsocks>Shadowsocks</shadowsocks>
+                        <socks>SOCKS 5</socks>
+                        <http>HTTP</http>
+                        <wireguard>WireGuard</wireguard>
+                        <hysteria>Hysteria 2</hysteria>
+                        <masque>MASQUE (CONNECT-IP)</masque>
+                        <freedom>Freedom (Direct)</freedom>
+                        <blackhole>Blackhole (Block)</blackhole>
+                        <dns>DNS</dns>
+                        <loopback>Loopback</loopback>
                     </OptionValues>
                 </protocol>
                 <address type="TextField">
                     <default></default>
-                    <Required>Y</Required>
+                    <Required>N</Required>
                 </address>
                 <port type="PortField">
                     <default>443</default>
-                    <Required>Y</Required>
+                    <Required>N</Required>
                 </port>
                 <user_uuid type="TextField">
                     <default></default>
-                    <Required>Y</Required>
+                    <Required>N</Required>
                 </user_uuid>
+                <auth_user type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </auth_user>
+                <auth_pass type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </auth_pass>
+                <http_headers type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </http_headers>
                 <flow type="OptionField">
                     <default>xtls-rprx-vision</default>
                     <Required>N</Required>
@@ -142,6 +163,19 @@
                         <x2022-blake3-aes-256-gcm>2022-blake3-aes-256-gcm</x2022-blake3-aes-256-gcm>
                     </OptionValues>
                 </ss_method>
+                <vmess_security type="OptionField">
+                    <default>auto</default>
+                    <Required>N</Required>
+                    <OptionValues>
+                        <auto>auto</auto>
+                        <aes-128-gcm>aes-128-gcm</aes-128-gcm>
+                        <chacha20-poly1305>chacha20-poly1305</chacha20-poly1305>
+                    </OptionValues>
+                </vmess_security>
+                <vmess_experiments type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </vmess_experiments>
                 <network type="OptionField">
                     <default>tcp</default>
                     <Required>Y</Required>
@@ -234,6 +268,126 @@
                     <default></default>
                     <Required>N</Required>
                 </custom_stream_json>
+                <wg_secret_key type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </wg_secret_key>
+                <wg_public_key type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </wg_public_key>
+                <wg_preshared_key type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </wg_preshared_key>
+                <wg_endpoint type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </wg_endpoint>
+                <wg_address type="CSVListField">
+                    <default>10.0.0.1</default>
+                    <Required>N</Required>
+                </wg_address>
+                <wg_allowed_ips type="CSVListField">
+                    <default>0.0.0.0/0,::/0</default>
+                    <Required>N</Required>
+                </wg_allowed_ips>
+                <wg_keepalive type="IntegerField">
+                    <default>0</default>
+                    <MinimumValue>0</MinimumValue>
+                    <MaximumValue>65535</MaximumValue>
+                    <Required>N</Required>
+                </wg_keepalive>
+                <wg_mtu type="IntegerField">
+                    <default>1420</default>
+                    <MinimumValue>1280</MinimumValue>
+                    <MaximumValue>9000</MaximumValue>
+                    <Required>N</Required>
+                </wg_mtu>
+                <wg_reserved type="TextField">
+                    <default>0,0,0</default>
+                    <Required>N</Required>
+                </wg_reserved>
+                <wg_remote_dns type="CSVListField">
+                    <default>1.1.1.1,1.0.0.1</default>
+                    <Required>N</Required>
+                </wg_remote_dns>
+                <wg_no_kernel_tun type="BooleanField">
+                    <default>0</default>
+                    <Required>N</Required>
+                </wg_no_kernel_tun>
+                <freedom_redirect type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </freedom_redirect>
+                <freedom_proxy_protocol type="OptionField">
+                    <default>off</default>
+                    <Required>N</Required>
+                    <OptionValues>
+                        <off>Disabled</off>
+                        <v1>PROXY protocol v1</v1>
+                        <v2>PROXY protocol v2</v2>
+                    </OptionValues>
+                </freedom_proxy_protocol>
+                <freedom_final_rules type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </freedom_final_rules>
+                <blackhole_response type="OptionField">
+                    <default>none</default>
+                    <Required>N</Required>
+                    <OptionValues>
+                        <none>Close immediately (none)</none>
+                        <http>Return HTTP 403</http>
+                    </OptionValues>
+                </blackhole_response>
+                <dns_rewrite_network type="OptionField">
+                    <default>keep</default>
+                    <Required>N</Required>
+                    <OptionValues>
+                        <keep>Keep original</keep>
+                        <tcp>Force TCP</tcp>
+                        <udp>Force UDP</udp>
+                    </OptionValues>
+                </dns_rewrite_network>
+                <dns_rewrite_address type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </dns_rewrite_address>
+                <dns_rewrite_port type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </dns_rewrite_port>
+                <dns_rules_json type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </dns_rules_json>
+                <loopback_inbound_tag type="TextField">
+                    <default>loopback-in</default>
+                    <Required>N</Required>
+                </loopback_inbound_tag>
+                <hysteria_auth type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </hysteria_auth>
+                <hysteria_udp_idle_timeout type="IntegerField">
+                    <default>60</default>
+                    <MinimumValue>1</MinimumValue>
+                    <MaximumValue>3600</MaximumValue>
+                    <Required>N</Required>
+                </hysteria_udp_idle_timeout>
+                <masque_host type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </masque_host>
+                <masque_path type="TextField">
+                    <default>/.well-known/masque/ip/{target}/{ipproto}/</default>
+                    <Required>N</Required>
+                </masque_path>
+                <masque_remote_dns type="CSVListField">
+                    <default>1.1.1.1,1.0.0.1</default>
+                    <Required>N</Required>
+                </masque_remote_dns>
             </node>
         </nodes>
 

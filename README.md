@@ -34,6 +34,28 @@ Full-tunnel auto-routing (`autoSystemRoutingTable`, which replaces the system ro
 
 The prestart/poststop hooks honour `enable_tun` and clean up stale interfaces automatically.
 
+## Outbound protocols
+
+The node dialog supports every outbound protocol implemented by Xray-core. Choosing a protocol shows only its relevant fields:
+
+| Protocol | Authentication / key fields | Transport |
+| --- | --- | --- |
+| VLESS | UUID, encryption, XTLS flow | RAW, WS, gRPC, XHTTP, HTTPUpgrade + TLS/REALITY |
+| VMess | UUID, encryption (`auto`/AES/ChaCha20), experiments | same |
+| Trojan | password | same |
+| Shadowsocks | cipher + password (2022 keys must be base64) | same |
+| SOCKS 5 | username / password (optional) | same |
+| HTTP | username / password, extra headers | same |
+| WireGuard | private/public keys, PSK, endpoint, allowed IPs, MTU, reserved bytes, remote DNS | native UDP tunnel |
+| Hysteria 2 | auth password, UDP idle timeout | QUIC + mandatory TLS |
+| MASQUE | username / password, authority, path, headers, remote DNS | HTTP/2 or HTTP/3 + mandatory TLS |
+| Freedom | redirect, PROXY protocol, final rules | none |
+| Blackhole | response (`none` or HTTP 403) | none |
+| DNS | transport/address/port rewrite, rule list | none |
+| Loopback | inbound tag used when re-entering routing | none |
+
+Protocol-specific fields, the Transport section, Mux.Cool and the custom `streamSettings` override are shown/hidden dynamically. All generated configs are accepted by `xray run -test` (checked against Xray-core 26.10.31).
+
 ## Notes
 
 - **Raw JSON mode**: paste a complete Xray config into *Raw Xray JSON*; it's validated (`json_decode`) and tested (`xray run -test`) before restart. In UI mode the template escapes all string values (`tojson`), so quotes in names/addresses won't break `config.json`.
