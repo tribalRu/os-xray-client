@@ -18,7 +18,7 @@ def get_general_value(path):
 
 
 def iter_nodes():
-    """Yield dicts with uuid/address/port/enabled for all nodes."""
+    """Yield dicts with uuid/address/port/protocol/enabled for all nodes."""
     try:
         tree = ET.parse(CONFIG_PATH)
         root = tree.getroot()
@@ -30,12 +30,14 @@ def iter_nodes():
         enabled = (node_el.findtext('enabled') or '0').strip()
         address = (node_el.findtext('address') or '').strip()
         port = (node_el.findtext('port') or '443').strip()
+        protocol = (node_el.findtext('protocol') or '').strip()
         if uuid:
             yield {
                 'uuid': uuid,
                 'enabled': enabled,
                 'address': address,
                 'port': port,
+                'protocol': protocol,
             }
 
 

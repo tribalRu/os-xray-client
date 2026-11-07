@@ -520,6 +520,7 @@
                     "latency": function (column, row) {
                         var info = nodeLatencyCache[row.uuid];
                         if (!info) return '<span class="label label-default">Unchecked</span>';
+                        if (info.status === 'n/a') return '<span class="label label-default" title="Latency is measured with a TCP connect, which does not apply to this protocol">n/a</span>';
                         if (info.status === 'online') {
                             var color = info.ms < 150 ? 'label-success' : (info.ms < 350 ? 'label-warning' : 'label-danger');
                             return '<span class="label ' + color + '">' + info.ms + ' ms</span>';

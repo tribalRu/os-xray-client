@@ -11,11 +11,20 @@ from _lib import iter_nodes
 
 TIMEOUT = 2.5
 
+# A TCP connect probe says nothing about these: the first group talks UDP /
+# QUIC only, the second has no remote endpoint at all. Report them as 'n/a'
+# instead of a false 'offline'.
+UDP_ONLY_PROTOCOLS = ('wireguard', 'hysteria', 'masque')
+NO_REMOTE_PROTOCOLS = ('freedom', 'blackhole', 'dns', 'loopback')
+
 
 def check_node(node_data):
     uuid = node_data['uuid']
     host = node_data['address']
     port = node_data['port']
+
+    if node_data.get('protocol') in UDP_ONLY_PROTOCOLS + NO_REMOTE_PROTOCOLS:
+        return uuid, {'status': 'n/a', 'ms': 0}
 
     if not host or not port:
         return uuid, {'status': 'offline', 'ms': 0}

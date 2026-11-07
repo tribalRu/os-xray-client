@@ -123,6 +123,9 @@ export default class XrayClient extends BaseWidget {
         if (!info) {
             return `<span class="label label-default">${this._esc(this.translations.unchecked)}</span>`;
         }
+        if (info.status === 'n/a') {
+            return `<span class="label label-default">n/a</span>`;
+        }
         if (info.status !== 'online') {
             return `<span class="label label-danger">${this._esc(this.translations.offline)}</span>`;
         }
