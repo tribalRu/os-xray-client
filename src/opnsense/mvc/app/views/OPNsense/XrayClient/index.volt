@@ -859,6 +859,7 @@
                     }
                 }
 
+                var extraJson = (function(){ try { return JSON.stringify(JSON.parse(params.get('extra') || ''), null, 2); } catch(e) { return params.get('extra') || ''; } })();
                 pendingImport = {
                     name: remark,
                     protocol: proto,
@@ -867,7 +868,12 @@
                     user_uuid: decodeURIComponent(url.username),
                     flow: params.get('flow') || 'none',
                     encryption: params.get('encryption') || 'none',
-                    extra: (function(){ try { return JSON.stringify(JSON.parse(params.get('extra') || ''), null, 2); } catch(e) { return params.get('extra') || ''; } })(),
+                    // 'extra' in a vless:// link is the XHTTP transport extra for
+                    // type=splithttp/xhttp links (xPaddingBytes, scMaxEachPostBytes,
+                    // headers, ...). Route it to xhttp_extra for those; everything
+                    // else goes to the VLESS user extra field.
+                    xhttp_extra: netType === 'xhttp' ? extraJson : '',
+                    extra: netType === 'xhttp' ? '' : extraJson,
                     ss_method: 'x2022-blake3-aes-128-gcm',
                     network: netType,
                     security: (params.get('security') || 'none').toLowerCase(),
@@ -1034,7 +1040,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '2.1.1');
+                    $('#lbl_plugin_version').text(data.plugin_version || '2.1.2');
                 }
             });
         }
@@ -1268,7 +1274,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.1.1</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.1.2</span>
             </div>
         </div>
         <div class="col-md-12">

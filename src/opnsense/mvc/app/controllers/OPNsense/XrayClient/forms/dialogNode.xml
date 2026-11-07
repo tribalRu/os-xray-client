@@ -84,7 +84,7 @@
         <type>textbox</type>
         <style>proto_vless</style>
         <height>10</height>
-        <help>VLESS extra settings as JSON (e.g. xPaddingBytes, headers). Imported from vless:// link. Leave empty to use the Encryption field above.</help>
+        <help>VLESS user extra (encryption material, e.g. for ML-KEM VLESS encryption), as JSON. Transport XHTTP extras go to the "XHTTP Extra" field below. Imported from vless:// links only when type is not xhttp/splithttp.</help>
     </field>
     <field>
         <type>header</type>
@@ -533,7 +533,7 @@
         <label>XHTTP Extra (JSON object)</label>
         <type>text</type>
         <style>net_xhttp</style>
-        <help>Optional XHTTP extra object (headers, xPaddingBytes, scMaxEachPostBytes, xmux, etc.), e.g. {"scMaxEachPostBytes":1000000}.</help>
+        <help>XHTTP transport extra (xhttpSettings.extra): headers, xPaddingBytes, scMaxEachPostBytes, scMinPostsIntervalMs, xmux, etc. On import, the 'extra' param of a vless:// link with type=xhttp/splithttp is placed here.</help>
     </field>
     <field>
         <id>node.ws_heartbeat_period</id>
