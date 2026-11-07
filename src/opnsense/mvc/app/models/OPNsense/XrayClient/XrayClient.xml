@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>2.2.0</version>
+    <version>2.2.1</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -250,12 +250,16 @@
                         <randomized>randomized</randomized>
                     </OptionValues>
                 </fingerprint>
-                <alpn type="CSVListField">
+                <alpn type="OptionField">
                     <default></default>
                     <Required>N</Required>
-                    <Mask>/^[A-Za-z0-9._\/-]{1,32}$/</Mask>
-                    <MaskPerItem>Y</MaskPerItem>
-                    <ValidationMessage>Each ALPN value may contain only letters, digits, dot, slash, underscore and hyphen (max 32).</ValidationMessage>
+                    <Multiple>Y</Multiple>
+                    <OptionValues>
+                        <h2>h2</h2>
+                        <http11 value="http/1.1">http/1.1</http11>
+                        <h3>h3</h3>
+                        <http10 value="http/1.0">http/1.0</http10>
+                    </OptionValues>
                 </alpn>
                 <tls_ech_config_list type="TextField">
                     <default></default>

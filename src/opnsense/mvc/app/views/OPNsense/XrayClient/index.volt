@@ -541,6 +541,30 @@
             $('.selectpicker').selectpicker('refresh');
         }
 
+        // Fixed multi-select (selectpicker with predefined options): select
+        // matching options; re-add unknown stored values so legacy configs
+        // round-trip instead of being silently dropped.
+        function setMultiSelectValue(selector, value) {
+            var $sel = $(selector);
+            if (!$sel.length) {
+                return;
+            }
+            if (!value) {
+                $sel.val([]).trigger('change');
+                $sel.selectpicker('refresh');
+                return;
+            }
+            var values = (Array.isArray(value) ? value : String(value).split(',')).map(function (v) { return String(v).trim(); }).filter(Boolean);
+            values.forEach(function (v) {
+                var opts = $sel.find('option[value="' + v + '"]');
+                if (opts.length === 0) {
+                    $('<option/>').val(v).text(v).appendTo($sel);
+                }
+            });
+            $sel.val(values).trigger('change');
+            $sel.selectpicker('refresh');
+        }
+
         function fillNodeDialog(data) {
             $('body').addClass('modal-open');
             $('#node\\.enabled').prop('checked', true);
@@ -573,7 +597,7 @@
             setSelectValue($('#node\\.security'), data.security);
             $('#node\\.sni').val(data.sni);
             setSelectValue($('#node\\.fingerprint'), data.fingerprint);
-            fillTokenizeField('#node\\.alpn', data.alpn);
+            setMultiSelectValue('#node\\.alpn', data.alpn);
             $('#node\\.tls_verify_peer_cert_by_name').val(data.tls_verify_peer_cert_by_name);
             $('#node\\.tls_pinned_peer_cert_sha256').val(data.tls_pinned_peer_cert_sha256);
             $('#node\\.tls_ech_config_list').val(data.tls_ech_config_list);
@@ -1116,7 +1140,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '2.2.0');
+                    $('#lbl_plugin_version').text(data.plugin_version || '2.2.1');
                 }
             });
         }
@@ -1350,7 +1374,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.2.0</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.2.1</span>
             </div>
         </div>
         <div class="col-md-12">

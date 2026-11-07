@@ -380,9 +380,8 @@
         <id>node.alpn</id>
         <label>ALPN</label>
         <type>select_multiple</type>
-        <style>tokenize sec_tls</style>
-        <allownew>true</allownew>
-        <help>Optional ALPN values (e.g., h2, http/1.1). For MASQUE, h2 selects HTTP/2; otherwise HTTP/3 is used.</help>
+        <style>selectpicker sec_tls</style>
+        <help>Optional ALPN values (h2, http/1.1, h3, http/1.0). For MASQUE, h2 selects HTTP/2; otherwise HTTP/3 is used.</help>
     </field>
     <field>
         <id>node.tls_verify_peer_cert_by_name</id>
