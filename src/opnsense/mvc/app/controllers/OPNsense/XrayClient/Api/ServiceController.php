@@ -102,7 +102,9 @@ class ServiceController extends ApiMutableServiceControllerBase
         if ($content === false) {
             return;
         }
-        $decoded = json_decode($content, true);
+        // stdClass roundtrip preserves the {} vs [] distinction (empty
+        // objects like "stats": {} stay objects; empty lists stay arrays).
+        $decoded = json_decode($content);
         if (json_last_error() !== JSON_ERROR_NONE) {
             return;
         }
@@ -140,7 +142,9 @@ class ServiceController extends ApiMutableServiceControllerBase
         // commas at the start of continuation lines (unavoidable with
         // conditional sections). For display purposes, re-encode canonically
         // (trailing commas, 2-space indent) without touching the file.
-        $decoded = json_decode($content, true);
+        // Decode into stdClass, NOT assoc array: empty objects like
+        // "stats": {} must not collapse into [].
+        $decoded = json_decode($content);
         if (json_last_error() === JSON_ERROR_NONE) {
             $content = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         }
@@ -407,7 +411,7 @@ class ServiceController extends ApiMutableServiceControllerBase
         return is_array($data) ? $data : [
             'core_version' => 'Not installed',
             'geodata_date' => 'N/A',
-            'plugin_version' => '2.4.1'
+            'plugin_version' => '2.4.2'
         ];
     }
 
