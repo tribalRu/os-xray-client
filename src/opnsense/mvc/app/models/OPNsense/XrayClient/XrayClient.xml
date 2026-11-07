@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>2.4.5</version>
+    <version>2.4.6</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -718,9 +718,16 @@
                         <udp>UDP Only</udp>
                     </OptionValues>
                 </network_proto>
-                <protocol type="CSVListField">
+                <protocol type="OptionField">
                     <default></default>
                     <Required>N</Required>
+                    <Multiple>Y</Multiple>
+                    <OptionValues>
+                        <http>http</http>
+                        <tls>tls</tls>
+                        <quic>quic</quic>
+                        <bittorrent>bittorrent</bittorrent>
+                    </OptionValues>
                 </protocol>
                 <outbound_tag type=".\OutboundTagField">
                     <default>direct</default>

@@ -47,9 +47,8 @@
         <id>rule.protocol</id>
         <label>Sniffed Protocol</label>
         <type>select_multiple</type>
-        <style>tokenize</style>
-        <allownew>true</allownew>
-        <help>Optional sniffed protocol: http, tls, quic, bittorrent.</help>
+        <style>selectpicker</style>
+        <help>Select sniffed protocols to match (multi-select): http, tls, quic, bittorrent. Leave empty for any protocol.</help>
     </field>
     <field>
         <id>rule.outbound_tag</id>
