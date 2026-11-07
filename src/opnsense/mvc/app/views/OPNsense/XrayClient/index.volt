@@ -109,6 +109,30 @@
         width: 100% !important;
         max-width: none;
     }
+    /* Straighten the dialog header: base_dialog pins .form-search with
+       margin-top:-6px which pokes it above the orange strip, and the title
+       sits lower than the 34px search controls. Flex row centres everything. */
+    #DialogNode .modal-header,
+    #DialogRule .modal-header {
+        display: flex !important;
+        align-items: center !important;
+        gap: 10px;
+        min-height: 48px;
+        padding: 6px 10px !important;
+    }
+    #DialogNode .modal-header .model-header-icon,
+    #DialogRule .modal-header .model-header-icon { order: 0; }
+    #DialogNode .modal-header h4,
+    #DialogRule .modal-header h4 { order: 1; flex: 1 1 auto; margin: 0 !important; }
+    #DialogNode .modal-header .form-search,
+    #DialogRule .modal-header .form-search {
+        order: 2;
+        margin: 0 !important;
+        float: none !important;
+        width: 230px !important;
+    }
+    #DialogNode .modal-header .close,
+    #DialogRule .modal-header .close { order: 3; margin: 0 !important; float: none !important; }
     #DialogNode.help-collapsed colgroup > col:nth-child(3),
     #DialogRule.help-collapsed colgroup > col:nth-child(3) {
         display: none;
@@ -1185,7 +1209,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '2.4.4');
+                    $('#lbl_plugin_version').text(data.plugin_version || '2.4.5');
                 }
             });
         }
@@ -1420,7 +1444,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.4.4</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.4.5</span>
             </div>
         </div>
         <div class="col-md-12">
