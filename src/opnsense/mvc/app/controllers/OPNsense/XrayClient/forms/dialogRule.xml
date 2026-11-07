@@ -55,6 +55,6 @@
         <id>rule.outbound_tag</id>
         <label>Target Outbound Action</label>
         <type>text</type>
-        <help>Route matching traffic to: proxy, direct, block, or node_<UUID> of a specific node. Example: node_550e8400-e29b-41d4-a716-446655440000</help>
+        <help>Route matching traffic to: proxy, direct, block, or node_&lt;UUID&gt; of a specific node. Example: node_550e8400-e29b-41d4-a716-446655440000</help>
     </field>
 </form>
