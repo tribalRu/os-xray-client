@@ -13,7 +13,7 @@
     #DialogNode .modal-dialog,
     #DialogRule .modal-dialog {
         width: 95%;
-        max-width: 900px;
+        max-width: 675px;
         margin: 62px auto 10px;
     }
     #DialogNode .modal-dialog .modal-content,
@@ -1068,7 +1068,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '2.1.5');
+                    $('#lbl_plugin_version').text(data.plugin_version || '2.1.6');
                 }
             });
         }
@@ -1302,7 +1302,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.1.5</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.1.6</span>
             </div>
         </div>
         <div class="col-md-12">
