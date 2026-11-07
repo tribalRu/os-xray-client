@@ -52,7 +52,7 @@
     </field>
 
     <field>
-        <type>header</type>
+        <type>subheader</type>
         <label>VLESS Settings</label>
         <style>proto_vless</style>
     </field>
@@ -86,7 +86,7 @@
         <help>VLESS extra settings as JSON (e.g. xPaddingBytes, headers). Imported from vless:// link. Leave empty to use the Encryption field above.</help>
     </field>
     <field>
-        <type>header</type>
+        <type>subheader</type>
         <label>Shadowsocks Settings</label>
         <style>proto_shadowsocks</style>
     </field>
@@ -97,7 +97,7 @@
         <style>proto_shadowsocks</style>
     </field>
     <field>
-        <type>header</type>
+        <type>subheader</type>
         <label>VMess Settings</label>
         <style>proto_vmess</style>
     </field>
@@ -116,7 +116,7 @@
     </field>
 
     <field>
-        <type>header</type>
+        <type>subheader</type>
         <label>WireGuard Settings</label>
         <style>proto_wireguard</style>
     </field>
@@ -200,7 +200,7 @@
     </field>
 
     <field>
-        <type>header</type>
+        <type>subheader</type>
         <label>Freedom / Direct Settings</label>
         <style>proto_freedom</style>
     </field>
@@ -227,7 +227,7 @@
     </field>
 
     <field>
-        <type>header</type>
+        <type>subheader</type>
         <label>Blackhole Settings</label>
         <style>proto_blackhole</style>
     </field>
@@ -240,7 +240,7 @@
     </field>
 
     <field>
-        <type>header</type>
+        <type>subheader</type>
         <label>DNS Outbound Settings</label>
         <style>proto_dns</style>
     </field>
@@ -273,7 +273,7 @@
     </field>
 
     <field>
-        <type>header</type>
+        <type>subheader</type>
         <label>Loopback Settings</label>
         <style>proto_loopback</style>
     </field>
@@ -286,7 +286,7 @@
     </field>
 
     <field>
-        <type>header</type>
+        <type>subheader</type>
         <label>Hysteria 2 Settings</label>
         <style>proto_hysteria</style>
     </field>
@@ -306,7 +306,7 @@
     </field>
 
     <field>
-        <type>header</type>
+        <type>subheader</type>
         <label>MASQUE Settings</label>
         <style>proto_masque</style>
     </field>
@@ -334,7 +334,7 @@
     </field>
 
     <field>
-        <type>header</type>
+        <type>subheader</type>
         <label>Transport &amp; Stream Security</label>
         <style>proto_transport</style>
     </field>
@@ -398,7 +398,7 @@
         <style>sec_reality</style>
     </field>
     <field>
-        <type>header</type>
+        <type>subheader</type>
         <label>Transport Settings</label>
         <style>net_ws net_xhttp net_httpupgrade net_grpc</style>
     </field>
@@ -433,7 +433,7 @@
         <style>net_xhttp</style>
     </field>
     <field>
-        <type>header</type>
+        <type>subheader</type>
         <label>Domain Resolution &amp; Local Binding</label>
     </field>
     <field>
@@ -463,7 +463,7 @@
         <help>Optional JSON object with extra headers, e.g. {"User-Agent":"Mozilla/5.0"}. Used by HTTP outbound and MASQUE.</help>
     </field>
     <field>
-        <type>header</type>
+        <type>subheader</type>
         <label>Mux &amp; Custom Overrides</label>
         <style>stream_custom</style>
     </field>
