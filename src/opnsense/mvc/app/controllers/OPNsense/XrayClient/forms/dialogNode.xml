@@ -412,19 +412,19 @@
         <type>header</type>
         <static>true</static>
         <label>Transport Settings</label>
-        <style>net_ws net_xhttp net_httpupgrade net_grpc</style>
+        <style>net_http_based net_grpc</style>
     </field>
     <field>
         <id>node.transport_host</id>
         <label>Host Header / Authority</label>
         <type>text</type>
-        <style>net_ws net_xhttp net_httpupgrade</style>
+        <style>net_http_based</style>
     </field>
     <field>
         <id>node.transport_path</id>
         <label>Path</label>
         <type>text</type>
-        <style>net_ws net_xhttp net_httpupgrade</style>
+        <style>net_http_based</style>
     </field>
     <field>
         <id>node.grpc_service_name</id>

@@ -362,9 +362,9 @@
                 '.stream_sockopt': hasStream,
                 '.stream_custom': hasStream,
                 '.mux_supported': hasMux,
-                '.net_ws': hasStream && effNet === 'ws',
-                '.net_grpc': hasStream && effNet === 'grpc',
+                '.net_http_based': hasStream && ['ws', 'xhttp', 'httpupgrade'].indexOf(effNet) !== -1,
                 '.net_xhttp': hasStream && effNet === 'xhttp',
+                '.net_grpc': hasStream && effNet === 'grpc',
                 '.net_httpupgrade': hasStream && effNet === 'httpupgrade',
                 '.sec_tls': hasTransport && effSec === 'tls',
                 '.sec_reality': hasTransport && effSec === 'reality'
@@ -1005,7 +1005,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '2.0.6');
+                    $('#lbl_plugin_version').text(data.plugin_version || '2.0.7');
                 }
             });
         }
@@ -1239,7 +1239,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.0.6</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.0.7</span>
             </div>
         </div>
         <div class="col-md-12">
