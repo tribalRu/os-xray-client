@@ -816,7 +816,7 @@
                     port: url.port || '443',
                     user_uuid: decodeURIComponent(url.username),
                     flow: params.get('flow') || 'none',
-                    encryption: params.get('extra') || params.get('encryption') || 'none',
+                    encryption: params.get('encryption') || 'none',
                     ss_method: 'x2022-blake3-aes-128-gcm',
                     network: netType,
                     security: (params.get('security') || 'none').toLowerCase(),
@@ -983,7 +983,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '1.3.2');
+                    $('#lbl_plugin_version').text(data.plugin_version || '1.3.3');
                 }
             });
         }
@@ -1217,7 +1217,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.3.2</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.3.3</span>
             </div>
         </div>
         <div class="col-md-12">
