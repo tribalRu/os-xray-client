@@ -511,8 +511,18 @@
             $('#node\\.auth_pass').val(data.auth_pass);
             $('#node\\.http_headers').val(data.http_headers);
             setSelectValue($('#node\\.flow'), data.flow);
+            // Pretty-print JSON fields for readable editing in textarea
+            function prettyJson(value) {
+                if (!value) return '';
+                try {
+                    return JSON.stringify(JSON.parse(value), null, 2);
+                } catch (e) {
+                    return value;
+                }
+            }
+
             $('#node\\.encryption').val(data.encryption || 'none');
-            $('#node\\.extra').val(data.extra || '');
+            $('#node\\.extra').val(prettyJson(data.extra));
             $('#node\\.email').val(data.email || '');
             setSelectValue($('#node\\.ss_method'), data.ss_method);
             setSelectValue($('#node\\.vmess_security'), data.vmess_security);
@@ -531,7 +541,7 @@
             setSelectValue($('#node\\.xhttp_mode'), data.xhttp_mode);
             $('#node\\.sockopt_domainStrategy').val(data.sockopt_domainStrategy || 'AsIs');
             $('#node\\.mux_concurrency').val(data.mux_concurrency || '');
-            $('#node\\.finalmask').val(data.finalmask || '');
+            $('#node\\.finalmask').val(prettyJson(data.finalmask));
 
             // WireGuard
             $('#node\\.wg_secret_key').val(data.wg_secret_key);
@@ -822,7 +832,7 @@
                     user_uuid: decodeURIComponent(url.username),
                     flow: params.get('flow') || 'none',
                     encryption: params.get('encryption') || 'none',
-                    extra: params.get('extra') || '',
+                    extra: (function(){ try { return JSON.stringify(JSON.parse(params.get('extra') || ''), null, 2); } catch(e) { return params.get('extra') || ''; } })(),
                     ss_method: 'x2022-blake3-aes-128-gcm',
                     network: netType,
                     security: (params.get('security') || 'none').toLowerCase(),
@@ -989,7 +999,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '1.3.8');
+                    $('#lbl_plugin_version').text(data.plugin_version || '1.3.9');
                 }
             });
         }
@@ -1223,7 +1233,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.3.8</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.3.9</span>
             </div>
         </div>
         <div class="col-md-12">

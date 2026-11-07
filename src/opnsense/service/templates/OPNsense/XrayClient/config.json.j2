@@ -190,7 +190,7 @@
 {%       endif %}
                 "flow": {{ ('' if node.flow == 'none' else (node.flow or '')) | tojson }}
 {%       if node.extra %}
-                ,"extra": {{ node.extra | fromjson | tojson }}
+                ,"extra": {{ node.extra | fromjson | tojson(indent=2) }}
 {%       endif %}
 {%     else %}
                 "alterId": 0,
