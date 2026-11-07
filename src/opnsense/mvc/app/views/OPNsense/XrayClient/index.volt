@@ -51,6 +51,17 @@
     #DialogRule .modal-body .form-group {
         margin-bottom: 10px;
     }
+    /* The import dialog shows very long vless:// links; give it room. */
+    #DialogImportLink .modal-dialog {
+        width: 95%;
+        max-width: 1100px;
+    }
+    #import_link_input {
+        width: 100% !important;
+        max-width: none !important;
+        font-family: monospace;
+        font-size: 12px;
+    }
     /* "Show advanced fields" OFF: hide rows containing .expert_only inputs. */
     #DialogNode.optional-hidden tr:has(.expert_only),
     #DialogNode.optional-hidden div.form-group:has(.expert_only) {
@@ -1174,7 +1185,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '2.4.2');
+                    $('#lbl_plugin_version').text(data.plugin_version || '2.4.3');
                 }
             });
         }
@@ -1409,7 +1420,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.4.2</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.4.3</span>
             </div>
         </div>
         <div class="col-md-12">
