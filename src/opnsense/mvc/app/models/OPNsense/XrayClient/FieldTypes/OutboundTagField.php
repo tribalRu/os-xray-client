@@ -38,56 +38,64 @@ use OPNsense\Core\Config;
  */
 class OutboundTagField extends OptionField
 {
+    /**
+     * Options are built from the live configuration in
+     * actionPostLoadingEvent(); the XML carries no static list.
+     */
     public function setOptionValues($data)
     {
-        // $data (from the XML model) is ignored: the list depends on the
-        // live configuration instead.
-        $opts = [
-            'Standard (core, built-in)' => [
-                'direct' => gettext('direct — прямая доступность через ядро (freedom)'),
-                'block' => gettext('block — блокировать (blackhole)'),
+        $this->internalOptionList = $this->buildOptionList();
+    }
+
+    protected function actionPostLoadingEvent()
+    {
+        $this->internalOptionList = $this->buildOptionList();
+        parent::actionPostLoadingEvent();
+    }
+
+    private function buildOptionList(): array
+    {
+        // "direct" and "block" are the outbounds the Xray core provides.
+        $list = [
+            'direct' => [
+                'value' => gettext('direct — direct outbound, freedom (core)'),
+                'optgroup' => gettext('Standard (core, built-in)'),
+            ],
+            'block' => [
+                'value' => gettext('block — block all traffic, blackhole (core)'),
+                'optgroup' => gettext('Standard (core, built-in)'),
             ],
         ];
 
         try {
             $doc = Config::getInstance()->object();
-            $nodes = $doc->xpath('//OPNsense/XrayClient/nodes/node[enabled="1"]');
+            $nodes = $doc ? $doc->xpath('//OPNsense/XrayClient/nodes/node[enabled="1"]') : [];
         } catch (\Throwable $e) {
             $nodes = [];
         }
 
-        $custom = [];
         $index = 0;
         foreach ($nodes as $node) {
             $uuid = (string)$node['uuid'];
             $name = trim((string)$node->name);
-            $protocol = trim((string)$node->protocol);
+            $proto = trim((string)$node->protocol);
             $tag = ($index === 0) ? 'proxy' : 'node_' . $uuid;
-            $label = ($name !== '' ? $name : $uuid) . ' (' . ($protocol !== '' ? $protocol : 'node') . ')';
-            $custom[$tag] = $label;
+            $label = ($name !== '' ? $name : $uuid) . ' (' . ($proto !== '' ? $proto : 'node') . ')';
+            $list[$tag] = [
+                'value' => gettext($label),
+                'optgroup' => gettext('Custom (from outbound nodes)'),
+            ];
             $index++;
         }
-        if (!empty($custom)) {
-            $opts['Custom (from outbound nodes)'] = $custom;
-        }
-
-        $this->internalOptionList = [];
-        foreach ($opts as $group => $items) {
-            foreach ($items as $key => $value) {
-                $this->internalOptionList[$key] = [
-                    'value' => gettext($value),
-                    'optgroup' => gettext($group),
-                ];
-            }
-        }
+        return $list;
     }
 
     /**
      * Validation message for unknown tags (e.g. rule saved before the node
-     * that owned the tag was deleted). Kept short so it fits the help block.
+     * that owned the tag was deleted).
      */
     protected function defaultValidationMessage()
     {
-        return gettext('Выберите существующий outbound: direct, block или тег узла из списка.');
+        return gettext('Select an existing outbound: direct, block or tag of an enabled node.');
     }
 }

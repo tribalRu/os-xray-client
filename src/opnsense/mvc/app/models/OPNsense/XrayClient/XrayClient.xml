@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>2.3.0</version>
+    <version>2.3.1</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -417,6 +417,7 @@
                     <default>AsIs</default>
                     <Required>N</Required>
                     <OptionValues>
+                        <empty value="">Use core default (AsIs)</empty>
                         <AsIs>AsIs</AsIs>
                         <UseIP>UseIP</UseIP>
                         <UseIPv4>UseIPv4</UseIPv4>
@@ -481,6 +482,7 @@
                     <default>AsIs</default>
                     <Required>N</Required>
                     <OptionValues>
+                        <empty value="">Use core default (AsIs)</empty>
                         <AsIs>AsIs</AsIs>
                         <UseIP>UseIP</UseIP>
                         <UseIPv4>UseIPv4</UseIPv4>
@@ -720,7 +722,7 @@
                     <default></default>
                     <Required>N</Required>
                 </protocol>
-                <outbound_tag type=".\FieldTypes\OutboundTagField">
+                <outbound_tag type=".\OutboundTagField">
                     <default>direct</default>
                     <Required>Y</Required>
                 </outbound_tag>
