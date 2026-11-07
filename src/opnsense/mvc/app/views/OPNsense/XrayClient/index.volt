@@ -513,6 +513,7 @@
             setSelectValue($('#node\\.flow'), data.flow);
             $('#node\\.encryption').val(data.encryption || 'none');
             $('#node\\.extra').val(data.extra || '');
+            $('#node\\.email').val(data.email || '');
             setSelectValue($('#node\\.ss_method'), data.ss_method);
             setSelectValue($('#node\\.vmess_security'), data.vmess_security);
             $('#node\\.vmess_experiments').val(data.vmess_experiments);
@@ -528,6 +529,9 @@
             $('#node\\.transport_path').val(data.transport_path);
             $('#node\\.grpc_service_name').val(data.grpc_service_name);
             setSelectValue($('#node\\.xhttp_mode'), data.xhttp_mode);
+            $('#node\\.sockopt_domainStrategy').val(data.sockopt_domainStrategy || 'AsIs');
+            $('#node\\.mux_concurrency').val(data.mux_concurrency || '');
+            $('#node\\.finalmask').val(data.finalmask || '');
 
             // WireGuard
             $('#node\\.wg_secret_key').val(data.wg_secret_key);
@@ -985,7 +989,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '1.3.5');
+                    $('#lbl_plugin_version').text(data.plugin_version || '1.3.6');
                 }
             });
         }
@@ -1219,7 +1223,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.3.5</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.3.6</span>
             </div>
         </div>
         <div class="col-md-12">

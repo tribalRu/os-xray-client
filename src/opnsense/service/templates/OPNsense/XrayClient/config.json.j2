@@ -185,6 +185,9 @@
                 "id": {{ (node.user_uuid or '') | tojson }},
 {%     if proto == 'vless' %}
                 "encryption": {{ (node.encryption or 'none') | tojson }},
+{%       if node.email %}
+                ,"email": {{ node.email | tojson }}
+{%       endif %}
                 "flow": {{ ('' if node.flow == 'none' else (node.flow or '')) | tojson }}
 {%       if node.extra %}
                 ,"extra": {{ node.extra | fromjson | tojson }}
@@ -330,10 +333,21 @@
         }
 {%       endif %}
 {%     endif %}
+{%       if node.sockopt_domainStrategy %}
+        ,"sockopt": {
+          "domainStrategy": {{ node.sockopt_domainStrategy | tojson }}
+        }
+{%       endif %}
       }{% if proto in mux_protos %},
       "mux": {
         "enabled": {{ 'true' if node.mux_enabled == '1' else 'false' }}
+{%       if node.mux_concurrency != '' %}
+        ,"concurrency": {{ node.mux_concurrency | int }}
+{%       endif %}
       }{% endif %}
+{%       if node.finalmask %}
+      ,"finalmask": {{ node.finalmask | fromjson | tojson }}
+{%       endif %}
 {%   elif proto == 'hysteria' %}
       },
       "streamSettings": {
