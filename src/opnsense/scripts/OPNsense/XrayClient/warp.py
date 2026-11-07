@@ -19,19 +19,24 @@ import secrets
 import socket
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 
 # Fail fast on any network operation (DNS, connect, read).
-socket.setdefaulttimeout(8)
+socket.setdefaulttimeout(10)
 
 CONFIG_PATH = '/conf/config.xml'
 
 # Cloudflare WARP registration endpoints (tried in order). The trailing
-# version number changes periodically; we fall back to a few known ones.
+# version number changes periodically; we try several known ones.
 WARP_REGISTRATION_URLS = [
     "https://api.cloudflareclient.com/v0a2233/reg",
     "https://api.cloudflareclient.com/v0a2214/reg",
+    "https://api.cloudflareclient.com/v0a1963/reg",
+    "https://api.cloudflareclient.com/v0a1857/reg",
+    "https://api.cloudflareclient.com/v0a1758/reg",
+    "https://api.cloudflareclient.com/v0a1652/reg",
 ]
 
 # WARP fallback values used when the API registration fails or is unreachable.
@@ -83,11 +88,9 @@ def generate_wg_keypair():
     )
 
 
-def warp_register(public_key_b64):
-    """Register with Cloudflare WARP API. Returns parsed JSON response or None."""
-    install_id = "".join(secrets.choice("abcdefghijklmnopqrstuvwxyz0123456789") for _ in range(22))
-
-    payload = {
+def build_payload(public_key_b64, install_id):
+    """Build the WARP registration payload with several format variants."""
+    base = {
         "install_id": install_id,
         "fcm_token": "",
         "referrer": "",
@@ -95,30 +98,77 @@ def warp_register(public_key_b64):
         "type": "ios",
         "locale": "en_US",
         "public_key": public_key_b64,
+        "tos": str(int(time.time())),  # Terms of Service acceptance timestamp
     }
+    return base
+
+
+def warp_register(public_key_b64):
+    """Register with Cloudflare WARP API. Returns parsed JSON response or None."""
+    install_id = "".join(secrets.choice("abcdefghijklmnopqrstuvwxyz0123456789") for _ in range(22))
+
+    payloads = [
+        # Full payload with tos
+        build_payload(public_key_b64, install_id),
+        # Minimal payload without tos
+        {k: v for k, v in build_payload(public_key_b64, install_id).items() if k != "tos"},
+        # Payload with "key" instead of "public_key" (some versions use this)
+        {
+            "install_id": install_id,
+            "fcm_token": "",
+            "referrer": "",
+            "warp_enabled": True,
+            "type": "ios",
+            "locale": "en_US",
+            "key": public_key_b64,
+        },
+    ]
+
+    user_agents = [
+        "okhttp/3.12.1",
+        "WP-Client/3.5.2 (iOS; iPhone14,2; iOS/16.4) okhttp/4.11.0",
+        "CloudflareWarp/3.5.2",
+    ]
 
     last_error = None
+    last_body = ""
+
     for url in WARP_REGISTRATION_URLS:
-        try:
-            data = json.dumps(payload).encode("utf-8")
-            req = urllib.request.Request(
-                url,
-                data=data,
-                headers={
-                    "Content-Type": "application/json; charset=UTF-8",
-                    "User-Agent": "okhttp/3.12.1",
-                },
-                method="POST",
-            )
-            with urllib.request.urlopen(req) as resp:
-                body = resp.read().decode("utf-8")
-                return json.loads(body)
-        except (urllib.error.URLError, urllib.error.HTTPError, OSError, json.JSONDecodeError) as exc:
-            last_error = exc
-            continue
+        for payload in payloads:
+            for ua in user_agents[:1]:  # Start with one UA, expand if needed
+                try:
+                    data = json.dumps(payload).encode("utf-8")
+                    req = urllib.request.Request(
+                        url,
+                        data=data,
+                        headers={
+                            "Content-Type": "application/json; charset=UTF-8",
+                            "User-Agent": ua,
+                        },
+                        method="POST",
+                    )
+                    with urllib.request.urlopen(req) as resp:
+                        body = resp.read().decode("utf-8")
+                        return json.loads(body)
+                except urllib.error.HTTPError as exc:
+                    last_error = exc
+                    try:
+                        last_body = exc.read().decode("utf-8")[:500]
+                    except Exception:
+                        last_body = ""
+                    sys.stderr.write(
+                        f"warp.py: {url} HTTP {exc.code}: {last_body}\n"
+                    )
+                    continue
+                except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
+                    last_error = exc
+                    sys.stderr.write(f"warp.py: {url} error: {exc}\n")
+                    continue
 
     if last_error:
         sys.stderr.write(f"warp.py: WARP registration failed: {last_error}\n")
+        if last_body:
+            sys.stderr.write(f"warp.py: last response body: {last_body}\n")
     return None
 
 
