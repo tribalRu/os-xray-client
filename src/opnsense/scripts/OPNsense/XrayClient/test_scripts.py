@@ -65,6 +65,39 @@ class TestWarpConfig(unittest.TestCase):
             self.assertEqual(warp.WARP_FALLBACK_ENDPOINT, 'test.example.com:2408')
 
 
+class TestHealthcheck(unittest.TestCase):
+
+    def setUp(self):
+        import tempfile
+        import healthcheck
+        self.hc = healthcheck
+        self.tmp = tempfile.mkdtemp()
+        self.hc.CACHE_FILE = os.path.join(self.tmp, 'latency.json')
+
+    def test_udp_protocols_are_not_probed(self):
+        for proto in ('wireguard', 'hysteria', 'masque', 'freedom'):
+            _, res = self.hc.check_node(
+                {'uuid': 'u', 'address': 'x.example.com', 'port': '443', 'protocol': proto})
+            self.assertEqual(res, {'status': 'n/a', 'ms': 0})
+
+    def test_unreachable_tcp_node_is_offline(self):
+        _, res = self.hc.check_node(
+            {'uuid': 'u', 'address': '127.0.0.1', 'port': '1', 'protocol': 'vless'})
+        self.assertEqual(res['status'], 'offline')
+
+    def test_cache_hit_and_invalidation(self):
+        nodes = [{'uuid': 'a', 'address': 'h', 'port': '443', 'protocol': 'vless'}]
+        key = self.hc._nodes_key(nodes)
+        self.hc._write_cache(key, {'a': {'status': 'online', 'ms': 12}})
+        self.assertEqual(self.hc._read_cache(key), {'a': {'status': 'online', 'ms': 12}})
+        # Different node set -> different key -> cache miss.
+        other = self.hc._nodes_key([{'uuid': 'a', 'address': 'h2', 'port': '443', 'protocol': 'vless'}])
+        self.assertIsNone(self.hc._read_cache(other))
+        # Expired entry -> cache miss.
+        with patch('healthcheck.time.time', return_value=1e12):
+            self.assertIsNone(self.hc._read_cache(key))
+
+
 class _FakeFile:
     def __init__(self, content):
         self.content = content
