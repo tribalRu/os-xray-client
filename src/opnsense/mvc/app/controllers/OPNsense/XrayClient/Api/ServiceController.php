@@ -22,7 +22,16 @@ class ServiceController extends ApiMutableServiceControllerBase
         $backend = new Backend();
         $mdl = new XrayClient();
 
-        $backend->configdRun('template reload OPNsense/XrayClient');
+        $renderStatus = trim((string)$backend->configdRun('template reload OPNsense/XrayClient'));
+
+        // The configd template handler reports failures as "ERR". In UI mode
+        // the file just reloaded by the template is what we test and restart
+        // Xray with, so failing hard here beats silently restarting with a
+        // stale config.json. (Raw mode overwrites the file itself and can
+        // proceed regardless of the template status.)
+        if ($renderStatus === 'ERR' && (string)$mdl->general->config_mode !== 'raw') {
+            return ['status' => 'error', 'message' => 'Config regeneration failed: configd template reload returned ERR (see the configd log for the template render error).'];
+        }
 
         // Normalize the template-generated config for readability: the Jinja
         // template emits leading commas (the only reliable way to join
@@ -256,7 +265,10 @@ class ServiceController extends ApiMutableServiceControllerBase
         }
 
         $backend = new Backend();
-        $backend->configdRun('template reload OPNsense/XrayClient');
+        $renderStatus = trim((string)$backend->configdRun('template reload OPNsense/XrayClient'));
+        if ($renderStatus === 'ERR') {
+            return ['status' => 'error', 'message' => 'Template render failed (configd returned ERR); the current config.json was left untouched. See the configd log for the template render error.'];
+        }
         $this->normalizeConfigFile();
 
         $testOut = $backend->configdRun('xrayclient test_config');
@@ -395,7 +407,7 @@ class ServiceController extends ApiMutableServiceControllerBase
         return is_array($data) ? $data : [
             'core_version' => 'Not installed',
             'geodata_date' => 'N/A',
-            'plugin_version' => '2.4.0'
+            'plugin_version' => '2.4.1'
         ];
     }
 

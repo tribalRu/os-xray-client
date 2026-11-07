@@ -19,8 +19,9 @@ RC=$?
 if [ "${RC}" -eq 0 ]; then
     printf '{"status": "ok"}\n'
 else
-    # Escape quotes/backslashes for the JSON message.
-    ESC=$(printf '%s' "${OUT}" | head -n 1 | sed 's/\\/\\\\/g; s/"/\\"/g')
+    # Keep the first few lines of Xray's output (line 1 is always just the
+    # version banner) and flatten newlines so the JSON stays valid.
+    ESC=$(printf '%s' "${OUT}" | head -n 8 | tr '\n' ' ' | sed 's/\\/\\\\/g; s/"/\\"/g')
     printf '{"status": "error", "message": "%s"}\n' "${ESC}"
 fi
 exit 0
