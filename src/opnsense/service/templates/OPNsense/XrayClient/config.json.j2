@@ -345,7 +345,7 @@
       }{% if proto in mux_protos %},
       "mux": {
         "enabled": {{ 'true' if node.mux_enabled == '1' else 'false' }}
-{%       if node.mux_concurrency != '' %}
+{%       if node.mux_concurrency is defined and (node.mux_concurrency | string | trim) != '' %}
         ,"concurrency": {{ node.mux_concurrency | int }}
 {%       endif %}
       }{% endif %}
