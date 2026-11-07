@@ -184,7 +184,7 @@
               {
                 "id": {{ (node.user_uuid or '') | tojson }},
 {%     if proto == 'vless' %}
-                "encryption": {{ (node.encryption or 'none') | tojson }},
+                "encryption": {{ (node.extra or node.encryption or 'none') | tojson }},
                 "flow": {{ ('' if node.flow == 'none' else (node.flow or '')) | tojson }}
 {%     else %}
                 "alterId": 0,
