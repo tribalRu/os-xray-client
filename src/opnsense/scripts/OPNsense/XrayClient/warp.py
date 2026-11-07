@@ -20,7 +20,6 @@ Outputs JSON to stdout. On error, outputs {"status": "error", "message": "..."}.
 import base64
 import datetime
 import json
-import secrets
 import socket
 import subprocess
 import sys
@@ -312,25 +311,18 @@ def main():
 
     reg_response = warp_register(client_public_key)
 
-    if reg_response:
-        result = extract_warp_fields(reg_response, client_private_key, client_public_key)
-    else:
-        # Fallback: use locally generated keypair with public WARP defaults
-        result = {
-            "status": "ok",
-            "wg_secret_key": client_private_key,
-            "wg_public_key": WARP_FALLBACK_PUBLIC_KEY,
-            "wg_endpoint": WARP_FALLBACK_ENDPOINT,
-            "wg_address": "",
-            "wg_allowed_ips": WARP_FALLBACK_ALLOWED_IPS,
-            "wg_keepalive": "25",
-            "wg_mtu": WARP_FALLBACK_MTU,
-            "wg_reserved": ",".join(str(secrets.randbelow(256)) for _ in range(3)),
-            "wg_remote_dns": WARP_FALLBACK_DNS,
-            "license": "",
-            "token": "",
-            "warning": "WARP API registration unreachable - using public fallback values. You may need to register separately.",
-        }
+    if not reg_response:
+        # A locally generated keypair that was never registered with
+        # Cloudflare cannot work, so do not pretend that generation succeeded.
+        print(json.dumps({
+            "status": "error",
+            "message": "WARP registration failed (Cloudflare API unreachable or "
+                       "rejected the request). Check outbound HTTPS to "
+                       "api.cloudflareclient.com; no node fields were changed.",
+        }))
+        return
+
+    result = extract_warp_fields(reg_response, client_private_key, client_public_key)
 
     print(json.dumps(result))
 

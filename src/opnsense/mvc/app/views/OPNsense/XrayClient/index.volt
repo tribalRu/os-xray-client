@@ -885,7 +885,7 @@
                 $spin.hide();
                 var msg = 'unknown error';
                 if (status === 'timeout') {
-                    msg = 'Request timed out (Cloudflare API unreachable). Fallback values may still be used.';
+                    msg = 'Request timed out (Cloudflare API unreachable). No node fields were changed.';
                 } else if (xhr.responseText) {
                     try {
                         var j = JSON.parse(xhr.responseText);

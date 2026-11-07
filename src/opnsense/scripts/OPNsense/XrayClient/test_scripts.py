@@ -156,6 +156,20 @@ class TestWarpReserved(unittest.TestCase):
             self.assertEqual(warp.extract_warp_fields(reg, 'priv', 'pub')['wg_reserved'], '1,2,3')
 
 
+class TestWarpMain(unittest.TestCase):
+
+    def test_registration_failure_is_an_error(self):
+        import warp
+        out = []
+        with patch('warp.generate_wg_keypair', return_value=('priv', 'pub')), \
+                patch('warp.warp_register', return_value=None), \
+                patch('builtins.print', side_effect=lambda *a, **k: out.append(a[0])):
+            warp.main()
+        data = json.loads(out[-1])
+        self.assertEqual(data['status'], 'error')
+        self.assertNotIn('wg_secret_key', data)
+
+
 class _FakeFile:
     def __init__(self, content):
         self.content = content
