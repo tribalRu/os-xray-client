@@ -98,6 +98,40 @@ class TestHealthcheck(unittest.TestCase):
             self.assertIsNone(self.hc._read_cache(key))
 
 
+class TestStats(unittest.TestCase):
+
+    def test_tag_mapping_matches_template(self):
+        """Every enabled node is node_<uuid>; disabled nodes and other outbounds are ignored."""
+        import stats
+        nodes = [
+            {'uuid': 'aaa', 'enabled': '1', 'address': 'a', 'port': '443', 'protocol': 'vless'},
+            {'uuid': 'bbb', 'enabled': '1', 'address': 'b', 'port': '443', 'protocol': 'vless'},
+            {'uuid': 'ccc', 'enabled': '0', 'address': 'c', 'port': '443', 'protocol': 'vless'},
+        ]
+        raw = {'stat': [
+            {'name': 'outbound>>>node_aaa>>>traffic>>>downlink', 'value': '100'},
+            {'name': 'outbound>>>node_aaa>>>traffic>>>uplink', 'value': '10'},
+            {'name': 'outbound>>>node_bbb>>>traffic>>>downlink', 'value': '5'},
+            {'name': 'outbound>>>node_ccc>>>traffic>>>downlink', 'value': '77'},
+            {'name': 'outbound>>>proxy>>>traffic>>>downlink', 'value': '555'},
+            {'name': 'outbound>>>direct>>>traffic>>>downlink', 'value': '999'},
+        ]}
+        proc = MagicMock(returncode=0, stdout=json.dumps(raw), stderr='')
+        out = []
+        with patch('stats.os.path.exists', return_value=True), \
+                patch('stats.iter_nodes', return_value=nodes), \
+                patch('_lib.iter_nodes', return_value=nodes), \
+                patch('stats.get_general_value', return_value='10085'), \
+                patch('stats.subprocess.run', return_value=proc), \
+                patch('builtins.print', side_effect=lambda *a, **k: out.append(a[0])):
+            stats.main()
+        data = json.loads(out[-1])
+        self.assertEqual(data['status'], 'ok')
+        self.assertEqual(data['stats']['aaa'], {'uplink': 10, 'downlink': 100})
+        self.assertEqual(data['stats']['bbb'], {'uplink': 0, 'downlink': 5})
+        self.assertEqual(data['stats']['ccc'], {'uplink': 0, 'downlink': 0})
+
+
 class _FakeFile:
     def __init__(self, content):
         self.content = content

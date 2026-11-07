@@ -5,13 +5,21 @@ import xml.etree.ElementTree as ET
 
 CONFIG_PATH = '/conf/config.xml'
 
+_root_cache = None
+
+
+def _load_root():
+    """Parse /conf/config.xml once per process (it can be large)."""
+    global _root_cache
+    if _root_cache is None:
+        _root_cache = ET.parse(CONFIG_PATH).getroot()
+    return _root_cache
+
 
 def get_general_value(path):
     """Read a value from /OPNsense/XrayClient/general/<path>."""
     try:
-        tree = ET.parse(CONFIG_PATH)
-        root = tree.getroot()
-        el = root.findtext('.//OPNsense/XrayClient/general/' + path)
+        el = _load_root().findtext('.//OPNsense/XrayClient/general/' + path)
         return el.strip() if el else ''
     except Exception:
         return ''
@@ -20,8 +28,7 @@ def get_general_value(path):
 def iter_nodes():
     """Yield dicts with uuid/address/port/protocol/enabled for all nodes."""
     try:
-        tree = ET.parse(CONFIG_PATH)
-        root = tree.getroot()
+        root = _load_root()
     except Exception:
         return
 

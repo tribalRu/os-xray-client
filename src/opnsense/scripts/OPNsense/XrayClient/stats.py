@@ -5,7 +5,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, '/usr/local/opnsense/scripts/OPNsense/XrayClient')
-from _lib import get_general_value, iter_nodes
+from _lib import all_nodes_with_tags, get_general_value, iter_nodes
 
 XRAY_BIN = '/usr/local/bin/xray'
 
@@ -16,14 +16,11 @@ def main():
         return
 
     stats_port = get_general_value('stats_port') or '10085'
-    all_uuids = []
 
-    for node in iter_nodes():
-        uuid = node['uuid']
-        if uuid:
-            all_uuids.append(uuid)
-
-    node_stats = {u: {'uplink': 0, 'downlink': 0} for u in all_uuids}
+    # Outbound tags as rendered by config.json.j2: every enabled node is
+    # emitted once as 'node_<uuid>'.
+    tag_to_uuid = {tag: uuid for uuid, tag in all_nodes_with_tags().items()}
+    node_stats = {n['uuid']: {'uplink': 0, 'downlink': 0} for n in iter_nodes()}
 
     try:
         cmd = [XRAY_BIN, 'api', 'statsquery', f'--server=127.0.0.1:{stats_port}']
@@ -35,13 +32,9 @@ def main():
                 val = int(item.get('value', 0))
                 parts = name.split('>>>')
                 if len(parts) == 4 and parts[0] == 'outbound' and parts[2] == 'traffic':
-                    tag = parts[1]
+                    target_uuid = tag_to_uuid.get(parts[1])
                     direction = parts[3]
-                    target_uuid = None
-                    if tag.startswith('node_'):
-                        target_uuid = tag.replace('node_', '', 1)
-
-                    if target_uuid and target_uuid in node_stats and direction in ('uplink', 'downlink'):
+                    if target_uuid in node_stats and direction in ('uplink', 'downlink'):
                         node_stats[target_uuid][direction] = val
         else:
             err = (proc.stderr or proc.stdout or 'statsquery failed').strip().splitlines()
