@@ -82,7 +82,7 @@
         <id>node.extra</id>
         <label>Extra (VLESS)</label>
         <type>textbox</type>
-        <style>proto_vless</style>
+        <style>proto_vless_enc</style>
         <height>10</height>
         <help>VLESS user extra (encryption material, e.g. for ML-KEM VLESS encryption), as JSON. Transport XHTTP extras go to the "XHTTP Extra" field below. Imported from vless:// links only when type is not xhttp/splithttp.</help>
     </field>
@@ -531,7 +531,8 @@
     <field>
         <id>node.xhttp_extra</id>
         <label>XHTTP Extra (JSON object)</label>
-        <type>text</type>
+        <type>textbox</type>
+        <height>6</height>
         <style>net_xhttp</style>
         <help>XHTTP transport extra (xhttpSettings.extra): headers, xPaddingBytes, scMaxEachPostBytes, scMinPostsIntervalMs, xmux, etc. On import, the 'extra' param of a vless:// link with type=xhttp/splithttp is placed here.</help>
     </field>

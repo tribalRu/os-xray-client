@@ -20,9 +20,9 @@ fi
 
 if [ -f "${PLUGIN_VER_FILE}" ]; then
     PLUGIN_VER=$(cat "${PLUGIN_VER_FILE}" | tr -d '\n\r')
-    [ -z "${PLUGIN_VER}" ] && PLUGIN_VER="2.1.2"
+    [ -z "${PLUGIN_VER}" ] && PLUGIN_VER="2.1.3"
 else
-    PLUGIN_VER="2.1.2"
+    PLUGIN_VER="2.1.3"
 fi
 
 # Build JSON via Python so values are escaped correctly.

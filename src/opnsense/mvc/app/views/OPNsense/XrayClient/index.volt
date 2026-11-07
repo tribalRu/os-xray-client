@@ -356,6 +356,7 @@
                 '.proto_loopback': proto === 'loopback',
                 '.proto_hysteria': isHysteria,
                 '.proto_masque': isMasque,
+                '.proto_vless_enc': proto === 'vless' && ($('#node\\.encryption').val() || 'none').toLowerCase() !== 'none',
                 '.proto_http_masque': proto === 'http' || isMasque,
                 '.proto_transport': hasTransport,
                 '.transport_selector': hasStream,
@@ -381,7 +382,7 @@
             }
         }
 
-        $('#node\\.protocol, #node\\.network, #node\\.security').on('change', toggleNodeDialogFields);
+        $('#node\\.protocol, #node\\.network, #node\\.security, #node\\.encryption').on('change', toggleNodeDialogFields);
 
         var nodeLatencyCache = {};
         var nodeTrafficCache = {};
@@ -1040,7 +1041,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '2.1.2');
+                    $('#lbl_plugin_version').text(data.plugin_version || '2.1.3');
                 }
             });
         }
@@ -1274,7 +1275,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.1.2</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.1.3</span>
             </div>
         </div>
         <div class="col-md-12">
