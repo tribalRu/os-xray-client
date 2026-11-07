@@ -307,6 +307,30 @@
             });
         });
 
+        $('#btn_expert_reset').on('click', function () {
+            $('#DialogResetTemplate').modal('show');
+        });
+
+        $('#btn_confirm_reset_template').on('click', function () {
+            var $btn = $(this);
+            $btn.prop('disabled', true);
+            $('#expert_config_status').text('Regenerating config from template…');
+            ajaxCall('/api/xrayclient/service/resetTemplate', {}, function (data) {
+                $btn.prop('disabled', false);
+                $('#DialogResetTemplate').modal('hide');
+                if (data && data.status === 'ok') {
+                    $('#expert_config_status').text(data.message || 'Config regenerated').removeClass('text-danger').addClass('text-success');
+                    expertEditing(false);
+                    loadExpertConfig();
+                    // The model now says config_mode=ui — sync the dropdown.
+                    $('#xrayclient\\.general\\.config_mode').val('ui').selectpicker('refresh');
+                    updateServiceControlUI('xrayclient');
+                } else {
+                    $('#expert_config_status').text((data && data.message) || 'Reset failed').removeClass('text-muted').addClass('text-danger');
+                }
+            });
+        });
+
         // The Raw JSON textarea is rendered outside the generated
         // <form id="frm_general">. saveFormToEndpoint() only serialises
         // fields inside that form, so move the container inside it or
@@ -1150,7 +1174,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '2.3.3');
+                    $('#lbl_plugin_version').text(data.plugin_version || '2.4.0');
                 }
             });
         }
@@ -1360,13 +1384,14 @@
     <div id="tab_expert" class="tab-pane fade">
         <div class="col-md-12" style="margin-top: 15px; padding-bottom: 15px;">
             <div class="alert alert-warning" style="margin-bottom: 10px;">
-                <b>Expert Mode.</b> This is the exact <code>/usr/local/etc/xray/config.json</code> Xray is running (or would run). Saving here validates the JSON with <code>xray run -test</code>, stores a backup next to the file (<code>config.json.bak-*</code>), switches the plugin to <b>Raw JSON</b> mode and restarts Xray. The UI tabs will no longer regenerate the file — switch back to <i>UI Builder</i> in General settings to restore template-based generation.
+                <b>Expert Mode.</b> This is the exact <code>/usr/local/etc/xray/config.json</code> Xray is running (or would run). Saving here validates the JSON with <code>xray run -test</code>, stores a backup next to the file (<code>config.json.bak-*</code>), switches the plugin to <b>Raw JSON</b> mode and restarts Xray. The UI tabs will no longer regenerate the file. Use <b>Reset to template-generated config</b> to switch back to template-based generation (UI Builder) without losing nodes or rules.
             </div>
             <div class="form-inline" style="margin-bottom: 8px;">
                 <button id="btn_expert_refresh" type="button" class="btn btn-default"><i class="fa fa-refresh"></i> <b>Refresh</b></button>
                 <button id="btn_expert_edit" type="button" class="btn btn-info"><i class="fa fa-pencil"></i> <b>Edit manually</b></button>
                 <button id="btn_expert_save" type="button" class="btn btn-primary" style="display: none;"><i class="fa fa-save"></i> <b>Save &amp; Apply</b> <i class="fa fa-spinner fa-pulse" id="expert_save_spin" style="display: none;"></i></button>
                 <button id="btn_expert_cancel" type="button" class="btn btn-default" style="display: none;">Cancel</button>
+                <button id="btn_expert_reset" type="button" class="btn btn-warning" title="Back up the current config.json, switch the plugin back to UI Builder mode, regenerate /usr/local/etc/xray/config.json from the built-in template, validate and restart Xray. Nodes and rules are kept; raw_json stays stored but is not used."><i class="fa fa-undo"></i> <b>Reset to template-generated config</b></button>
                 <span id="expert_config_status" class="text-muted" style="margin-left: 12px;"></span>
             </div>
             <div id="expert_view_wrap">
@@ -1384,7 +1409,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.3.3</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.4.0</span>
             </div>
         </div>
         <div class="col-md-12">
@@ -1439,6 +1464,31 @@
 
 {{ partial("layout_partials/base_dialog", ['fields': formDialogNode, 'id': 'DialogNode', 'label': 'Edit Outbound Server Node']) }}
 {{ partial("layout_partials/base_dialog", ['fields': formDialogRule, 'id': 'DialogRule', 'label': 'Edit Routing Rule']) }}
+
+<div class="modal fade" id="DialogResetTemplate" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                <h4 class="modal-title">Reset to template-generated config</h4>
+            </div>
+            <div class="modal-body">
+                <p><b>What will happen:</b></p>
+                <ul style="margin-bottom: 8px;">
+                    <li>Current <code>/usr/local/etc/xray/config.json</code> is backed up next to the file (<code>config.json.bak-*</code>).</li>
+                    <li>The plugin switches back to <b>UI Builder</b> mode (template generation is re-attached).</li>
+                    <li><code>/usr/local/etc/xray/config.json</code> is regenerated from the built-in template (your nodes and routing rules are kept).</li>
+                    <li>The file is validated with <code>xray run -test</code> and Xray is restarted. If the test fails, the previous config is restored.</li>
+                </ul>
+                <p class="text-muted" style="margin-bottom: 0;">Your stored raw JSON (<code>raw_json</code>) is not deleted, it is just not used while the plugin is in UI Builder mode.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                <button type="button" id="btn_confirm_reset_template" class="btn btn-warning"><i class="fa fa-undo"></i> Reset &amp; Apply</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="modal fade" id="DialogImportLink" tabindex="-1" role="dialog">
     <div class="modal-dialog modal-lg" role="document">

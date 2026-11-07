@@ -24,6 +24,11 @@ class ServiceController extends ApiMutableServiceControllerBase
 
         $backend->configdRun('template reload OPNsense/XrayClient');
 
+        // Normalize the template-generated config for readability: the Jinja
+        // template emits leading commas (the only reliable way to join
+        // conditional sections), so rewrite the file canonically.
+        $this->normalizeConfigFile();
+
         if ((string)$mdl->general->config_mode === 'raw') {
             $rawJson = trim((string)$mdl->general->raw_json);
             if ($rawJson !== '') {
@@ -74,6 +79,34 @@ class ServiceController extends ApiMutableServiceControllerBase
         }
 
         return ['status' => 'ok'];
+    }
+
+    /**
+     * Rewrite the on-disk config canonically (template output uses leading
+     * commas). No-op when the file cannot be read or is not valid JSON; the
+     * Xray config test afterwards remains the safety net.
+     */
+    private function normalizeConfigFile()
+    {
+        $file = '/usr/local/etc/xray/config.json';
+        $content = @file_get_contents($file);
+        if ($content === false) {
+            return;
+        }
+        $decoded = json_decode($content, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return;
+        }
+        $normalized = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        if ($normalized === false) {
+            return;
+        }
+        $tmp = $file . '.tmp';
+        if (file_put_contents($tmp, $normalized) === false || !rename($tmp, $file)) {
+            @unlink($tmp);
+            return;
+        }
+        @chmod($file, 0640);
     }
 
     /**
@@ -188,6 +221,72 @@ class ServiceController extends ApiMutableServiceControllerBase
         return ['status' => 'ok', 'message' => 'Configuration saved, validated and applied.'];
     }
 
+    /**
+     * Reset the generated config to the pristine template output: back up the
+     * current config.json, switch the plugin back to UI (template) mode,
+     * re-render via configd's template handler, normalize, validate with
+     * `xray run -test` and restart Xray. On test failure the backup is
+     * restored. raw_json and all nodes/rules are left untouched.
+     */
+    public function resetTemplateAction()
+    {
+        if (!$this->request->isPost()) {
+            return ['status' => 'error', 'message' => 'POST required'];
+        }
+
+        $file = '/usr/local/etc/xray/config.json';
+        $backup = null;
+        if (file_exists($file)) {
+            $backup = $file . '.bak-' . date('Ymd-His');
+            if (!@copy($file, $backup)) {
+                return ['status' => 'error', 'message' => 'Failed to back up current config.json'];
+            }
+        }
+
+        $mdl = new XrayClient();
+        $mdl->general->config_mode = 'ui';
+        try {
+            $mdl->serializeToConfig();
+            \OPNsense\Core\Config::getInstance()->save();
+        } catch (\Throwable $e) {
+            return [
+                'status' => 'error',
+                'message' => 'Failed to switch to template mode: ' . preg_replace('/\s+/', ' ', $e->getMessage())
+            ];
+        }
+
+        $backend = new Backend();
+        $backend->configdRun('template reload OPNsense/XrayClient');
+        $this->normalizeConfigFile();
+
+        $testOut = $backend->configdRun('xrayclient test_config');
+        $testData = json_decode(trim($testOut), true);
+        $testOk = is_array($testData) && (($testData['status'] ?? '') === 'ok');
+        if (!$testOk) {
+            // Roll back to the previous configuration (and keep template mode).
+            if ($backup !== null) {
+                @copy($backup, $file);
+            }
+            $message = is_array($testData) ? ($testData['message'] ?? 'Xray config test failed') : trim($testOut);
+            return [
+                'status' => 'error',
+                'message' => 'Template config test failed: ' . $message . ' — previous config restored.'
+            ];
+        }
+
+        if ((string)$mdl->general->enabled === '1') {
+            $backend->configdRun('xrayclient restart');
+        } else {
+            $backend->configdRun('xrayclient stop');
+        }
+
+        return [
+            'status' => 'ok',
+            'message' => 'Config regenerated from template'
+                . ($backup !== null ? ' (previous backed up as ' . basename($backup) . ')' : '')
+        ];
+    }
+
     public function healthcheckAction()
     {
         $backend = new Backend();
@@ -296,7 +395,7 @@ class ServiceController extends ApiMutableServiceControllerBase
         return is_array($data) ? $data : [
             'core_version' => 'Not installed',
             'geodata_date' => 'N/A',
-            'plugin_version' => '2.3.3'
+            'plugin_version' => '2.4.0'
         ];
     }
 
