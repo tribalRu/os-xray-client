@@ -55,6 +55,7 @@
         <id>rule.outbound_tag</id>
         <label>Target Outbound Action</label>
         <type>dropdown</type>
-        <help>Where to route matching traffic: Proxy (via VLESS), Direct (WAN bypass), or Block.</help>
+        <style>node_selector</style>
+        <help>Route matching traffic to a specific node, or Proxy/Direct/Block. Select a node from the list, or enter its tag manually.</help>
     </field>
 </form>

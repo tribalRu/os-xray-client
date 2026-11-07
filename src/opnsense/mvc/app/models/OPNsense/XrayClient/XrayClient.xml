@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>1.4.0</version>
+    <version>1.4.1</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -559,14 +559,11 @@
                     <default></default>
                     <Required>N</Required>
                 </protocol>
-                <outbound_tag type="OptionField">
+                <outbound_tag type="TextField">
                     <default>direct</default>
                     <Required>Y</Required>
-                    <OptionValues>
-                        <proxy>Proxy (Active Xray Node)</proxy>
-                        <direct>Direct (Bypass VPN via WAN)</direct>
-                        <block>Block (Drop Traffic)</block>
-                    </OptionValues>
+                    <Mask>/^$|^(proxy|direct|block|node_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/</Mask>
+                    <ValidationMessage>Must be proxy, direct, block, or node_&lt;UUID&gt; of an existing outbound node.</ValidationMessage>
                 </outbound_tag>
             </rule>
         </rules>
