@@ -25,7 +25,7 @@ chmod +x /usr/local/etc/rc.d/os-xray-client
 chmod +x /usr/local/opnsense/scripts/OPNsense/XrayClient/*.sh
 chmod +x /usr/local/opnsense/scripts/OPNsense/XrayClient/*.py
 
-date "+1.3.4 (%Y-%m-%d %H:%M)" > /usr/local/opnsense/scripts/OPNsense/XrayClient/PLUGIN_VERSION
+date "+1.3.5 (%Y-%m-%d %H:%M)" > /usr/local/opnsense/scripts/OPNsense/XrayClient/PLUGIN_VERSION
 
 echo "Running OPNsense MVC migrations..."
 if ! /usr/local/opnsense/mvc/script/run_migrations.php; then

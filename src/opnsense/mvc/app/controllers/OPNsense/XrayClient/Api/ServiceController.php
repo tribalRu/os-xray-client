@@ -286,7 +286,7 @@ class ServiceController extends ApiMutableServiceControllerBase
         return is_array($data) ? $data : [
             'core_version' => 'Not installed',
             'geodata_date' => 'N/A',
-            'plugin_version' => '1.3.4'
+            'plugin_version' => '1.3.5'
         ];
     }
 
