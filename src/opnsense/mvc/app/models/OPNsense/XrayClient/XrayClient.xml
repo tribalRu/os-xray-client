@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>2.0.11</version>
+    <version>2.1.0</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -257,6 +257,36 @@
                     <MaskPerItem>Y</MaskPerItem>
                     <ValidationMessage>Each ALPN value may contain only letters, digits, dot, slash, underscore and hyphen (max 32).</ValidationMessage>
                 </alpn>
+                <tls_ech_config_list type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[^\x00-\x1F\x7F]{1,16384}$/</Mask>
+                    <ValidationMessage>ECH config list must be printable ASCII (up to 16384 characters).</ValidationMessage>
+                </tls_ech_config_list>
+                <tls_pinned_peer_cert_sha256 type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^\s*[0-9A-Fa-f]{64}(\s*,\s*[0-9A-Fa-f]{64})*\s*$/</Mask>
+                    <ValidationMessage>Pinned peer certificate SHA-256 must be one or more 64-char hex digests, comma-separated.</ValidationMessage>
+                </tls_pinned_peer_cert_sha256>
+                <tls_verify_peer_cert_by_name type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[A-Za-z0-9._*,\s-]{1,512}$/</Mask>
+                    <ValidationMessage>Verification names must be comma-separated hostnames (wildcards allowed).</ValidationMessage>
+                </tls_verify_peer_cert_by_name>
+                <tls_min_version type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^1\.[0-3]$/</Mask>
+                    <ValidationMessage>Minimum TLS version must be 1.0, 1.1, 1.2 or 1.3.</ValidationMessage>
+                </tls_min_version>
+                <tls_max_version type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^1\.[0-3]$/</Mask>
+                    <ValidationMessage>Maximum TLS version must be 1.0, 1.1, 1.2 or 1.3.</ValidationMessage>
+                </tls_max_version>
                 <allow_insecure type="BooleanField">
                     <default>0</default>
                     <Required>Y</Required>
@@ -279,6 +309,12 @@
                     <Mask>/^$|^\/[^\x00-\x1F\x7F ]{0,255}$/</Mask>
                     <ValidationMessage>SpiderX must start with "/" and contain no spaces.</ValidationMessage>
                 </reality_spiderx>
+                <reality_mldsa65_verify type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[A-Za-z0-9_-]{1,2048}$/</Mask>
+                    <ValidationMessage>ML-DSA-65 verification key must be base64url characters.</ValidationMessage>
+                </reality_mldsa65_verify>
                 <transport_host type="TextField">
                     <default></default>
                     <Required>N</Required>
@@ -301,6 +337,40 @@
                     <default>0</default>
                     <Required>Y</Required>
                 </grpc_multi_mode>
+                <grpc_authority type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[A-Za-z0-9._:\[\]-]{1,253}$/</Mask>
+                    <ValidationMessage>gRPC authority may contain only letters, digits, dot, hyphen, underscore, colon and brackets (max 253).</ValidationMessage>
+                </grpc_authority>
+                <grpc_user_agent type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[^\x00-\x1F\x7F]{1,512}$/</Mask>
+                    <ValidationMessage>gRPC user agent must be up to 512 printable characters.</ValidationMessage>
+                </grpc_user_agent>
+                <grpc_idle_timeout type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[0-9]{1,6}$/</Mask>
+                    <ValidationMessage>gRPC idle timeout must be a non-negative integer (seconds).</ValidationMessage>
+                </grpc_idle_timeout>
+                <grpc_health_check_timeout type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[0-9]{1,6}$/</Mask>
+                    <ValidationMessage>gRPC health check timeout must be a non-negative integer (seconds).</ValidationMessage>
+                </grpc_health_check_timeout>
+                <grpc_permit_without_stream type="BooleanField">
+                    <default>0</default>
+                    <Required>Y</Required>
+                </grpc_permit_without_stream>
+                <grpc_initial_windows_size type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[0-9]{1,10}$/</Mask>
+                    <ValidationMessage>gRPC initial windows size must be a non-negative integer.</ValidationMessage>
+                </grpc_initial_windows_size>
                 <xhttp_mode type="OptionField">
                     <default>auto</default>
                     <Required>N</Required>
@@ -311,6 +381,18 @@
                         <stream-one>stream-one</stream-one>
                     </OptionValues>
                 </xhttp_mode>
+                <xhttp_extra type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^\s*\{[\s\S]*\}\s*$/</Mask>
+                    <ValidationMessage>XHTTP extra must be a JSON object, e.g. {"scMaxEachPostBytes":1000000}.</ValidationMessage>
+                </xhttp_extra>
+                <ws_heartbeat_period type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[0-9]{1,4}$/</Mask>
+                    <ValidationMessage>WebSocket heartbeat period must be a non-negative integer (seconds).</ValidationMessage>
+                </ws_heartbeat_period>
                 <mux_enabled type="BooleanField">
                     <default>0</default>
                     <Required>Y</Required>
@@ -342,6 +424,58 @@
                         <ForceIPv6v4>ForceIPv6v4</ForceIPv6v4>
                     </OptionValues>
                 </sockopt_domainStrategy>
+                <sockopt_dialer_proxy type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[A-Za-z0-9._-]{1,64}$/</Mask>
+                    <ValidationMessage>Dialer proxy must be an outbound tag (letters, digits, dot, underscore, hyphen, max 64).</ValidationMessage>
+                </sockopt_dialer_proxy>
+                <sockopt_interface type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[A-Za-z0-9._-]{1,32}$/</Mask>
+                    <ValidationMessage>Interface name must be letters, digits, dot, underscore or hyphen (max 32).</ValidationMessage>
+                </sockopt_interface>
+                <sockopt_tproxy type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^(off|redirect|tproxy)$/</Mask>
+                    <ValidationMessage>tproxy must be one of: off, redirect, tproxy (or empty).</ValidationMessage>
+                </sockopt_tproxy>
+                <sockopt_mark type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[0-9]{1,6}$/</Mask>
+                    <ValidationMessage>SO_MARK must be a non-negative integer.</ValidationMessage>
+                </sockopt_mark>
+                <sockopt_tcp_congestion type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[a-z0-9_-]{1,32}$/</Mask>
+                    <ValidationMessage>TCP congestion control must be a lowercase algorithm name (e.g. bbr, cubic, reno).</ValidationMessage>
+                </sockopt_tcp_congestion>
+                <sockopt_tcp_fast_open type="BooleanField">
+                    <default>0</default>
+                    <Required>Y</Required>
+                </sockopt_tcp_fast_open>
+                <sockopt_tcp_keepalive_idle type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^-?[0-9]{1,6}$/</Mask>
+                    <ValidationMessage>TCP keepalive idle must be an integer number of seconds (negative disables default).</ValidationMessage>
+                </sockopt_tcp_keepalive_idle>
+                <sockopt_tcp_keepalive_interval type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^-?[0-9]{1,6}$/</Mask>
+                    <ValidationMessage>TCP keepalive interval must be an integer number of seconds (negative disables default).</ValidationMessage>
+                </sockopt_tcp_keepalive_interval>
+                <sockopt_tcp_user_timeout type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[0-9]{1,7}$/</Mask>
+                    <ValidationMessage>TCP user timeout must be a non-negative integer number of milliseconds.</ValidationMessage>
+                </sockopt_tcp_user_timeout>
                 <target_strategy type="OptionField">
                     <default>AsIs</default>
                     <Required>N</Required>

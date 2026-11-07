@@ -38,6 +38,21 @@
 {%- if node.alpn -%}
   ,"alpn": {{ json_array(node.alpn, '') }}
 {%- endif -%}
+{%- if node.tls_ech_config_list is defined and (node.tls_ech_config_list | string | trim) != '' %}
+  ,"echConfigList": {{ node.tls_ech_config_list | string | trim | tojson }}
+{%- endif -%}
+{%- if node.tls_pinned_peer_cert_sha256 is defined and (node.tls_pinned_peer_cert_sha256 | string | trim) != '' %}
+  ,"pinnedPeerCertSha256": {{ node.tls_pinned_peer_cert_sha256 | string | trim | tojson }}
+{%- endif -%}
+{%- if node.tls_verify_peer_cert_by_name is defined and (node.tls_verify_peer_cert_by_name | string | trim) != '' %}
+  ,"verifyPeerCertByName": {{ node.tls_verify_peer_cert_by_name | string | trim | tojson }}
+{%- endif -%}
+{%- if node.tls_min_version is defined and (node.tls_min_version | string | trim) != '' %}
+  ,"minVersion": {{ node.tls_min_version | string | trim | tojson }}
+{%- endif -%}
+{%- if node.tls_max_version is defined and (node.tls_max_version | string | trim) != '' %}
+  ,"maxVersion": {{ node.tls_max_version | string | trim | tojson }}
+{%- endif -%}
 }
 {%- endmacro -%}
 {% macro reality_settings(node) -%}
@@ -48,6 +63,9 @@
   "publicKey": {{ (node.reality_pubkey or '') | tojson }},
   "shortId": {{ (node.reality_shortid or '') | tojson }},
   "spiderX": {{ (node.reality_spiderx or '/') | tojson }}
+{%- if node.reality_mldsa65_verify is defined and (node.reality_mldsa65_verify | string | trim) != '' %}
+  ,"mldsa65Verify": {{ node.reality_mldsa65_verify | string | trim | tojson }}
+{%- endif -%}
 }
 {%- endmacro -%}
 {
@@ -188,11 +206,11 @@
               {
                 "id": {{ (node.user_uuid or '') | tojson }},
 {%     if proto == 'vless' %}
-                "encryption": {{ (node.encryption or 'none') | tojson }},
+                "encryption": {{ (node.encryption or 'none') | tojson }}
 {%       if node.email %}
                 ,"email": {{ node.email | tojson }}
 {%       endif %}
-                "flow": {{ ('' if node.flow == 'none' else (node.flow or '')) | tojson }}
+                ,"flow": {{ ('' if node.flow == 'none' else (node.flow or '')) | tojson }}
 {%       if node.extra %}
                 ,"extra": { {{ header_object(node.extra) }} }
 {%       endif %}
@@ -318,17 +336,41 @@
           "headers": {
             "Host": {{ (node.transport_host or '') | tojson }}
           }
+{%- if node.ws_heartbeat_period is defined and (node.ws_heartbeat_period | string | trim) != '' and (node.ws_heartbeat_period | int) > 0 %}
+          ,"heartbeatPeriod": {{ node.ws_heartbeat_period | int }}
+{%- endif %}
         }
 {%       elif node.network == 'grpc' %}
         ,"grpcSettings": {
           "serviceName": {{ (node.grpc_service_name or '') | tojson }},
           "multiMode": {{ 'true' if node.grpc_multi_mode == '1' else 'false' }}
+{%- if node.grpc_authority is defined and (node.grpc_authority | string | trim) != '' %}
+          ,"authority": {{ node.grpc_authority | string | trim | tojson }}
+{%- endif %}
+{%- if node.grpc_user_agent is defined and (node.grpc_user_agent | string | trim) != '' %}
+          ,"user_agent": {{ node.grpc_user_agent | string | trim | tojson }}
+{%- endif %}
+{%- if node.grpc_idle_timeout is defined and (node.grpc_idle_timeout | string | trim) != '' %}
+          ,"idle_timeout": {{ node.grpc_idle_timeout | int }}
+{%- endif %}
+{%- if node.grpc_health_check_timeout is defined and (node.grpc_health_check_timeout | string | trim) != '' %}
+          ,"health_check_timeout": {{ node.grpc_health_check_timeout | int }}
+{%- endif %}
+{%- if node.grpc_permit_without_stream is defined and node.grpc_permit_without_stream == '1' %}
+          ,"permit_without_stream": true
+{%- endif %}
+{%- if node.grpc_initial_windows_size is defined and (node.grpc_initial_windows_size | string | trim) != '' %}
+          ,"initial_windows_size": {{ node.grpc_initial_windows_size | int }}
+{%- endif %}
         }
 {%       elif node.network == 'xhttp' %}
         ,"xhttpSettings": {
           "host": {{ (node.transport_host or '') | tojson }},
           "path": {{ (node.transport_path or '/') | tojson }},
           "mode": {{ (node.xhttp_mode or 'auto') | tojson }}
+{%- if node.xhttp_extra is defined and (node.xhttp_extra | string | trim) != '' %}
+          ,"extra": { {{ header_object(node.xhttp_extra) }} }
+{%- endif %}
         }
 {%       elif node.network == 'httpupgrade' %}
         ,"httpupgradeSettings": {
@@ -337,9 +379,20 @@
         }
 {%       endif %}
 {%     endif %}
-{%       if node.sockopt_domainStrategy %}
+{%       set sockopt = [] %}
+{%       if node.sockopt_domainStrategy is defined and (node.sockopt_domainStrategy | string | trim) != '' %}{% do sockopt.append('"domainStrategy": ' ~ (node.sockopt_domainStrategy | tojson)) %}{% endif %}
+{%       if node.sockopt_dialer_proxy is defined and (node.sockopt_dialer_proxy | string | trim) != '' %}{% do sockopt.append('"dialerProxy": ' ~ (node.sockopt_dialer_proxy | string | trim | tojson)) %}{% endif %}
+{%       if node.sockopt_interface is defined and (node.sockopt_interface | string | trim) != '' %}{% do sockopt.append('"interface": ' ~ (node.sockopt_interface | string | trim | tojson)) %}{% endif %}
+{%       if node.sockopt_tproxy is defined and (node.sockopt_tproxy | string | trim) != '' %}{% do sockopt.append('"tproxy": ' ~ (node.sockopt_tproxy | string | trim | tojson)) %}{% endif %}
+{%       if node.sockopt_mark is defined and (node.sockopt_mark | string | trim) != '' %}{% do sockopt.append('"mark": ' ~ (node.sockopt_mark | int)) %}{% endif %}
+{%       if node.sockopt_tcp_congestion is defined and (node.sockopt_tcp_congestion | string | trim) != '' %}{% do sockopt.append('"tcpcongestion": ' ~ (node.sockopt_tcp_congestion | string | trim | tojson)) %}{% endif %}
+{%       if node.sockopt_tcp_fast_open is defined and node.sockopt_tcp_fast_open == '1' %}{% do sockopt.append('"tcpFastOpen": true') %}{% endif %}
+{%       if node.sockopt_tcp_keepalive_idle is defined and (node.sockopt_tcp_keepalive_idle | string | trim) != '' %}{% do sockopt.append('"tcpKeepAliveIdle": ' ~ (node.sockopt_tcp_keepalive_idle | int)) %}{% endif %}
+{%       if node.sockopt_tcp_keepalive_interval is defined and (node.sockopt_tcp_keepalive_interval | string | trim) != '' %}{% do sockopt.append('"tcpKeepAliveInterval": ' ~ (node.sockopt_tcp_keepalive_interval | int)) %}{% endif %}
+{%       if node.sockopt_tcp_user_timeout is defined and (node.sockopt_tcp_user_timeout | string | trim) != '' %}{% do sockopt.append('"tcpUserTimeout": ' ~ (node.sockopt_tcp_user_timeout | int)) %}{% endif %}
+{%       if sockopt | length > 0 %}
         ,"sockopt": {
-          "domainStrategy": {{ node.sockopt_domainStrategy | tojson }}
+          {{ sockopt | join(',\n          ') }}
         }
 {%       endif %}
       }{% if proto in mux_protos %},

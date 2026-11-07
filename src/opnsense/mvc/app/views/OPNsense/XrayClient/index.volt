@@ -365,6 +365,7 @@
                 '.net_http_based': hasStream && ['ws', 'xhttp', 'httpupgrade'].indexOf(effNet) !== -1,
                 '.net_xhttp': hasStream && effNet === 'xhttp',
                 '.net_grpc': hasStream && effNet === 'grpc',
+                '.net_ws': hasStream && effNet === 'ws',
                 '.net_httpupgrade': hasStream && effNet === 'httpupgrade',
                 '.sec_tls': hasTransport && effSec === 'tls',
                 '.sec_tls_reality': hasTransport && (effSec === 'tls' || effSec === 'reality'),
@@ -537,14 +538,38 @@
             $('#node\\.sni').val(data.sni);
             setSelectValue($('#node\\.fingerprint'), data.fingerprint);
             fillTokenizeField('#node\\.alpn', data.alpn);
+            $('#node\\.tls_verify_peer_cert_by_name').val(data.tls_verify_peer_cert_by_name);
+            $('#node\\.tls_pinned_peer_cert_sha256').val(data.tls_pinned_peer_cert_sha256);
+            $('#node\\.tls_ech_config_list').val(data.tls_ech_config_list);
+            $('#node\\.tls_min_version').val(data.tls_min_version);
+            $('#node\\.tls_max_version').val(data.tls_max_version);
             $('#node\\.reality_pubkey').val(data.reality_pubkey);
             $('#node\\.reality_shortid').val(data.reality_shortid);
             $('#node\\.reality_spiderx').val(data.reality_spiderx);
+            $('#node\\.reality_mldsa65_verify').val(data.reality_mldsa65_verify);
             $('#node\\.transport_host').val(data.transport_host);
             $('#node\\.transport_path').val(data.transport_path);
             $('#node\\.grpc_service_name').val(data.grpc_service_name);
+            $('#node\\.grpc_authority').val(data.grpc_authority);
+            $('#node\\.grpc_user_agent').val(data.grpc_user_agent);
+            $('#node\\.grpc_idle_timeout').val(data.grpc_idle_timeout);
+            $('#node\\.grpc_health_check_timeout').val(data.grpc_health_check_timeout);
+            $('#node\\.grpc_initial_windows_size').val(data.grpc_initial_windows_size);
+            $('#node\\.grpc_multi_mode').prop('checked', data.grpc_multi_mode == '1');
+            $('#node\\.grpc_permit_without_stream').prop('checked', data.grpc_permit_without_stream == '1');
             setSelectValue($('#node\\.xhttp_mode'), data.xhttp_mode);
+            $('#node\\.xhttp_extra').val(prettyJson(data.xhttp_extra));
+            $('#node\\.ws_heartbeat_period').val(data.ws_heartbeat_period);
             $('#node\\.sockopt_domainStrategy').val(data.sockopt_domainStrategy || 'AsIs');
+            $('#node\\.sockopt_dialer_proxy').val(data.sockopt_dialer_proxy);
+            $('#node\\.sockopt_interface').val(data.sockopt_interface);
+            $('#node\\.sockopt_tproxy').val(data.sockopt_tproxy || '');
+            $('#node\\.sockopt_mark').val(data.sockopt_mark);
+            $('#node\\.sockopt_tcp_congestion').val(data.sockopt_tcp_congestion);
+            $('#node\\.sockopt_tcp_keepalive_idle').val(data.sockopt_tcp_keepalive_idle);
+            $('#node\\.sockopt_tcp_keepalive_interval').val(data.sockopt_tcp_keepalive_interval);
+            $('#node\\.sockopt_tcp_user_timeout').val(data.sockopt_tcp_user_timeout);
+            $('#node\\.sockopt_tcp_fast_open').prop('checked', data.sockopt_tcp_fast_open == '1');
             $('#node\\.target_strategy').val(data.target_strategy || 'AsIs');
             $('#node\\.send_through').val(data.send_through || '');
             $('#node\\.mux_concurrency').val(data.mux_concurrency || '');
@@ -1006,7 +1031,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '2.0.11');
+                    $('#lbl_plugin_version').text(data.plugin_version || '2.1.0');
                 }
             });
         }
@@ -1240,7 +1265,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.0.11</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.1.0</span>
             </div>
         </div>
         <div class="col-md-12">

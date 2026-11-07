@@ -385,6 +385,41 @@
         <help>Optional ALPN values (e.g., h2, http/1.1). For MASQUE, h2 selects HTTP/2; otherwise HTTP/3 is used.</help>
     </field>
     <field>
+        <id>node.tls_verify_peer_cert_by_name</id>
+        <label>Verify Peer Cert By Name</label>
+        <type>text</type>
+        <style>sec_tls</style>
+        <help>Client-only. Hostname(s) used for certificate verification instead of SNI (comma-separated, wildcards allowed).</help>
+    </field>
+    <field>
+        <id>node.tls_pinned_peer_cert_sha256</id>
+        <label>Pinned Peer Cert SHA-256</label>
+        <type>text</type>
+        <style>sec_tls</style>
+        <help>SHA-256 hex digest(s) of the peer certificate, comma-separated. Overrides normal certificate validation.</help>
+    </field>
+    <field>
+        <id>node.tls_ech_config_list</id>
+        <label>ECH Config List</label>
+        <type>text</type>
+        <style>sec_tls</style>
+        <help>ECH config: fixed Base64 string, or a DNS query URL like udp://1.1.1.1 / https://1.1.1.1/dns-query, optionally example.com+https://... .</help>
+    </field>
+    <field>
+        <id>node.tls_min_version</id>
+        <label>Min TLS Version</label>
+        <type>text</type>
+        <style>sec_tls</style>
+        <help>Optional. One of: 1.0, 1.1, 1.2, 1.3. Leave empty for default.</help>
+    </field>
+    <field>
+        <id>node.tls_max_version</id>
+        <label>Max TLS Version</label>
+        <type>text</type>
+        <style>sec_tls</style>
+        <help>Optional. One of: 1.0, 1.1, 1.2, 1.3. Leave empty for default.</help>
+    </field>
+    <field>
         <id>node.allow_insecure</id>
         <label>Allow Insecure TLS</label>
         <type>checkbox</type>
@@ -407,6 +442,13 @@
         <label>REALITY SpiderX (spx)</label>
         <type>text</type>
         <style>sec_reality</style>
+    </field>
+    <field>
+        <id>node.reality_mldsa65_verify</id>
+        <label>REALITY ML-DSA-65 Verify Key</label>
+        <type>text</type>
+        <style>sec_reality</style>
+        <help>Optional. Post-quantum signature verification public key (xray mldsa65). Leave empty to disable.</help>
     </field>
     <field>
         <type>header</type>
@@ -439,10 +481,66 @@
         <style>net_grpc</style>
     </field>
     <field>
+        <id>node.grpc_authority</id>
+        <label>gRPC Authority</label>
+        <type>text</type>
+        <style>net_grpc</style>
+        <help>Optional HTTP/2 :authority for gRPC (can be used as a Host). Leave empty to use the server address.</help>
+    </field>
+    <field>
+        <id>node.grpc_user_agent</id>
+        <label>gRPC User Agent</label>
+        <type>text</type>
+        <style>net_grpc</style>
+        <help>Client only. Custom User-Agent; may help against CDN blocks. Leave empty for default.</help>
+    </field>
+    <field>
+        <id>node.grpc_idle_timeout</id>
+        <label>gRPC Idle Timeout (s)</label>
+        <type>text</type>
+        <style>net_grpc</style>
+        <help>Seconds of inactivity before a health check. Minimum effective 10. Empty = health checks disabled.</help>
+    </field>
+    <field>
+        <id>node.grpc_health_check_timeout</id>
+        <label>gRPC Health Check Timeout (s)</label>
+        <type>text</type>
+        <style>net_grpc</style>
+        <help>Seconds to wait for a health check response before considering it failed (default 20).</help>
+    </field>
+    <field>
+        <id>node.grpc_permit_without_stream</id>
+        <label>gRPC Permit Without Stream</label>
+        <type>checkbox</type>
+        <style>net_grpc</style>
+        <help>Client only. Allow health checks when no streams are open.</help>
+    </field>
+    <field>
+        <id>node.grpc_initial_windows_size</id>
+        <label>gRPC Initial Windows Size</label>
+        <type>text</type>
+        <style>net_grpc</style>
+        <help>HTTP/2 stream initial window size. 0 disables (default). &gt;65535 disables dynamic window.</help>
+    </field>
+    <field>
         <id>node.xhttp_mode</id>
         <label>XHTTP Mode</label>
         <type>dropdown</type>
         <style>net_xhttp</style>
+    </field>
+    <field>
+        <id>node.xhttp_extra</id>
+        <label>XHTTP Extra (JSON object)</label>
+        <type>text</type>
+        <style>net_xhttp</style>
+        <help>Optional XHTTP extra object (headers, xPaddingBytes, scMaxEachPostBytes, xmux, etc.), e.g. {"scMaxEachPostBytes":1000000}.</help>
+    </field>
+    <field>
+        <id>node.ws_heartbeat_period</id>
+        <label>WebSocket Heartbeat Period (s)</label>
+        <type>text</type>
+        <style>net_ws</style>
+        <help>Optional. Send a WebSocket Ping every N seconds. 0 or empty disables keepalive pings.</help>
     </field>
     <field>
         <type>header</type>
@@ -455,6 +553,68 @@
         <type>dropdown</type>
         <style>stream_sockopt</style>
         <help>Domain resolution strategy for the proxy server connection (stream protocols only).</help>
+    </field>
+    <field>
+        <id>node.sockopt_dialer_proxy</id>
+        <label>Sockopt Dialer Proxy</label>
+        <type>text</type>
+        <style>stream_sockopt</style>
+        <help>Optional outbound tag used as dialer for this connection (chained proxy), e.g. proxy-out.</help>
+    </field>
+    <field>
+        <id>node.sockopt_interface</id>
+        <label>Sockopt Interface</label>
+        <type>text</type>
+        <style>stream_sockopt</style>
+        <help>Optional interface name to bind outbound connections to (Linux/macOS/Windows).</help>
+    </field>
+    <field>
+        <id>node.sockopt_tproxy</id>
+        <label>Sockopt TPROXY</label>
+        <type>text</type>
+        <style>stream_sockopt</style>
+        <help>Optional on Linux: off, redirect or tproxy.</help>
+    </field>
+    <field>
+        <id>node.sockopt_mark</id>
+        <label>Sockopt Mark (SO_MARK)</label>
+        <type>text</type>
+        <style>stream_sockopt</style>
+        <help>Optional SO_MARK integer (Linux only, requires CAP_NET_ADMIN).</help>
+    </field>
+    <field>
+        <id>node.sockopt_tcp_congestion</id>
+        <label>TCP Congestion Control</label>
+        <type>text</type>
+        <style>stream_sockopt</style>
+        <help>Optional on Linux: bbr (recommended), cubic, reno...</help>
+    </field>
+    <field>
+        <id>node.sockopt_tcp_fast_open</id>
+        <label>TCP Fast Open</label>
+        <type>checkbox</type>
+        <style>stream_sockopt</style>
+    </field>
+    <field>
+        <id>node.sockopt_tcp_keepalive_idle</id>
+        <label>TCP Keepalive Idle (s)</label>
+        <type>text</type>
+        <style>stream_sockopt</style>
+        <help>Optional. Seconds idle before keepalive probes start. Negative disables default keepalive.</help>
+    </field>
+    <field>
+        <id>node.sockopt_tcp_keepalive_interval</id>
+        <label>TCP Keepalive Interval (s)</label>
+        <type>text</type>
+        <style>stream_sockopt</style>
+        <help>Optional. Seconds between keepalive probes. Negative disables default keepalive.</help>
+    </field>
+    <field>
+        <id>node.sockopt_tcp_user_timeout</id>
+        <label>TCP User Timeout (ms)</label>
+        <type>text</type>
+        <style>stream_sockopt</style>
+        <help>Optional. Milliseconds before an unacknowledged TCP connection is aborted (0 or empty = disabled).</help>
     </field>
     <field>
         <id>node.target_strategy</id>
