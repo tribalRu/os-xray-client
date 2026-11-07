@@ -454,7 +454,7 @@
         <type>header</type>
         <static>true</static>
         <label>Transport Settings</label>
-        <style>net_http_based net_grpc</style>
+        <style>net_any</style>
     </field>
     <field>
         <id>node.transport_host</id>

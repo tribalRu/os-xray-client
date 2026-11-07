@@ -362,6 +362,9 @@
                 '.stream_sockopt': hasStream,
                 '.stream_custom': hasStream,
                 '.mux_supported': hasMux,
+                // Wraps the whole Transport Settings section (host/path/grpc/xhttp rows).
+                // Must match every transport shown inside: ws|xhttp|httpupgrade|grpc.
+                '.net_any': hasStream && ['ws', 'xhttp', 'httpupgrade', 'grpc'].indexOf(effNet) !== -1,
                 '.net_http_based': hasStream && ['ws', 'xhttp', 'httpupgrade'].indexOf(effNet) !== -1,
                 '.net_xhttp': hasStream && effNet === 'xhttp',
                 '.net_grpc': hasStream && effNet === 'grpc',
@@ -1031,7 +1034,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '2.1.0');
+                    $('#lbl_plugin_version').text(data.plugin_version || '2.1.1');
                 }
             });
         }
@@ -1265,7 +1268,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.1.0</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.1.1</span>
             </div>
         </div>
         <div class="col-md-12">
