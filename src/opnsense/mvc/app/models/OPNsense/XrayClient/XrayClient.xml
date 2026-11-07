@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>1.3.9</version>
+    <version>1.4.0</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -179,8 +179,8 @@
                 <extra type="TextField">
                     <default></default>
                     <Required>N</Required>
-                    <Mask>/^$|^[^\x00-\x1F\x7F]{1,4096}$/</Mask>
-                    <ValidationMessage>VLESS extra settings must be up to 4096 printable characters.</ValidationMessage>
+                    <Mask>/^$|^[\s\S]{1,8192}$/</Mask>
+                    <ValidationMessage>VLESS extra settings must be valid JSON up to 8192 characters.</ValidationMessage>
                 </extra>
                 <ss_method type="OptionField">
                     <default>x2022-blake3-aes-128-gcm</default>
