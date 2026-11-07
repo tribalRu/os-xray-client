@@ -623,27 +623,31 @@
             $btn.prop('disabled', true);
             $spin.show();
             $status.text('Generating WireGuard keypair and registering with WARP…').show();
-            ajaxCall('/api/xrayclient/service/warpGenerate', {}, function (data) {
-                $btn.prop('disabled', false);
-                $spin.hide();
-                if (!data || data.status !== 'ok') {
-                    $status.html('<span class="text-danger">Failed: ' + (data && data.message ? data.message : 'unknown error') + '</span>');
-                    return;
-                }
-                // Fill all WireGuard fields from the response
-                if (data.wg_secret_key) $('#node\\.wg_secret_key').val(data.wg_secret_key);
-                if (data.wg_public_key) $('#node\\.wg_public_key').val(data.wg_public_key);
-                if (data.wg_endpoint) $('#node\\.wg_endpoint').val(data.wg_endpoint);
-                if (data.wg_allowed_ips) setTokens('wg_allowed_ips', data.wg_allowed_ips.split(','));
-                if (data.wg_address) setTokens('wg_address', data.wg_address.split(','));
-                if (data.wg_remote_dns) setTokens('wg_remote_dns', data.wg_remote_dns.split(','));
-                if (data.wg_keepalive !== undefined) $('#node\\.wg_keepalive').val(data.wg_keepalive);
-                if (data.wg_mtu) $('#node\\.wg_mtu').val(data.wg_mtu);
-                if (data.wg_reserved) $('#node\\.wg_reserved').val(data.wg_reserved);
-                if (data.license) {
-                    $status.html('<span class="text-success">WARP config generated. License: <b>' + data.license + '</b>. Save the node to apply.</span>');
-                } else {
-                    $status.html('<span class="text-success">WARP config generated. Save the node to apply.</span>');
+            $.ajax({
+                url: '/api/xrayclient/service/warpGenerate',
+                type: 'POST',
+                timeout: 30000,
+                success: function (data) {
+                    $btn.prop('disabled', false);
+                    $spin.hide();
+                    if (!data || data.status !== 'ok') {
+                        $status.html('<span class="text-danger">Failed: ' + (data && data.message ? data.message : 'unknown error') + '</span>');
+                        return;
+                    }
+                    // Fill all WireGuard fields from the response
+                    if (data.wg_secret_key) $('#node\\.wg_secret_key').val(data.wg_secret_key);
+                    if (data.wg_public_key) $('#node\\.wg_public_key').val(data.wg_public_key);
+                    if (data.wg_endpoint) $('#node\\.wg_endpoint').val(data.wg_endpoint);
+                    if (data.wg_allowed_ips) setTokens('wg_allowed_ips', data.wg_allowed_ips.split(','));
+                    if (data.wg_address) setTokens('wg_address', data.wg_address.split(','));
+                    if (data.wg_remote_dns) setTokens('wg_remote_dns', data.wg_remote_dns.split(','));
+                    if (data.wg_keepalive !== undefined) $('#node\\.wg_keepalive').val(data.wg_keepalive);
+                    if (data.wg_mtu) $('#node\\.wg_mtu').val(data.wg_mtu);
+                    if (data.wg_reserved) $('#node\\.wg_reserved').val(data.wg_reserved);
+                    if (data.license) {
+                        $status.html('<span class="text-success">WARP config generated. License: <b>' + data.license + '</b>. Save the node to apply.</span>');
+                    } else {
+                        $status.html('<span class="text-success">WARP config generated. Save the node to apply.</span>');
                 }
                 if (data.warning) {
                     $status.append('<br/><small class="text-warning">' + data.warning + '</small>');
@@ -652,7 +656,24 @@
                 if ($('#node\\.protocol').val() !== 'wireguard') {
                     $('#node\\.protocol').val('wireguard').selectpicker('refresh').trigger('change');
                 }
-            });
+            },
+            error: function (xhr, status, err) {
+                $btn.prop('disabled', false);
+                $spin.hide();
+                var msg = 'unknown error';
+                if (status === 'timeout') {
+                    msg = 'Request timed out (Cloudflare API unreachable). Fallback values may still be used.';
+                } else if (xhr.responseText) {
+                    try {
+                        var j = JSON.parse(xhr.responseText);
+                        msg = j.message || xhr.responseText.slice(0, 200);
+                    } catch (e) {
+                        msg = xhr.responseText.slice(0, 200);
+                    }
+                }
+                $status.html('<span class="text-danger">Failed: ' + msg + '</span>');
+            }
+        });
         }
 
         // Helper: set tokenized select values (used by WARP fill)
@@ -959,7 +980,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '1.2.6');
+                    $('#lbl_plugin_version').text(data.plugin_version || '1.2.7');
                 }
             });
         }
@@ -1193,7 +1214,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.2.6</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.2.7</span>
             </div>
         </div>
         <div class="col-md-12">

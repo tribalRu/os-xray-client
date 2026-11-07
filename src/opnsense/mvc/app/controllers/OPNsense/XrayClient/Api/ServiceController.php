@@ -215,12 +215,49 @@ class ServiceController extends ApiMutableServiceControllerBase
             return ['status' => 'error', 'message' => 'Failed to start WARP generator script'];
         }
 
-        $stdout = stream_get_contents($pipes[1]);
-        $stderr = stream_get_contents($pipes[2]);
-        proc_close($process);
+        // Non-blocking pipes so we can poll with a timeout instead of hanging
+        // forever if the WARP API is unreachable.
+        stream_set_blocking($pipes[1], 0);
+        stream_set_blocking($pipes[2], 0);
 
-        fclose($pipes[1]);
-        fclose($pipes[2]);
+        // Wait for the script to finish, but abort after 25 seconds so the
+        // UI never hangs waiting on a slow/unreachable WARP API.
+        $deadline = time() + 25;
+        $stdout = $stderr = '';
+        while (time() < $deadline) {
+            $status = proc_get_status($process);
+            if (!$status['running']) {
+                break;
+            }
+            // Drain whatever is available without blocking.
+            $stdout .= fread($pipes[1], 8192);
+            $stderr .= fread($pipes[2], 8192);
+            usleep(200000);
+        }
+
+        // Read any remaining output after the process exited.
+        $stdout .= stream_get_contents($pipes[1]);
+        $stderr .= stream_get_contents($pipes[2]);
+
+        if (proc_get_status($process)['running']) {
+            proc_terminate($process);
+            return [
+                'status' => 'error',
+                'message' => 'WARP generator timed out after 25 seconds '
+                    . '(Cloudflare API unreachable). Check outbound HTTPS to '
+                    . 'api.cloudflareclient.com.',
+            ];
+        }
+
+        $rc = proc_close($process);
+
+        if ($rc !== 0) {
+            return [
+                'status' => 'error',
+                'message' => 'WARP generator exited with code ' . $rc
+                    . ': ' . trim($stderr),
+            ];
+        }
 
         $data = json_decode(trim($stdout), true);
         if (!is_array($data)) {
@@ -249,7 +286,7 @@ class ServiceController extends ApiMutableServiceControllerBase
         return is_array($data) ? $data : [
             'core_version' => 'Not installed',
             'geodata_date' => 'N/A',
-            'plugin_version' => '1.2.6'
+            'plugin_version' => '1.2.7'
         ];
     }
 

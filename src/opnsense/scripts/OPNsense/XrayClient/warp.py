@@ -15,12 +15,15 @@ Outputs JSON to stdout. On error, outputs {"status": "error", "message": "..."}.
 
 import base64
 import json
-import os
 import secrets
+import socket
 import subprocess
 import sys
 import urllib.error
 import urllib.request
+
+# Fail fast on any network operation (DNS, connect, read).
+socket.setdefaulttimeout(8)
 
 CONFIG_PATH = '/conf/config.xml'
 
@@ -29,8 +32,6 @@ CONFIG_PATH = '/conf/config.xml'
 WARP_REGISTRATION_URLS = [
     "https://api.cloudflareclient.com/v0a2233/reg",
     "https://api.cloudflareclient.com/v0a2214/reg",
-    "https://api.cloudflareclient.com/v0a1963/reg",
-    "https://api.cloudflareclient.com/v0a1857/reg",
 ]
 
 # WARP fallback values used when the API registration fails or is unreachable.
@@ -76,8 +77,6 @@ def generate_wg_keypair():
     except ImportError:
         pass
 
-    # Method 3: Pure-Python fallback is not implemented - Curve25519 scalar
-    # multiplication is non-trivial. Raise a clear error.
     raise RuntimeError(
         "Cannot generate WireGuard keypair: neither 'wg' command-line tool "
         "nor Python 'cryptography' library is available on this system."
@@ -111,7 +110,7 @@ def warp_register(public_key_b64):
                 },
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with urllib.request.urlopen(req) as resp:
                 body = resp.read().decode("utf-8")
                 return json.loads(body)
         except (urllib.error.URLError, urllib.error.HTTPError, OSError, json.JSONDecodeError) as exc:
