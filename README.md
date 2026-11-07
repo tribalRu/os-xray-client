@@ -34,6 +34,14 @@ Full-tunnel auto-routing (`autoSystemRoutingTable`, which replaces the system ro
 
 The prestart/poststop hooks honour `enable_tun` and clean up stale interfaces automatically.
 
+### Troubleshooting: pages on LAN clients never leave SYN_SENT, Xray sees nothing (empty access.log)
+
+If the wall/client can ping `192.168.1.199` but cannot open any website, and `netstat -i -I tun_xray0` shows `Ipkts: 0` while pf shows the rule passing packets (`pfctl -sr -v | grep route-to` → non-zero `Packets`), the gateway for the policy rule is pointing at the wrong end of the tunnel.
+
+The gateway must be the **Xray end** of the `/30` (`10.255.0.1` for the default prefix), **not** the address assigned to `opt1` by OPNsense (`10.255.0.2`). Pointing the gateway at `10.255.0.2` makes pf try to route into the wall’s own interface address and silently drop every packet — no error message is produced anywhere and Xray never sees a single packet.
+
+Fix: System → Gateways → Configuration → edit the `XRAY_GW` → *Gateway address* = `10.255.0.1` → Apply → `pfctl -F states` to drop stale SYN_SENT states.
+
 ## Outbound protocols
 
 The node dialog supports every outbound protocol implemented by Xray-core. Choosing a protocol shows only its relevant fields:
