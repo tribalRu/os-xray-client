@@ -76,8 +76,18 @@
     #DialogRule .form-control {
         max-width: none;
     }
-    /* OPNsense textbox fields render as <textarea> without .form-control,
-       so the core 348px cap must be lifted for the tag itself. */
+    /* Expert/Raw JSON areas must use the full width, not the core 348px cap. */
+    #tab_expert pre,
+    #tab_expert textarea,
+    #raw_json_container textarea {
+        width: 100% !important;
+        max-width: none !important;
+    }
+    #tab_expert .tab-pane,
+    #tab_expert #expert_view_wrap,
+    #tab_expert #expert_edit_wrap {
+        width: 100%;
+    }
     #DialogNode textarea,
     #DialogRule textarea {
         max-width: none !important;
@@ -1140,7 +1150,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '2.3.1');
+                    $('#lbl_plugin_version').text(data.plugin_version || '2.3.2');
                 }
             });
         }
@@ -1374,7 +1384,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.3.1</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.3.2</span>
             </div>
         </div>
         <div class="col-md-12">
