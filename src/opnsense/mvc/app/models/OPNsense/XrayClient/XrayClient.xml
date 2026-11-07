@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>2.2.1</version>
+    <version>2.3.0</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -720,11 +720,9 @@
                     <default></default>
                     <Required>N</Required>
                 </protocol>
-                <outbound_tag type="TextField">
+                <outbound_tag type=".\FieldTypes\OutboundTagField">
                     <default>direct</default>
                     <Required>Y</Required>
-                    <Mask>/^$|^(proxy|direct|block|node_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/</Mask>
-                    <ValidationMessage>Must be proxy, direct, block, or node_&lt;UUID&gt; of an existing outbound node.</ValidationMessage>
                 </outbound_tag>
             </rule>
         </rules>
