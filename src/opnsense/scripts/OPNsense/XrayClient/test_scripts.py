@@ -132,6 +132,30 @@ class TestStats(unittest.TestCase):
         self.assertEqual(data['stats']['ccc'], {'uplink': 0, 'downlink': 0})
 
 
+class TestWarpReserved(unittest.TestCase):
+
+    def test_reserved_from_client_id(self):
+        import base64
+        import warp
+        cid = base64.b64encode(bytes([12, 34, 56])).decode()
+        self.assertEqual(warp.reserved_from_client_id(cid), '12,34,56')
+        # Unpadded input must work too.
+        self.assertEqual(warp.reserved_from_client_id(cid.rstrip('=')), '12,34,56')
+
+    def test_reserved_invalid_client_id(self):
+        import warp
+        for bad in ('', None, '!!!', 'QQ=='):
+            self.assertEqual(warp.reserved_from_client_id(bad), '')
+
+    def test_extract_uses_client_id_not_random(self):
+        import base64
+        import warp
+        reg = {'config': {'client_id': base64.b64encode(bytes([1, 2, 3])).decode(),
+                          'peers': [], 'interface': {}}}
+        for _ in range(5):
+            self.assertEqual(warp.extract_warp_fields(reg, 'priv', 'pub')['wg_reserved'], '1,2,3')
+
+
 class _FakeFile:
     def __init__(self, content):
         self.content = content

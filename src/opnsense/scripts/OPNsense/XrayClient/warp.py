@@ -190,6 +190,22 @@ def warp_register(public_key_b64):
     return None
 
 
+def reserved_from_client_id(client_id):
+    """WARP routes WireGuard packets by the 3 'reserved' bytes, which are the
+    first three bytes of the base64 'client_id' returned at registration.
+    Returns "a,b,c" or "" when the client_id is missing or malformed."""
+    if not client_id or not isinstance(client_id, str):
+        return ""
+    try:
+        padded = client_id + "=" * (-len(client_id) % 4)
+        raw = base64.b64decode(padded, validate=True)
+    except (ValueError, TypeError):
+        return ""
+    if len(raw) < 3:
+        return ""
+    return ",".join(str(b) for b in raw[:3])
+
+
 def extract_warp_fields(reg_response, client_private_key, client_public_key):
     """Extract WireGuard fields from WARP registration response."""
     config = reg_response.get("config", {})
@@ -259,10 +275,12 @@ def extract_warp_fields(reg_response, client_private_key, client_public_key):
     # DNS - WARP uses 1.1.1.1 / 1.0.0.1 by default
     dns = WARP_FALLBACK_DNS
 
-    # Reserved bytes - three random bytes 0-255
-    reserved = ",".join(str(secrets.randbelow(256)) for _ in range(3))
+    # Reserved bytes come from the registered device's client_id; random
+    # values (as used before) do not match the device and WARP drops the
+    # traffic.
+    reserved = reserved_from_client_id(config.get("client_id", ""))
 
-    return {
+    result = {
         "status": "ok",
         "wg_secret_key": private_key,
         "wg_public_key": server_public_key,
@@ -276,6 +294,13 @@ def extract_warp_fields(reg_response, client_private_key, client_public_key):
         "license": reg_response.get("account", {}).get("license", ""),
         "token": reg_response.get("token", ""),
     }
+    if not reserved:
+        result["warning"] = (
+            "WARP response contained no usable client_id; the Reserved field "
+            "was left unchanged (default 0,0,0). WARP may not route traffic "
+            "until the correct reserved bytes are set."
+        )
+    return result
 
 
 def main():
