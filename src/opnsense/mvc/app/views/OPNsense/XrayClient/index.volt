@@ -579,12 +579,99 @@
 
         $('#DialogNode').on('shown.bs.modal', function () {
             toggleNodeDialogFields();
+            injectWarpButton();
             if (pendingImport) {
                 var data = pendingImport;
                 pendingImport = null;
                 fillNodeDialog(data);
             }
         });
+
+        // --- WARP auto-config generation for WireGuard ---
+        // Injects a "Generate WARP config" button into the WireGuard section
+        // of the node dialog. Clicking it calls the backend WARP generator
+        // (keypair + Cloudflare WARP registration) and fills all WireGuard fields.
+        function injectWarpButton() {
+            if ($('#btn_warp_generate').length > 0) return;
+            var $wgHeader = $('#DialogNode .modal-body .proto_wireguard').closest('table').prevAll('thead').find('b:contains("WireGuard Settings")');
+            if ($wgHeader.length === 0) return;
+            var $btn = $(
+                '<button id="btn_warp_generate" type="button" class="btn btn-xs btn-info" style="margin-top:6px;">' +
+                '<i class="fa fa-cloud-download"></i> <b>Generate WARP config</b>' +
+                '<i id="btn_warp_generate_spin" class="fa fa-spinner fa-pulse" style="display:none; margin-left:6px;"></i>' +
+                '</button> ' +
+                '<span id="warp_gen_status" class="text-muted" style="margin-left:8px; font-size:12px;"></span>'
+            );
+            $wgHeader.closest('tr').after(
+                '<tr><td colspan="3" style="text-align:left; padding-top:6px;">' +
+                '<small style="color:#888;">Cloudflare WARP is a WireGuard-based service. This generates a local ' +
+                'WireGuard keypair and registers with Cloudflare WARP to fill all fields.</small>' +
+                '</td></tr>'
+            );
+            $wgHeader.closest('tr').next().find('td').append($btn);
+            $btn.on('click', function () {
+                generateWarpConfig();
+            });
+        }
+
+        function generateWarpConfig() {
+            var $btn = $('#btn_warp_generate');
+            var $spin = $('#btn_warp_generate_spin');
+            var $status = $('#warp_gen_status');
+            $btn.prop('disabled', true);
+            $spin.show();
+            $status.text('Generating WireGuard keypair and registering with WARP…').show();
+            ajaxCall('/api/xrayclient/service/warpGenerate', {}, function (data) {
+                $btn.prop('disabled', false);
+                $spin.hide();
+                if (!data || data.status !== 'ok') {
+                    $status.html('<span class="text-danger">Failed: ' + (data && data.message ? data.message : 'unknown error') + '</span>');
+                    return;
+                }
+                // Fill all WireGuard fields from the response
+                if (data.wg_secret_key) $('#node\\.wg_secret_key').val(data.wg_secret_key);
+                if (data.wg_public_key) $('#node\\.wg_public_key').val(data.wg_public_key);
+                if (data.wg_endpoint) $('#node\\.wg_endpoint').val(data.wg_endpoint);
+                if (data.wg_allowed_ips) setTokens('wg_allowed_ips', data.wg_allowed_ips.split(','));
+                if (data.wg_address) setTokens('wg_address', data.wg_address.split(','));
+                if (data.wg_remote_dns) setTokens('wg_remote_dns', data.wg_remote_dns.split(','));
+                if (data.wg_keepalive !== undefined) $('#node\\.wg_keepalive').val(data.wg_keepalive);
+                if (data.wg_mtu) $('#node\\.wg_mtu').val(data.wg_mtu);
+                if (data.wg_reserved) $('#node\\.wg_reserved').val(data.wg_reserved);
+                if (data.license) {
+                    $status.html('<span class="text-success">WARP config generated. License: <b>' + data.license + '</b>. Save the node to apply.</span>');
+                } else {
+                    $status.html('<span class="text-success">WARP config generated. Save the node to apply.</span>');
+                }
+                if (data.warning) {
+                    $status.append('<br/><small class="text-warning">' + data.warning + '</small>');
+                }
+                // Select WireGuard protocol if not already
+                if ($('#node\\.protocol').val() !== 'wireguard') {
+                    $('#node\\.protocol').val('wireguard').selectpicker('refresh').trigger('change');
+                }
+            });
+        }
+
+        // Helper: set tokenized select values (used by WARP fill)
+        function setTokens(fieldId, values) {
+            var $sel = $('#node\\.' + fieldId);
+            if (!$sel.length) return;
+            var merged = [];
+            values.forEach(function (v) {
+                v = v.trim();
+                if (v && merged.indexOf(v) === -1) merged.push(v);
+            });
+            $sel.empty();
+            merged.forEach(function (v) {
+                $('<option/>').val(v).text(v).prop('selected', true).appendTo($sel);
+            });
+            if (typeof formatTokenizersUI === 'function') {
+                formatTokenizersUI();
+            }
+            $sel.selectpicker('refresh');
+            $sel.change();
+        }
 
         function base64UrlDecode(s) {
             s = s.replace(/-/g, '+').replace(/_/g, '/');
@@ -870,7 +957,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '1.2.4');
+                    $('#lbl_plugin_version').text(data.plugin_version || '1.2.5');
                 }
             });
         }
@@ -1104,7 +1191,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.2.4</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.2.5</span>
             </div>
         </div>
         <div class="col-md-12">

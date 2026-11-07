@@ -186,6 +186,53 @@ class ServiceController extends ApiMutableServiceControllerBase
         return is_array($data) ? $data : ['status' => 'error', 'nodes' => []];
     }
 
+    /**
+     * Generate a Cloudflare WARP WireGuard configuration.
+     * Generates a local WireGuard keypair, registers with Cloudflare's WARP API,
+     * and returns all fields to fill the WireGuard node dialog.
+     */
+    public function warpGenerateAction()
+    {
+        if (!$this->request->isPost()) {
+            return ['status' => 'error', 'message' => 'POST required'];
+        }
+
+        $script = '/usr/local/opnsense/scripts/OPNsense/XrayClient/warp.py';
+        if (!is_executable($script)) {
+            return [
+                'status' => 'error',
+                'message' => 'WARP generator script not found or not executable (' . $script . ')',
+            ];
+        }
+
+        $descriptors = [
+            0 => ['pipe', 'r'],
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ];
+        $process = proc_open('python3 ' . escapeshellarg($script), $descriptors, $pipes);
+        if (!is_resource($process)) {
+            return ['status' => 'error', 'message' => 'Failed to start WARP generator script'];
+        }
+
+        $stdout = stream_get_contents($pipes[1]);
+        $stderr = stream_get_contents($pipes[2]);
+        proc_close($process);
+
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+
+        $data = json_decode(trim($stdout), true);
+        if (!is_array($data)) {
+            return [
+                'status' => 'error',
+                'message' => 'WARP generator returned invalid output: ' . trim($stdout) . ' ' . trim($stderr),
+            ];
+        }
+
+        return $data;
+    }
+
     public function statsAction()
     {
         $backend = new Backend();
@@ -202,7 +249,7 @@ class ServiceController extends ApiMutableServiceControllerBase
         return is_array($data) ? $data : [
             'core_version' => 'Not installed',
             'geodata_date' => 'N/A',
-            'plugin_version' => '1.2.4'
+            'plugin_version' => '1.2.5'
         ];
     }
 
