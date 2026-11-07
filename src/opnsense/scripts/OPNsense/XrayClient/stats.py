@@ -16,16 +16,12 @@ def main():
         return
 
     stats_port = get_general_value('stats_port') or '10085'
-    first_active_uuid = None
     all_uuids = []
 
     for node in iter_nodes():
         uuid = node['uuid']
-        enabled = node['enabled']
         if uuid:
             all_uuids.append(uuid)
-            if enabled == '1' and first_active_uuid is None:
-                first_active_uuid = uuid
 
     node_stats = {u: {'uplink': 0, 'downlink': 0} for u in all_uuids}
 
@@ -42,9 +38,7 @@ def main():
                     tag = parts[1]
                     direction = parts[3]
                     target_uuid = None
-                    if tag == 'proxy' and first_active_uuid:
-                        target_uuid = first_active_uuid
-                    elif tag.startswith('node_'):
+                    if tag.startswith('node_'):
                         target_uuid = tag.replace('node_', '', 1)
 
                     if target_uuid and target_uuid in node_stats and direction in ('uplink', 'downlink'):

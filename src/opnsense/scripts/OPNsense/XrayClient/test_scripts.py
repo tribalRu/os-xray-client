@@ -25,7 +25,7 @@ class TestLibUtils(unittest.TestCase):
             self.assertEqual(nodes, [])
 
     def test_all_nodes_with_tags(self):
-        """all_nodes_with_tags() assigns proxy to first, node_<uuid> to rest."""
+        """all_nodes_with_tags() assigns node_<uuid> to every enabled node."""
         with patch('_lib.iter_nodes') as mock_iter:
             mock_iter.return_value = [
                 {'uuid': 'aaa', 'enabled': '1', 'address': 'a.example.com', 'port': '443'},
@@ -34,7 +34,7 @@ class TestLibUtils(unittest.TestCase):
             ]
             from _lib import all_nodes_with_tags
             result = all_nodes_with_tags()
-            self.assertEqual(result, {'aaa': 'proxy', 'bbb': 'node_bbb'})
+            self.assertEqual(result, {'aaa': 'node_aaa', 'bbb': 'node_bbb'})
 
 
 class TestWarpConfig(unittest.TestCase):

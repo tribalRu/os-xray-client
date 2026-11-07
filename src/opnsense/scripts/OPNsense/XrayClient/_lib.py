@@ -45,13 +45,10 @@ def active_nodes():
 
 
 def all_nodes_with_tags():
-    """Return dict tag->uuid mapping (matching config.json.j2 outbounds)."""
+    """Return dict uuid->tag mapping (matching config.json.j2 outbounds)."""
     result = {}
-    active_idx = 0
     for node in iter_nodes():
         if node['enabled'] != '1':
             continue
-        tag = 'proxy' if active_idx == 0 else 'node_' + node['uuid']
-        result[node['uuid']] = tag
-        active_idx += 1
+        result[node['uuid']] = 'node_' + node['uuid']
     return result

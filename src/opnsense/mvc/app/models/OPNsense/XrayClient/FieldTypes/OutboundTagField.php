@@ -30,11 +30,11 @@ use OPNsense\Core\Config;
 /**
  * Outbound tag selector for routing rules.
  *
- * The list is dynamic: it mirrors exactly what config.json.j2 renders as
- * outbound tags — "direct" and "block" are always available (core), the
- * first enabled outbound node becomes "proxy", the rest become
- * "node_<uuid>". Standard entries live in their own optgroup, the ones
- * coming from the user's node configuration in another optgroup.
+ * Every enabled node is offered as "node_<uuid>" — a tag that never
+ * changes across add/remove/reorder, so a saved routing rule always
+ * points at the same node. "direct" and "block" are the core's
+ * built-in outbounds (optgroup "Standard"). No aliases are emitted:
+ * one node, one tag.
  */
 class OutboundTagField extends OptionField
 {
@@ -74,18 +74,16 @@ class OutboundTagField extends OptionField
             $nodes = [];
         }
 
-        $index = 0;
         foreach ($nodes as $node) {
             $uuid = (string)$node['uuid'];
             $name = trim((string)$node->name);
             $proto = trim((string)$node->protocol);
-            $tag = ($index === 0) ? 'proxy' : 'node_' . $uuid;
             $label = ($name !== '' ? $name : $uuid) . ' (' . ($proto !== '' ? $proto : 'node') . ')';
-            $list[$tag] = [
+            // One stable tag per node (mirrors config.json.j2).
+            $list['node_' . $uuid] = [
                 'value' => gettext($label),
                 'optgroup' => gettext('Custom (from outbound nodes)'),
             ];
-            $index++;
         }
         return $list;
     }
