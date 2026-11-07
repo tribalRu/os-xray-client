@@ -25,12 +25,13 @@ chmod +x /usr/local/etc/rc.d/os-xray-client
 chmod +x /usr/local/opnsense/scripts/OPNsense/XrayClient/*.sh
 chmod +x /usr/local/opnsense/scripts/OPNsense/XrayClient/*.py
 
-date "+1.4.2 (%Y-%m-%d %H:%M)" > /usr/local/opnsense/scripts/OPNsense/XrayClient/PLUGIN_VERSION
+echo "2.0.0" > /usr/local/opnsense/scripts/OPNsense/XrayClient/PLUGIN_VERSION
 
 echo "Running OPNsense MVC migrations..."
-if ! /usr/local/opnsense/mvc/script/run_migrations.php; then
-    echo "WARNING: model migrations returned an error - check OPNsense logs."
-fi
+/usr/local/opnsense/mvc/script/run_migrations.php || {
+    echo "ERROR: model migrations failed. Installation aborted."
+    exit 1
+}
 
 echo "Clearing OPNsense UI, menu, ACL and compiled Volt cache..."
 # Volt compiles .volt templates into $cacheDir (/var/lib/php/cache);

@@ -17,6 +17,12 @@
 ACTION="$1"
 CONFIG_XML="/conf/config.xml"
 
+# Check for required binaries
+if ! command -v ifconfig >/dev/null 2>&1; then
+    echo "ERROR: ifconfig(8) not found. Cannot reconcile TUN interfaces." >&2
+    exit 1
+fi
+
 TUN_IFACE="tun_xray0"
 ENABLE_TUN="1"
 

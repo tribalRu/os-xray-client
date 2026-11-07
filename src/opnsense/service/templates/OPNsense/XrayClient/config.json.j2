@@ -16,19 +16,19 @@
 ]
 {%- endmacro -%}
 {% macro int_array(value, fallback) -%}
-[
-{%- set _vals = value.split(',') if value is string else (value or []) -%}
-{%- if _vals -%}
-{%- for v in _vals -%}
-{{ (v | string | trim) | int }}{{ "," if not loop.last else "" }}
-{%- endfor -%}
-{%- else -%}
-{{ fallback }}
-{%- endif -%}
-]
+{% if value is defined and value is not none and (value | string | trim) != '' %}
+[{{ (value | string).split(',') | map('trim') | map('int') | join(', ') }}]
+{% else %}
+[{{ fallback }}]
+{% endif %}
 {%- endmacro -%}
 {% macro header_object(value) -%}
-{{ value | replace('{', '', 1) | reverse | replace('}', '', 1) | reverse | trim }}
+{% set _h = value | trim %}
+{% if _h[0] == '{' and _h[-1] == '}' %}
+{{ _h[1:-1] }}
+{% else %}
+{{ _h }}
+{% endif %}
 {%- endmacro -%}
 {% macro tls_settings(node) -%}
 ,"tlsSettings": {

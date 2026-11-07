@@ -324,6 +324,7 @@
                 });
             }
 
+            // Compute context
             var streamProtos = ['vless', 'vmess', 'trojan', 'shadowsocks', 'socks', 'http'];
             var directProtos = ['freedom', 'blackhole', 'dns', 'loopback', 'wireguard'];
             var passwordProtos = ['vless', 'vmess', 'trojan', 'shadowsocks'];
@@ -337,39 +338,41 @@
             var hasPassword = passwordProtos.indexOf(proto) !== -1;
             var hasAuth = authProtos.indexOf(proto) !== -1;
             var hasMux = ['vless', 'vmess', 'trojan', 'shadowsocks'].indexOf(proto) !== -1;
-
-            // Hysteria and MASQUE transport is implied by the protocol.
             var effNet = isHysteria ? 'hysteria' : (isMasque ? 'masque' : net);
             var effSec = (isHysteria || isMasque) ? 'tls' : sec;
 
-            setBlock('.proto_endpoint', hasEndpoint);
-            setBlock('.proto_password', hasPassword);
-            setBlock('.proto_auth', hasAuth);
-
-            setBlock('.proto_vless', proto === 'vless');
-            setBlock('.proto_vmess', proto === 'vmess');
-            setBlock('.proto_shadowsocks', proto === 'shadowsocks');
-            setBlock('.proto_wireguard', proto === 'wireguard');
-            setBlock('.proto_freedom', proto === 'freedom');
-            setBlock('.proto_blackhole', proto === 'blackhole');
-            setBlock('.proto_dns', proto === 'dns');
-            setBlock('.proto_loopback', proto === 'loopback');
-            setBlock('.proto_hysteria', isHysteria);
-            setBlock('.proto_masque', isMasque);
-            setBlock('.proto_http_masque', proto === 'http' || isMasque);
-
-            setBlock('.proto_transport', hasTransport);
-            setBlock('.transport_selector', hasStream);
-            setBlock('.stream_custom', hasStream);
-            setBlock('.mux_supported', hasMux);
-
-            setBlock('.net_ws', hasStream && effNet === 'ws');
-            setBlock('.net_grpc', hasStream && effNet === 'grpc');
-            setBlock('.net_xhttp', hasStream && effNet === 'xhttp');
-            setBlock('.net_httpupgrade', hasStream && effNet === 'httpupgrade');
-
-            setBlock('.sec_tls', hasTransport && effSec === 'tls');
-            setBlock('.sec_reality', hasTransport && effSec === 'reality');
+            // Field visibility table: selector -> condition
+            var view = {
+                '.proto_endpoint': hasEndpoint,
+                '.proto_password': hasPassword,
+                '.proto_auth': hasAuth,
+                '.proto_vless': proto === 'vless',
+                '.proto_vmess': proto === 'vmess',
+                '.proto_shadowsocks': proto === 'shadowsocks',
+                '.proto_wireguard': proto === 'wireguard',
+                '.proto_freedom': proto === 'freedom',
+                '.proto_blackhole': proto === 'blackhole',
+                '.proto_dns': proto === 'dns',
+                '.proto_loopback': proto === 'loopback',
+                '.proto_hysteria': isHysteria,
+                '.proto_masque': isMasque,
+                '.proto_http_masque': proto === 'http' || isMasque,
+                '.proto_transport': hasTransport,
+                '.transport_selector': hasStream,
+                '.stream_custom': hasStream,
+                '.mux_supported': hasMux,
+                '.net_ws': hasStream && effNet === 'ws',
+                '.net_grpc': hasStream && effNet === 'grpc',
+                '.net_xhttp': hasStream && effNet === 'xhttp',
+                '.net_httpupgrade': hasStream && effNet === 'httpupgrade',
+                '.sec_tls': hasTransport && effSec === 'tls',
+                '.sec_reality': hasTransport && effSec === 'reality'
+            };
+            for (var sel in view) {
+                if (Object.prototype.hasOwnProperty.call(view, sel)) {
+                    setBlock(sel, view[sel]);
+                }
+            }
         }
 
         $('#node\\.protocol, #node\\.network, #node\\.security').on('change', toggleNodeDialogFields);
@@ -999,7 +1002,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '1.4.2');
+                    $('#lbl_plugin_version').text(data.plugin_version || '2.0.0');
                 }
             });
         }
@@ -1233,7 +1236,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.4.2</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">2.0.0</span>
             </div>
         </div>
         <div class="col-md-12">

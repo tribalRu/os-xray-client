@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>1.4.2</version>
+    <version>2.0.0</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -96,6 +96,7 @@
             </raw_json>
         </general>
 
+        <!-- ====== Outbound Nodes (Servers) ====== -->
         <nodes>
             <node type="ArrayField">
                 <enabled type="BooleanField">
@@ -105,9 +106,10 @@
                 <name type="TextField">
                     <default>Main Server</default>
                     <Required>Y</Required>
-                    <Mask>/^$|^[^\x00-\x1F\x7F]{1,192}$/</Mask>
-                    <ValidationMessage>Node name must be 1-64 characters and must not contain control characters.</ValidationMessage>
+                    <Mask>/^$|^[A-Za-z0-9\s._\-()\[\]@#\/&amp;!+:;,"]{1,192}$/</Mask>
+                    <ValidationMessage>Node name must be 1-64 characters (letters, digits, spaces, and common punctuation).</ValidationMessage>
                 </name>
+                <!-- VLESS / VMess protocol settings -->
                 <protocol type="OptionField">
                     <default>vless</default>
                     <Required>Y</Required>
@@ -518,6 +520,7 @@
             </node>
         </nodes>
 
+        <!-- ====== Routing Rules ====== -->
         <rules>
             <rule type="ArrayField">
                 <enabled type="BooleanField">
@@ -568,6 +571,7 @@
             </rule>
         </rules>
 
+        <!-- ====== Core & GeoData Updates ====== -->
         <maintenance>
             <core_branch type="OptionField">
                 <default>stable</default>

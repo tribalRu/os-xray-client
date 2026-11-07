@@ -3,10 +3,12 @@
 import json
 import socket
 import time
-import xml.etree.ElementTree as ET
+import sys
 from concurrent.futures import ThreadPoolExecutor
 
-CONFIG_PATH = '/conf/config.xml'
+sys.path.insert(0, '/usr/local/opnsense/scripts/OPNsense/XrayClient')
+from _lib import iter_nodes
+
 TIMEOUT = 2.5
 
 
@@ -28,27 +30,9 @@ def check_node(node_data):
 
 
 def main():
-    nodes_to_check = []
-    try:
-        tree = ET.parse(CONFIG_PATH)
-        root = tree.getroot()
-        for node_el in root.findall('.//OPNsense/XrayClient/nodes/node'):
-            uuid = node_el.attrib.get('uuid', '')
-            # Only check nodes that will actually be rendered (enabled).
-            enabled = (node_el.findtext('enabled') or '0').strip()
-            if enabled != '1':
-                continue
-            address = (node_el.findtext('address') or '').strip()
-            port = (node_el.findtext('port') or '443').strip()
-            if uuid:
-                nodes_to_check.append({
-                    'uuid': uuid,
-                    'address': address,
-                    'port': port
-                })
-    except Exception as e:
-        print(json.dumps({'status': 'error', 'message': str(e), 'nodes': {}}))
-        return
+    nodes_to_check = [
+        n for n in iter_nodes() if n['enabled'] == '1'
+    ]
 
     results = {}
     if nodes_to_check:

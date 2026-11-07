@@ -1,12 +1,12 @@
 #!/usr/local/bin/python3
-
 import json
 import os
 import subprocess
 import sys
-import xml.etree.ElementTree as ET
 
-CONFIG_PATH = '/conf/config.xml'
+sys.path.insert(0, '/usr/local/opnsense/scripts/OPNsense/XrayClient')
+from _lib import get_general_value, iter_nodes
+
 XRAY_BIN = '/usr/local/bin/xray'
 
 
@@ -15,26 +15,17 @@ def main():
         print(json.dumps({'status': 'error', 'message': 'Xray binary not found', 'stats': {}}))
         return
 
-    stats_port = '10085'
+    stats_port = get_general_value('stats_port') or '10085'
     first_active_uuid = None
     all_uuids = []
 
-    try:
-        tree = ET.parse(CONFIG_PATH)
-        root = tree.getroot()
-        port_el = root.findtext('.//OPNsense/XrayClient/general/stats_port')
-        if port_el:
-            stats_port = port_el.strip()
-
-        for node_el in root.findall('.//OPNsense/XrayClient/nodes/node'):
-            uuid = node_el.attrib.get('uuid', '')
-            enabled = (node_el.findtext('enabled') or '0').strip()
-            if uuid:
-                all_uuids.append(uuid)
-                if enabled == '1' and first_active_uuid is None:
-                    first_active_uuid = uuid
-    except Exception as e:
-        print(f"stats.py: config parse error: {e}", file=sys.stderr)
+    for node in iter_nodes():
+        uuid = node['uuid']
+        enabled = node['enabled']
+        if uuid:
+            all_uuids.append(uuid)
+            if enabled == '1' and first_active_uuid is None:
+                first_active_uuid = uuid
 
     node_stats = {u: {'uplink': 0, 'downlink': 0} for u in all_uuids}
 
@@ -59,8 +50,6 @@ def main():
                     if target_uuid and target_uuid in node_stats and direction in ('uplink', 'downlink'):
                         node_stats[target_uuid][direction] = val
         else:
-            # Zero counters are still returned so the grid renders, but
-            # the status now says why instead of silently claiming "ok".
             err = (proc.stderr or proc.stdout or 'statsquery failed').strip().splitlines()
             print(f"stats.py: {err[0] if err else 'statsquery failed'}", file=sys.stderr)
             print(json.dumps({'status': 'error', 'message': err[0] if err else 'statsquery failed', 'stats': node_stats}))

@@ -52,9 +52,11 @@ class ServiceController extends ApiMutableServiceControllerBase
             $testOut = $backend->configdRun('xrayclient test_config');
             $testData = json_decode(trim($testOut), true);
             if (is_array($testData) && ($testData['status'] ?? '') !== 'ok') {
+                $testMsg = $testData['message'] ?? 'Xray config test failed';
                 return [
                     'status' => 'error',
-                    'message' => $testData['message'] ?? 'Xray config test failed'
+                    'message' => 'Config test failed: ' . $testMsg
+                        . ' — service NOT restarted, previous config still running.'
                 ];
             }
             if (!is_array($testData) && trim($testOut) !== '') {
@@ -286,7 +288,7 @@ class ServiceController extends ApiMutableServiceControllerBase
         return is_array($data) ? $data : [
             'core_version' => 'Not installed',
             'geodata_date' => 'N/A',
-            'plugin_version' => '1.4.2'
+            'plugin_version' => '2.0.0'
         ];
     }
 

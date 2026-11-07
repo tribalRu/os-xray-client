@@ -16,7 +16,7 @@ function xrayclient_services()
     }
 
     $services[] = [
-        'description' => gettext('Xray Client (VLESS / REALITY / TUN)'),
+        'description' => gettext('Xray Client (VLESS, VMess, Trojan, Shadowsocks, WireGuard, Hysteria 2, MASQUE, and more)'),
         'configd' => [
             'restart' => ['xrayclient restart'],
             'start' => ['xrayclient start'],
