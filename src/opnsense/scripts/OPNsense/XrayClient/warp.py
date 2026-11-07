@@ -128,8 +128,8 @@ def build_payload(public_key_b64):
     - "type": "Android"
     - "model": ""
     """
-    # tos: ISO 8601 timestamp without microseconds, ending with Z
-    tos = datetime.datetime.now().isoformat(timespec='seconds') + "Z"
+    # tos: ISO 8601 UTC timestamp without microseconds, ending with Z
+    tos = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     return {
         "key": public_key_b64,
