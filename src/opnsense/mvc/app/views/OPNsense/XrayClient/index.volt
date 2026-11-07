@@ -297,16 +297,30 @@
             var sec = $('#node\\.security').val();
 
             // OPNsense <=25 wraps fields in <tr>, >=26 in .form-group.
+            // A <style> on a header field is applied to the wrapping
+            // div.form-search-section (not to a table row), so never
+            // hide the parent element blindly: doing that used to hide
+            // the whole #frm_DialogNode and collapse the dialog.
+            $('#frm_DialogNode').show();
+
             function setBlock(sel, show) {
-                var $b = $(sel).closest('tr, .form-group');
-                if ($b.length === 0) {
-                    $b = $(sel).parent();
-                }
-                if (show) {
-                    $b.show();
-                } else {
-                    $b.hide();
-                }
+                $(sel).each(function () {
+                    var $el = $(this);
+                    var $b;
+                    if ($el.is('div.form-search-section, div.form-group')) {
+                        $b = $el;
+                    } else {
+                        $b = $el.closest('tr, .form-group');
+                        if ($b.length === 0) {
+                            $b = $el;
+                        }
+                    }
+                    if (show) {
+                        $b.show();
+                    } else {
+                        $b.hide();
+                    }
+                });
             }
 
             var streamProtos = ['vless', 'vmess', 'trojan', 'shadowsocks', 'socks', 'http'];
@@ -777,7 +791,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '1.2.0');
+                    $('#lbl_plugin_version').text(data.plugin_version || '1.2.1');
                 }
             });
         }
@@ -1011,7 +1025,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.2.0</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.2.1</span>
             </div>
         </div>
         <div class="col-md-12">
