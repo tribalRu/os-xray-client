@@ -75,9 +75,10 @@
     <field>
         <id>node.extra</id>
         <label>Extra (VLESS)</label>
-        <type>text</type>
+        <type>textbox</type>
         <style>proto_vless</style>
-        <help>VLESS extra settings imported from a vless:// link (XTLS/padding settings). Leave empty to use the Encryption field above.</help>
+        <height>10</height>
+        <help>VLESS extra settings as JSON (e.g. xPaddingBytes, headers). Imported from vless:// link. Leave empty to use the Encryption field above.</help>
     </field>
     <field>
         <id>node.ss_method</id>
@@ -448,8 +449,9 @@
     <field>
         <id>node.finalmask</id>
         <label>FinalMask</label>
-        <type>text</type>
+        <type>textbox</type>
         <style>stream_custom</style>
+        <height>6</height>
         <help>FinalMask traffic obfuscation settings as JSON object.</help>
     </field>
 </form>
