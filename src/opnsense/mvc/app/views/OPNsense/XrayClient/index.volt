@@ -989,7 +989,7 @@
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
                     $('#lbl_geodata_date').text(data.geodata_date || 'Unknown');
-                    $('#lbl_plugin_version').text(data.plugin_version || '1.3.6');
+                    $('#lbl_plugin_version').text(data.plugin_version || '1.3.7');
                 }
             });
         }
@@ -1223,7 +1223,7 @@
             <div class="alert alert-info">
                 <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
                 <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.3.6</span>
+                <b>Plugin Version:</b> <span id="lbl_plugin_version">1.3.7</span>
             </div>
         </div>
         <div class="col-md-12">
