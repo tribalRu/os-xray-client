@@ -182,8 +182,33 @@ def extract_warp_fields(reg_response, client_private_key, client_public_key):
         if isinstance(ep, dict):
             address = ep.get("host", ep.get("address", ""))
             port = ep.get("port", 2408)
-            if address and port:
-                endpoint = f"{address}:{port}"
+            if address:
+                # The API may return host already including the port
+                # (e.g. "engage.cloudflareclient.com:2408"). Detect that
+                # and avoid appending the port twice. IPv6 addresses in
+                # brackets ([::1]:port) are handled too.
+                if address.startswith("["):
+                    end_bracket = address.find("]")
+                    if end_bracket != -1:
+                        rest = address[end_bracket + 1:]
+                        if rest.startswith(":"):
+                            endpoint = address  # already has port
+                        elif port:
+                            endpoint = f"[{address[1:end_bracket]}]:{port}"
+                        else:
+                            endpoint = address
+                    else:
+                        endpoint = address
+                else:
+                    # Check if address already ends with :<digits> (port)
+                    last_colon = address.rfind(":")
+                    after_colon = address[last_colon + 1:] if last_colon != -1 else ""
+                    if last_colon != -1 and after_colon.isdigit():
+                        endpoint = address  # already has port
+                    elif port:
+                        endpoint = f"{address}:{port}"
+                    else:
+                        endpoint = address
         allowed_ips = ",".join(peer.get("allowed_ips", [WARP_FALLBACK_ALLOWED_IPS]))
 
     # MTU
