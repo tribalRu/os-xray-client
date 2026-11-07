@@ -2,8 +2,12 @@
 """
 WARP (Cloudflare) WireGuard config generator.
 
-Generates a WireGuard keypair, registers with Cloudflare's WARP API, and
-returns a JSON payload with all fields needed to fill the Xray Client
+Uses the proven registration format from the warpy project
+(https://github.com/Dragon-Born/warpy) — a working Python CLI for
+Cloudflare WARP as WireGuard.
+
+Generates a WireGuard keypair, registers with Cloudflare's WARP API,
+and returns a JSON payload with all fields needed to fill the Xray Client
 WireGuard node dialog (private key, server public key, endpoint, allowed IPs,
 DNS, MTU, reserved bytes).
 
@@ -14,12 +18,12 @@ Outputs JSON to stdout. On error, outputs {"status": "error", "message": "..."}.
 """
 
 import base64
+import datetime
 import json
 import secrets
 import socket
 import subprocess
 import sys
-import time
 import urllib.error
 import urllib.request
 
@@ -28,15 +32,12 @@ socket.setdefaulttimeout(10)
 
 CONFIG_PATH = '/conf/config.xml'
 
-# Cloudflare WARP registration endpoints (tried in order). The trailing
-# version number changes periodically; we try several known ones.
+# Cloudflare WARP registration API version (from warpy - known working).
+WARP_API_VERSION = "v0a884"
+
+# Cloudflare WARP registration endpoints (tried in order).
 WARP_REGISTRATION_URLS = [
-    "https://api.cloudflareclient.com/v0a2233/reg",
-    "https://api.cloudflareclient.com/v0a2214/reg",
-    "https://api.cloudflareclient.com/v0a1963/reg",
-    "https://api.cloudflareclient.com/v0a1857/reg",
-    "https://api.cloudflareclient.com/v0a1758/reg",
-    "https://api.cloudflareclient.com/v0a1652/reg",
+    "https://api.cloudflareclient.com/{}/reg".format(WARP_API_VERSION),
 ]
 
 # WARP fallback values used when the API registration fails or is unreachable.
@@ -88,82 +89,70 @@ def generate_wg_keypair():
     )
 
 
-def build_payload(public_key_b64, install_id):
-    """Build the WARP registration payload with several format variants."""
-    base = {
-        "install_id": install_id,
+def build_payload(public_key_b64):
+    """Build the WARP registration payload using the proven warpy format.
+
+    Format verified against Dragon-Born/warpy (working WARP registration):
+    - "key" instead of "public_key"
+    - "install_id": "" (empty string)
+    - "tos": ISO-8601 timestamp (required)
+    - "type": "Android"
+    - "model": ""
+    """
+    # tos: ISO 8601 timestamp without microseconds, ending with Z
+    tos = datetime.datetime.now().isoformat(timespec='seconds') + "Z"
+
+    return {
+        "key": public_key_b64,
+        "install_id": "",
         "fcm_token": "",
         "referrer": "",
         "warp_enabled": True,
-        "type": "ios",
+        "tos": tos,
+        "model": "",
+        "type": "Android",
         "locale": "en_US",
-        "public_key": public_key_b64,
-        "tos": str(int(time.time())),  # Terms of Service acceptance timestamp
     }
-    return base
 
 
 def warp_register(public_key_b64):
     """Register with Cloudflare WARP API. Returns parsed JSON response or None."""
-    install_id = "".join(secrets.choice("abcdefghijklmnopqrstuvwxyz0123456789") for _ in range(22))
+    payload = build_payload(public_key_b64)
+    data = json.dumps(payload).encode("utf-8")
 
-    payloads = [
-        # Full payload with tos
-        build_payload(public_key_b64, install_id),
-        # Minimal payload without tos
-        {k: v for k, v in build_payload(public_key_b64, install_id).items() if k != "tos"},
-        # Payload with "key" instead of "public_key" (some versions use this)
-        {
-            "install_id": install_id,
-            "fcm_token": "",
-            "referrer": "",
-            "warp_enabled": True,
-            "type": "ios",
-            "locale": "en_US",
-            "key": public_key_b64,
-        },
-    ]
-
-    user_agents = [
-        "okhttp/3.12.1",
-        "WP-Client/3.5.2 (iOS; iPhone14,2; iOS/16.4) okhttp/4.11.0",
-        "CloudflareWarp/3.5.2",
-    ]
+    headers = {
+        "Content-Type": "application/json; charset=UTF-8",
+        "User-Agent": "okhttp/3.12.1",
+    }
 
     last_error = None
     last_body = ""
 
     for url in WARP_REGISTRATION_URLS:
-        for payload in payloads:
-            for ua in user_agents[:1]:  # Start with one UA, expand if needed
-                try:
-                    data = json.dumps(payload).encode("utf-8")
-                    req = urllib.request.Request(
-                        url,
-                        data=data,
-                        headers={
-                            "Content-Type": "application/json; charset=UTF-8",
-                            "User-Agent": ua,
-                        },
-                        method="POST",
-                    )
-                    with urllib.request.urlopen(req) as resp:
-                        body = resp.read().decode("utf-8")
-                        return json.loads(body)
-                except urllib.error.HTTPError as exc:
-                    last_error = exc
-                    try:
-                        last_body = exc.read().decode("utf-8")[:500]
-                    except Exception:
-                        last_body = ""
-                    sys.stderr.write(
-                        f"warp.py: {url} HTTP {exc.code}: {last_body}\n"
-                    )
-                    continue
-                except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
-                    last_error = exc
-                    sys.stderr.write(f"warp.py: {url} error: {exc}\n")
-                    continue
+        try:
+            req = urllib.request.Request(
+                url,
+                data=data,
+                headers=headers,
+                method="POST",
+            )
+            with urllib.request.urlopen(req) as resp:
+                body = resp.read().decode("utf-8")
+                return json.loads(body)
+        except urllib.error.HTTPError as exc:
+            last_error = exc
+            try:
+                last_body = exc.read().decode("utf-8")[:500]
+            except Exception:
+                last_body = ""
+            sys.stderr.write(
+                f"warp.py: {url} HTTP {exc.code}: {last_body}\n"
+            )
+            continue
+        except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
+            last_error = exc
+            sys.stderr.write(f"warp.py: {url} error: {exc}\n")
+            continue
 
     if last_error:
         sys.stderr.write(f"warp.py: WARP registration failed: {last_error}\n")
@@ -178,7 +167,7 @@ def extract_warp_fields(reg_response, client_private_key, client_public_key):
     interface = config.get("interface", {})
     peers = config.get("peers", [])
 
-    # Client private key (always ours)
+    # Client private key (always ours - WARP API may return a different one)
     private_key = interface.get("private_key", client_private_key)
 
     # Server public key from first peer
@@ -191,7 +180,7 @@ def extract_warp_fields(reg_response, client_private_key, client_public_key):
         server_public_key = peer.get("public_key", "")
         ep = peer.get("endpoint", {})
         if isinstance(ep, dict):
-            address = ep.get("address", "")
+            address = ep.get("host", ep.get("address", ""))
             port = ep.get("port", 2408)
             if address and port:
                 endpoint = f"{address}:{port}"
@@ -202,7 +191,16 @@ def extract_warp_fields(reg_response, client_private_key, client_public_key):
 
     # Addresses (local tunnel addresses)
     addresses = interface.get("addresses", [])
-    local_addresses = ",".join(addresses) if addresses else ""
+    # addresses may be a dict with v4/v6 keys or a list
+    if isinstance(addresses, dict):
+        local_addresses = addresses.get("v4", "") or ""
+        v6 = addresses.get("v6", "")
+        if v6:
+            local_addresses = (local_addresses + "," if local_addresses else "") + v6
+    elif isinstance(addresses, list):
+        local_addresses = ",".join(addresses)
+    else:
+        local_addresses = ""
 
     # DNS - WARP uses 1.1.1.1 / 1.0.0.1 by default
     dns = WARP_FALLBACK_DNS
