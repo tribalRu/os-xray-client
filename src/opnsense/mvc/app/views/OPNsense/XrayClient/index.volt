@@ -155,60 +155,60 @@
         width: 68% !important;
     }
     /* The balancer dialog mirrors the node/rule dialog geometry. */
-    #DialogBalancer, #DialogDnsServer .modal-dialog {
+    #DialogBalancer .modal-dialog , #DialogDnsServer .modal-dialog {
         width: 95%;
         max-width: 675px;
         margin: 62px auto 10px;
     }
-    #DialogBalancer, #DialogDnsServer .modal-dialog .modal-content {
+    #DialogBalancer .modal-dialog .modal-content , #DialogDnsServer .modal-dialog .modal-content {
         display: flex;
         flex-direction: column;
         max-height: calc(100vh - 72px);
         max-height: calc(100dvh - 72px);
     }
-    #DialogBalancer, #DialogDnsServer .modal-body {
+    #DialogBalancer .modal-body , #DialogDnsServer .modal-body {
         flex: 1 1 auto;
         min-height: 0;
         max-height: none;
         overflow-y: auto;
         overscroll-behavior: contain;
     }
-    #DialogBalancer, #DialogDnsServer .modal-header,
-    #DialogBalancer, #DialogDnsServer .modal-footer {
+    #DialogBalancer .modal-header, #DialogDnsServer .modal-header,
+    #DialogBalancer .modal-footer , #DialogDnsServer .modal-footer {
         flex: 0 0 auto;
     }
-    #DialogBalancer, #DialogDnsServer .form-search-section,
-    #frm_DialogBalancer {
+    #DialogBalancer .form-search-section, #DialogDnsServer .form-search-section,
+    #frm_DialogBalancer, #frm_DialogDnsServer {
         width: 100%;
     }
-    #DialogBalancer, #DialogDnsServer .modal-body .form-group {
+    #DialogBalancer .modal-body .form-group , #DialogDnsServer .modal-body .form-group {
         margin-bottom: 10px;
     }
-    #DialogBalancer, #DialogDnsServer colgroup > col:nth-child(2) { width: 58% !important; }
-    #DialogBalancer, #DialogDnsServer colgroup > col:nth-child(3) { width: 17% !important; }
-    #DialogBalancer, #DialogDnsServer .form-control { max-width: none; }
-    #DialogBalancer, #DialogDnsServer textarea { max-width: none !important; width: 100%; }
-    #DialogBalancer, #DialogDnsServer .bootstrap-select { width: 100% !important; max-width: none; }
-    #DialogBalancer, #DialogDnsServer .modal-header {
+    #DialogBalancer colgroup > col:nth-child(2) , #DialogDnsServer colgroup > col:nth-child(2) { width: 58% !important; }
+    #DialogBalancer colgroup > col:nth-child(3) , #DialogDnsServer colgroup > col:nth-child(3) { width: 17% !important; }
+    #DialogBalancer .form-control , #DialogDnsServer .form-control { max-width: none; }
+    #DialogBalancer textarea , #DialogDnsServer textarea { max-width: none !important; width: 100%; }
+    #DialogBalancer .bootstrap-select , #DialogDnsServer .bootstrap-select { width: 100% !important; max-width: none; }
+    #DialogBalancer .modal-header , #DialogDnsServer .modal-header {
         display: flex !important;
         align-items: center !important;
         gap: 10px;
         min-height: 48px;
         padding: 6px 10px !important;
     }
-    #DialogBalancer, #DialogDnsServer .modal-header .model-header-icon { order: 0; }
-    #DialogBalancer, #DialogDnsServer .modal-header h4 { order: 1; flex: 1 1 auto; margin: 0 !important; }
-    #DialogBalancer, #DialogDnsServer .modal-header .form-search {
+    #DialogBalancer .modal-header .model-header-icon , #DialogDnsServer .modal-header .model-header-icon { order: 0; }
+    #DialogBalancer .modal-header h4 , #DialogDnsServer .modal-header h4 { order: 1; flex: 1 1 auto; margin: 0 !important; }
+    #DialogBalancer .modal-header .form-search , #DialogDnsServer .modal-header .form-search {
         order: 2;
         margin: 0 !important;
         float: none !important;
         width: 230px !important;
     }
-    #DialogBalancer, #DialogDnsServer .modal-header .close { order: 3; margin: 0 !important; float: none !important; }
-    #DialogBalancer, #DialogDnsServer.help-collapsed colgroup > col:nth-child(3) { display: none; }
-    #DialogBalancer, #DialogDnsServer.help-collapsed tr > td:nth-child(3) { display: none; }
-    #DialogBalancer, #DialogDnsServer.help-collapsed colgroup > col:first-child { width: 32% !important; }
-    #DialogBalancer, #DialogDnsServer.help-collapsed colgroup > col:nth-child(2) { width: 68% !important; }
+    #DialogBalancer .modal-header .close , #DialogDnsServer .modal-header .close { order: 3; margin: 0 !important; float: none !important; }
+    #DialogBalancer.help-collapsed colgroup > col:nth-child(3) , #DialogDnsServer.help-collapsed colgroup > col:nth-child(3) { display: none; }
+    #DialogBalancer.help-collapsed tr > td:nth-child(3) , #DialogDnsServer.help-collapsed tr > td:nth-child(3) { display: none; }
+    #DialogBalancer.help-collapsed colgroup > col:first-child , #DialogDnsServer.help-collapsed colgroup > col:first-child { width: 32% !important; }
+    #DialogBalancer.help-collapsed colgroup > col:nth-child(2) , #DialogDnsServer.help-collapsed colgroup > col:nth-child(2) { width: 68% !important; }
 </style>
 
 <script>
