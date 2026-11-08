@@ -58,6 +58,18 @@
         <help>Maximum Transmission Unit for the TUN interface (default: 1500).</help>
     </field>
     <field>
+        <id>xrayclient.general.tun_ipv6_address</id>
+        <label>TUN IPv6 Subnet (fd00::/64)</label>
+        <type>text</type>
+        <help>Unique-local IPv6 prefix for the TUN, e.g. fd00::1/64. On FreeBSD Xray assigns link-local IPv6 automatically (derived from the IPv4 address) and this field is parsed but unused; on Linux it assigns the IPv6 local address to the interface. Leave empty to disable IPv6 on the TUN (default).</help>
+    </field>
+    <field>
+        <id>xrayclient.general.tun_auto_outbounds_interface</id>
+        <label>Outbound Interface Binding</label>
+        <type>text</type>
+        <help>Empty = off (default). «auto» or an interface name (e.g. vmx1) binds every outbound socket, so Xray's own traffic can never loop back through the TUN. WINDOWS + LINUX + MACOS work out of the box; on FREEBSD Xray needs a second routing table: add net.fibs=2 to /boot/loader.conf and REBOOT the firewall first — with net.fibs=1 Xray will refuse to start and Apply will be rejected.</help>
+    </field>
+    <field>
         <id>xrayclient.general.enable_sniffing</id>
         <label>Enable Domain Sniffing (TLS/HTTP/QUIC)</label>
         <type>checkbox</type>
