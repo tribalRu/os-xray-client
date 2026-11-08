@@ -571,7 +571,7 @@
         "outboundTag": "api"
       }
 {% if not helpers.empty('OPNsense.XrayClient.rules.rule') %}
-{%   for rule in helpers.toList('OPNsense.XrayClient.rules.rule', 'sequence', 'asc') %}
+{%   for rule in helpers.toList('OPNsense.XrayClient.rules.rule', 'sequence', 'int') %}
 {%     if rule.enabled == '1' %}
       ,{
         "type": "field",
