@@ -44,30 +44,7 @@ class M2_7_0 extends BaseModelMigration
         if (!$model instanceof XrayClient) {
             return;
         }
-
-        // Edits the model itself: runMigrations() serialises the model
-        // back to config.xml afterwards, discarding any direct edits made
-        // on the raw Config object here.
-        $http = $model->getNodeByReference('general.http_listen');
-        $socks = $model->getNodeByReference('general.socks_listen');
-        echo "M2_7_0 debug: http=" . var_export($http ? $http->getValue() : 'NULL', true) .
-             " socks=" . var_export($socks ? $socks->getValue() : 'NULL', true) . "\n";
-
-        if ($http === null or $socks === null) {
-            echo "M2_7_0 debug: missing node\n";
-            return;
-        }
-
-        if (trim($http->getValue()) === '') {
-            $target = trim((string)$socks->getValue()) !== '' ?
-                (string)$socks->getValue() : '127.0.0.1';
-            echo "M2_7_0 debug: setting http_listen={$target}\n";
-            $http->setValue($target);
-        } else {
-            echo "M2_7_0 debug: http already set\n";
-        }
-
-        parent::run($model);
+        throw new \Exception('DEBUGTEST-M2_7_0-run-called');
     }
 
     // Model is saved by 'run_migrations.php' afterwards.
