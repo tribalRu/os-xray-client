@@ -42,9 +42,18 @@ rm -rf /var/lib/php/cache/* 2>/dev/null || true
 rm -rf /var/tmp/volt 2>/dev/null || true
 rm -rf /tmp/volt* 2>/dev/null || true
 
-echo "Restarting configd service..."
-service configd restart
-configctl template reload OPNsense/XrayClient || echo "WARNING: template reload failed."
+# Restarting configd kills the process tree of the configd action that runs
+# the in-GUI plugin update (it started this script), which cut the response
+# off mid-update. In that case (update_plugin.sh sets XRAY_FROM_CONFIGD=1)
+# do the restart from a detached process once this script has finished.
+if [ "${XRAY_FROM_CONFIGD}" = "1" ]; then
+    echo "Scheduling configd restart and template reload..."
+    /usr/sbin/daemon -f /bin/sh -c 'sleep 3; service configd restart; sleep 2; configctl template reload OPNsense/XrayClient'
+else
+    echo "Restarting configd service..."
+    service configd restart
+    configctl template reload OPNsense/XrayClient || echo "WARNING: template reload failed."
+fi
 
 if [ ! -x "/usr/local/bin/xray" ]; then
     echo "Xray binary not found. Downloading latest stable Xray-core..."

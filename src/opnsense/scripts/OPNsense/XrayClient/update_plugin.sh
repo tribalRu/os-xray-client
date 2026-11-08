@@ -57,7 +57,7 @@ if [ -z "${EXTRACTED_DIR}" ] || [ ! -f "${EXTRACTED_DIR}/install.sh" ]; then
 fi
 
 echo "Running installer..."
-sh "${EXTRACTED_DIR}/install.sh" || {
+XRAY_FROM_CONFIGD=1 sh "${EXTRACTED_DIR}/install.sh" || {
     echo "ERROR: Installer failed; the plugin may be partially updated."
     exit 1
 }
