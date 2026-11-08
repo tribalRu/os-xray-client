@@ -839,6 +839,16 @@
             toggleNodeDialogFields();
         }
 
+        // Show a status line using text nodes only: messages come from the
+        // WARP API / backend and must not be interpreted as HTML.
+        function setWarpStatus($el, cssClass, text, boldText) {
+            var $span = $('<span>').addClass(cssClass).text(text);
+            if (boldText) {
+                $span.append($('<b>').text(boldText)).append(document.createTextNode('. Save the node to apply.'));
+            }
+            $el.empty().append($span);
+        }
+
         function generateWarpConfig() {
             var $btn = $('#btn_warp_generate');
             var $spin = $('#btn_warp_generate_spin');
@@ -854,7 +864,7 @@
                     $btn.prop('disabled', false);
                     $spin.hide();
                     if (!data || data.status !== 'ok') {
-                        $status.html('<span class="text-danger">Failed: ' + (data && data.message ? data.message : 'unknown error') + '</span>');
+                        setWarpStatus($status, 'text-danger', 'Failed: ' + (data && data.message ? data.message : 'unknown error'));
                         return;
                     }
                     // Fill all WireGuard fields from the response
@@ -868,12 +878,12 @@
                     if (data.wg_mtu) $('#node\\.wg_mtu').val(data.wg_mtu);
                     if (data.wg_reserved) $('#node\\.wg_reserved').val(data.wg_reserved);
                     if (data.license) {
-                        $status.html('<span class="text-success">WARP config generated. License: <b>' + data.license + '</b>. Save the node to apply.</span>');
+                        setWarpStatus($status, 'text-success', 'WARP config generated. License: ', String(data.license));
                     } else {
-                        $status.html('<span class="text-success">WARP config generated. Save the node to apply.</span>');
+                        setWarpStatus($status, 'text-success', 'WARP config generated. Save the node to apply.');
                 }
                 if (data.warning) {
-                    $status.append('<br/><small class="text-warning">' + data.warning + '</small>');
+                    $status.append($('<br/>')).append($('<small class="text-warning">').text(data.warning));
                 }
                 // Select WireGuard protocol if not already
                 if ($('#node\\.protocol').val() !== 'wireguard') {
@@ -894,7 +904,7 @@
                         msg = xhr.responseText.slice(0, 200);
                     }
                 }
-                $status.html('<span class="text-danger">Failed: ' + msg + '</span>');
+                setWarpStatus($status, 'text-danger', 'Failed: ' + msg);
             }
         });
         }
