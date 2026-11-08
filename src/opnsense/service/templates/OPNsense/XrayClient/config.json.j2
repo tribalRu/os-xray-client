@@ -541,7 +541,7 @@
 {%   do balancer_tags.append(balancer.tag | string | trim) %}
 {% endfor %}
   "routing": {
-    "domainStrategy": "IPIfNonMatch",
+    "domainStrategy": {{ (general.routing_domain_strategy or 'IPIfNonMatch') | tojson }},
 {% set _balancers_json = (general.balancers_json or '') | trim %}
 {% if active_balancers %}
     "balancers": [
@@ -590,6 +590,21 @@
           {{ (i | string | trim) | tojson }}{{ "," if not loop.last else "" }}
 {%         endfor %}
         ],
+{%       endif %}
+{%       if rule.inbound_tag %}
+        "inboundTag": {{ json_array(rule.inbound_tag, '[]') }},
+{%       endif %}
+{%       if rule.source %}
+        "source": {{ json_array(rule.source, '[]') }},
+{%       endif %}
+{%       if rule.source_port %}
+        "sourcePort": {{ (rule.source_port | string | trim) | tojson }},
+{%       endif %}
+{%       if rule.user %}
+        "user": {{ json_array(rule.user, '[]') }},
+{%       endif %}
+{%       if rule.rule_tag %}
+        "ruleTag": {{ (rule.rule_tag | string | trim) | tojson }},
 {%       endif %}
 {%       if rule.port %}
         "port": {{ (rule.port | string | trim) | tojson }},
