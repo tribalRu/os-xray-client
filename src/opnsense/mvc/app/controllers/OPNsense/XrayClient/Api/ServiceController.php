@@ -22,6 +22,11 @@ class ServiceController extends ApiMutableServiceControllerBase
         $backend = new Backend();
         $mdl = new XrayClient();
 
+        // Remember the config that is currently on disk (and being used by the
+        // running service) so it can be put back if the new one is rejected.
+        $configFile = '/usr/local/etc/xray/config.json';
+        $previousConfig = is_file($configFile) ? @file_get_contents($configFile) : false;
+
         $renderStatus = trim((string)$backend->configdRun('template reload OPNsense/XrayClient'));
 
         // The configd template handler reports failures as "ERR". In UI mode
@@ -67,10 +72,17 @@ class ServiceController extends ApiMutableServiceControllerBase
             $testData = json_decode(trim($testOut), true);
             if (is_array($testData) && ($testData['status'] ?? '') !== 'ok') {
                 $testMsg = $testData['message'] ?? 'Xray config test failed';
+                // Put the previous config back: otherwise the broken file stays
+                // on disk and the next (re)start, including the automatic
+                // restart by daemon -r, would run with it.
+                $restored = $this->restoreConfig($configFile, $previousConfig);
                 return [
                     'status' => 'error',
                     'message' => 'Config test failed: ' . $testMsg
-                        . ' — service NOT restarted, previous config still running.'
+                        . ($restored
+                            ? ' — service NOT restarted, previous config restored.'
+                            : ' — service NOT restarted; the previous config could not be restored, '
+                                . 'fix or reset the config before starting the service.')
                 ];
             }
             if (!is_array($testData) && trim($testOut) !== '') {
@@ -88,6 +100,28 @@ class ServiceController extends ApiMutableServiceControllerBase
         }
 
         return ['status' => 'ok'];
+    }
+
+    /**
+     * Put a config snapshot back after a failed validation.
+     * Returns false when there was nothing to restore or the write failed.
+     */
+    private function restoreConfig($file, $previousConfig)
+    {
+        if ($previousConfig === false) {
+            return false;
+        }
+        $tmp = $file . '.restore';
+        if (file_put_contents($tmp, $previousConfig) === false) {
+            @unlink($tmp);
+            return false;
+        }
+        @chmod($tmp, 0640);
+        if (!rename($tmp, $file)) {
+            @unlink($tmp);
+            return false;
+        }
+        return true;
     }
 
     /**
