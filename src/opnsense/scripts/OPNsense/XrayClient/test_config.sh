@@ -20,8 +20,11 @@ if [ "${RC}" -eq 0 ]; then
     printf '{"status": "ok"}\n'
 else
     # Keep the first few lines of Xray's output (line 1 is always just the
-    # version banner) and flatten newlines so the JSON stays valid.
-    ESC=$(printf '%s' "${OUT}" | head -n 8 | tr '\n' ' ' | sed 's/\\/\\\\/g; s/"/\\"/g')
-    printf '{"status": "error", "message": "%s"}\n' "${ESC}"
+    # version banner); json.dumps handles quotes, tabs and other control
+    # characters that the previous sed-based escaping missed.
+    printf '%s' "${OUT}" | head -n 8 | /usr/local/bin/python3 -c '
+import json, sys
+text = " ".join(sys.stdin.read().split("\n")).strip()
+print(json.dumps({"status": "error", "message": text}))'
 fi
 exit 0
