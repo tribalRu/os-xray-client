@@ -64,21 +64,26 @@ update_one() {
 
     echo "Downloading ${name} from: ${url}"
     if fetch -q -o "${TMP_DIR}/${name}" "${url}" && [ -s "${TMP_DIR}/${name}" ]; then
-        if [ -f "${ASSET_DIR}/${name}" ]; then
-            cp -p "${ASSET_DIR}/${name}" "${ASSET_DIR}/${name}.previous"
-        fi
-        install -m 0644 "${TMP_DIR}/${name}" "${ASSET_DIR}/${name}.new" &&
-            mv -f "${ASSET_DIR}/${name}.new" "${ASSET_DIR}/${name}" || {
-            echo "ERROR: Failed to install ${name}."
-            rm -f "${ASSET_DIR}/${name}.new"
-            return 1
-        }
-        echo "${name} updated successfully."
-        CHANGED=1
-        return 0
+        :
+    elif curl -fsSL --retry 3 -o "${TMP_DIR}/${name}" "${url}" && [ -s "${TMP_DIR}/${name}" ]; then
+        echo "fetch failed; used curl for ${name}"
+    else
+        echo "ERROR: Failed to download ${name} or file is empty."
+        return 1
     fi
-    echo "ERROR: Failed to download ${name} or file is empty."
-    return 1
+
+    if [ -f "${ASSET_DIR}/${name}" ]; then
+        cp -p "${ASSET_DIR}/${name}" "${ASSET_DIR}/${name}.previous"
+    fi
+    install -m 0644 "${TMP_DIR}/${name}" "${ASSET_DIR}/${name}.new" &&
+        mv -f "${ASSET_DIR}/${name}.new" "${ASSET_DIR}/${name}" || {
+        echo "ERROR: Failed to install ${name}."
+        rm -f "${ASSET_DIR}/${name}.new"
+        return 1
+    }
+    echo "${name} updated successfully."
+    CHANGED=1
+    return 0
 }
 
 update_one geoip.dat "${GEOIP_URL}" || FAILED=1

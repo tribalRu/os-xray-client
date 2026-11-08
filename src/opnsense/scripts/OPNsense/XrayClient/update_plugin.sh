@@ -33,8 +33,12 @@ trap 'rm -rf "${TMP_DIR}"' EXIT INT TERM
 echo "=== Updating os-xray-client from ${ARCHIVE_URL} ==="
 
 if ! fetch -q -o "${TMP_DIR}/plugin.tar.gz" "${ARCHIVE_URL}"; then
-    echo "ERROR: Failed to download repository archive from GitHub. Check URL and branch name."
-    exit 1
+    # BSD fetch gives up on some hosts/CA bundles; fall back to curl.
+    echo "fetch failed; trying curl..." >&2
+    if ! curl -fsSL --retry 3 -o "${TMP_DIR}/plugin.tar.gz" "${ARCHIVE_URL}"; then
+        echo "ERROR: Failed to download repository archive from GitHub. Check URL and branch name."
+        exit 1
+    fi
 fi
 
 # Refuse archives that contain absolute paths or '..' components before
