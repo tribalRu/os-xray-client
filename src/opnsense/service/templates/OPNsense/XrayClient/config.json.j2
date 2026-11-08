@@ -364,9 +364,9 @@
     "tag": "api",
     "services": [
       "StatsService",
-      "ObservatoryService",
       "RoutingService"
-    ]
+{% if general.observatory_type | default('none') != 'none' %}      ,"ObservatoryService"
+{% endif %}    ]
   },
   "policy": {
     "system": {
