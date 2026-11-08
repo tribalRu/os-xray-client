@@ -317,6 +317,95 @@
             });
         })();
 
+        // Built-in DNS server presets in the Add/Edit server dialog.
+        // Mirrors the rule dialog pattern: preset box lives outside the
+        // generated <form>, so it is never submitted with the form.
+        (function setupDnsPresets() {
+            var presets = {
+                doh_cloudflare: {
+                    address: 'https://1.1.1.1/dns-query', port: '', domains: [],
+                    expected_ips: [], unexpected_ips: [], skip_fallback: false
+                },
+                doh_google: {
+                    address: 'https://dns.google/dns-query', port: '', domains: [],
+                    expected_ips: [], unexpected_ips: [], skip_fallback: false
+                },
+                doh_cloudflare_local: {
+                    address: 'https+local://1.1.1.1/dns-query', port: '', domains: [],
+                    expected_ips: [], unexpected_ips: [], skip_fallback: false
+                },
+                doh_adguard: {
+                    address: 'https://dns.adguard-dns.com/dns-query', port: '', domains: [],
+                    expected_ips: [], unexpected_ips: [], skip_fallback: false
+                },
+                ru_yandex: {
+                    address: 'https://dns.yandex.ru/dns-query', port: '443',
+                    domains: ['domain:ru', 'domain:xn--p1ai', 'domain:su'],
+                    expected_ips: ['geoip:ru'], unexpected_ips: [], skip_fallback: true
+                },
+                ru_yandex_tcp: {
+                    address: 'tcp://dns.yandex.ru', port: '',
+                    domains: ['domain:ru', 'domain:xn--p1ai', 'domain:su'],
+                    expected_ips: ['geoip:ru'], unexpected_ips: [], skip_fallback: true
+                },
+                localhost: {
+                    address: 'localhost', port: '', domains: [],
+                    expected_ips: [], unexpected_ips: [], skip_fallback: false
+                }
+            };
+            var $preset = $(
+                '<div id="dns_preset_container" style="padding: 12px 15px 0 15px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 10px; margin-bottom: 5px;">' +
+                    '<label for="dns_preset" style="width: 100%; margin-bottom: 4px;"><b>Start from a built-in preset</b></label>' +
+                    '<select id="dns_preset" class="form-control">' +
+                        '<option value="">— Custom (empty form) —</option>' +
+                        '<option value="doh_cloudflare">Cloudflare DoH (all domains)</option>' +
+                        '<option value="doh_google">Google DoH (all domains)</option>' +
+                        '<option value="doh_cloudflare_local">Cloudflare DoH direct (https+local://)</option>' +
+                        '<option value="doh_adguard">AdGuard DoH (all domains, ad-blocking)</option>' +
+                        '<option value="ru_yandex">Yandex DoH — only .ru/.рф/.su (skipFallback, expectedIPs geoip:ru)</option>' +
+                        '<option value="ru_yandex_tcp">Yandex plain DNS — only .ru/.рф/.su</option>' +
+                        '<option value="localhost">System resolver (localhost)</option>' +
+                    '</select>' +
+                '</div>'
+            );
+            $('#DialogDnsServer .modal-body').prepend($preset);
+
+            function setTokens(id, values) {
+                var $sel = $('#server\\.' + id);
+                if (!$sel.length) {
+                    return;
+                }
+                var merged = [];
+                values.forEach(function (v) {
+                    if (v && merged.indexOf(v) === -1) {
+                        merged.push(v);
+                    }
+                });
+                $sel.empty();
+                merged.forEach(function (v) {
+                    $('<option/>').val(v).text(v).prop('selected', true).appendTo($sel);
+                });
+                if (typeof formatTokenizersUI === 'function') {
+                    formatTokenizersUI();
+                }
+            }
+
+            $('#dns_preset').on('change', function () {
+                var key = $(this).val();
+                if (!key || !presets[key]) {
+                    return;
+                }
+                var p = presets[key];
+                $('#server\\.enabled').prop('checked', true);
+                $('#server\\.address').val(p.address);
+                $('#server\\.port').val(p.port);
+                setTokens('domains', p.domains);
+                setTokens('expected_ips', p.expected_ips);
+                setTokens('unexpected_ips', p.unexpected_ips);
+                $('#server\\.skip_fallback').prop('checked', p.skip_fallback);
+            });
+        })();
+
         // Expert Config tab: view the effective /usr/local/etc/xray/config.json
         // or edit it manually. Saving routes through saveRawConfigAction
         // (validate -> backup -> xray run -test -> atomic write -> restart).
@@ -706,46 +795,6 @@
                     }
                 }
             }
-        });
-
-        // Preset: default DoH (Cloudflare, any domain) + RU domestic DNS
-        // (domain:ru / domain:xn--p1ai / domain:su, never used as a
-        // fallback). Adds both rows, switches on the built-in DNS
-        // checkbox; Apply & Restart is still required.
-        $('#btn_dns_preset_ru').on('click', function () {
-            // Label-suffix rules match every .ru / .рф / .su domain without
-            // consulting geosite.dat, so the preset applies even when the
-            // local GeoData is missing or stale (xray rejects configs with
-            // unknown geosite: codes and the restart is rolled back).
-            var servers = [
-                {server: {enabled: '1', address: 'https://1.1.1.1/dns-query', port: '', domains: '', expected_ips: '', unexpected_ips: '', skip_fallback: '0'}},
-                {server: {enabled: '1', address: 'https://dns.yandex.ru/dns-query', port: '443', domains: 'domain:ru,domain:xn--p1ai,domain:su', expected_ips: 'geoip:ru', unexpected_ips: '', skip_fallback: '1'}}
-            ];
-            var $checked = $('#xrayclient\\.general\\.dns_enabled');
-            $checked.prop('checked', true).change();
-            var $btn = $(this);
-            var originalHtml = $btn.html();
-            $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-pulse"></i> Adding preset…');
-            var pending = 0;
-            var failed = 0;
-            servers.forEach(function (body) {
-                ajaxCall('/api/xrayclient/settings/addDnsServer', body, function (data, status) {
-                    pending += 1;
-                    if (status !== 'success' || !data || data.validations) {
-                        failed += 1;
-                    }
-                    if (pending === servers.length) {
-                        if (failed) {
-                            $btn.html('<b>Failed — see validation messages</b>').prop('disabled', false);
-                            setTimeout(function () { $btn.html(originalHtml); }, 2500);
-                        } else {
-                            $btn.html('<b>Added — click Apply &amp; Restart</b>').prop('disabled', false);
-                            setTimeout(function () { $btn.html(originalHtml); }, 2500);
-                        }
-                        $('#grid-dns').bootgrid('reload');
-                    }
-                });
-            });
         });
 
         $('#btn_open_import_modal').on('click', function () {
@@ -1729,12 +1778,7 @@
 
     <div id="tab_dns" class="tab-pane fade in">
         <div class="col-md-12" style="margin-top: 10px; margin-bottom: 4px;">
-            <span class="text-muted" style="font-size: 13px;">Switch on the built-in DNS in <b>General Settings → Built-in DNS server</b>. Servers with a domains list answer only those domains (e.g. <code>domain:ru</code> over the domestic resolver); servers without a list answer everything else. DNS requests follow the same routing rules (rule inbound/outbound of Xray), so «DoH via proxy» needs no extra hop. Entries save instantly &mdash; click <b>Apply &amp; Restart Xray</b>.</span>
-        </div>
-        <div class="col-md-12" style="margin-bottom: 10px;">
-            <button id="btn_dns_preset_ru" type="button" class="btn btn-success" title="One click: add https://1.1.1.1/dns-query for all domains and https://dns.yandex.ru/dns-query for .ru/.рф/.su (skipFallback, expectedIPs geoip:ru), and switch 'Enable Built-in DNS' on. Then click Apply &amp; Restart Xray.">
-                <i class="fa fa-magic"></i> <b>Fill preset: DoH + RU via Yandex</b>
-            </button>
+            <span class="text-muted" style="font-size: 13px;">Switch on the built-in DNS in <b>General Settings → Built-in DNS server</b>. Servers with a domains list answer only those domains (e.g. <code>domain:ru</code> over the domestic resolver); servers without a list answer everything else. DNS requests follow the same routing rules (rule inbound/outbound of Xray), so «DoH via proxy» needs no extra hop. Add/edit starts from a built-in preset — same as the rule dialog. Entries save instantly &mdash; click <b>Apply &amp; Restart Xray</b>.</span>
         </div>
         <table id="grid-dns" class="table table-condensed table-hover table-striped" data-editDialog="DialogDnsServer">
             <thead>
