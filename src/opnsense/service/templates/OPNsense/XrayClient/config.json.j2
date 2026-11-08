@@ -305,6 +305,14 @@
 {% macro header_object(value) -%}
 {{ value | replace('{', '', 1) | reverse | replace('}', '', 1) | reverse | trim }}
 {%- endmacro -%}
+{% macro sniffing_block(general) -%}
+      "sniffing": {
+        "enabled": {{ 'true' if general.enable_sniffing | default('1') == '1' else 'false' }},
+        "destOverride": {{ json_array(general.sniffing_dest_override or 'http,tls,quic', '["http", "tls", "quic"]') }},
+        "routeOnly": {{ 'true' if general.sniffing_route_only | default('1') == '1' else 'false' }}{% set _sdx = general.sniffing_domains_excluded | string | trim %}{% if _sdx != '' %},
+        "domainsExcluded": {{ json_array(_sdx, '[]') }}{% endif %}
+      }
+{%- endmacro -%}
 {% macro tls_settings(node) -%}
 ,"tlsSettings": {
   "serverName": {{ (node.sni or '') | tojson }},
@@ -431,15 +439,7 @@
         "gateway": [ {{ (general.tun_address or '10.255.0.1/30') | tojson }} ],
         "userLevel": 0
       },
-      "sniffing": {
-        "enabled": {{ 'true' if general.enable_sniffing | default('1') == '1' else 'false' }},
-        "destOverride": [
-          "http",
-          "tls",
-          "quic"
-        ],
-        "routeOnly": true
-      }
+{{ sniffing_block(general) }}
     }
 {% endif %}
 {% if general.enable_socks | default('1') == '1' %}
@@ -449,34 +449,29 @@
       "port": {{ general.socks_port | default('10808') | int }},
       "protocol": "socks",
       "settings": {
-        "auth": "noauth",
-        "udp": true
-      },
-      "sniffing": {
-        "enabled": {{ 'true' if general.enable_sniffing | default('1') == '1' else 'false' }},
-        "destOverride": [
-          "http",
-          "tls",
-          "quic"
+        "auth": {{ (general.socks_auth or 'noauth') | tojson }},
+{% if (general.socks_auth or 'noauth') == 'password' %}
+        "users": [
+          { "user": {{ (general.socks_username or '') | tojson }}, "pass": {{ (general.socks_password or '') | tojson }} }
         ],
-        "routeOnly": true
-      }
+{% endif %}        "udp": true
+      },
+{{ sniffing_block(general) }}
     }
 {% endif %}
 {% if general.enable_http | default('0') == '1' %}
     ,{
       "tag": "http-in",
-      "listen": {{ (general.socks_listen or '127.0.0.1') | tojson }},
+      "listen": {{ (general.http_listen or general.socks_listen or '127.0.0.1') | tojson }},
       "port": {{ general.http_port | default('10809') | int }},
       "protocol": "http",
-      "sniffing": {
-        "enabled": {{ 'true' if general.enable_sniffing | default('1') == '1' else 'false' }},
-        "destOverride": [
-          "http",
-          "tls"
-        ],
-        "routeOnly": true
-      }
+      "settings": {
+{% if (general.http_auth or 'noauth') == 'password' %}
+        "users": [
+          { "user": {{ (general.http_username or '') | tojson }}, "pass": {{ (general.http_password or '') | tojson }} }
+        ]
+{% endif %}      },
+{{ sniffing_block(general) }}
     }
 {% endif %}
   ],
