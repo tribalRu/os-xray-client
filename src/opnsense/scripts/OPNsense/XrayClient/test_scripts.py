@@ -534,12 +534,24 @@ class TestConfigTemplate(unittest.TestCase):
 
 
     def test_balancer_generated_from_model(self):
-        cfg = render_config(balancers=[TEST_BALANCER])
+        cfg = render_config({'observatory_type': 'burst'},
+                            balancers=[TEST_BALANCER])
         self.assertEqual(cfg['routing']['balancers'], [{
             'tag': 'auto',
             'selector': ['node_'],
             'strategy': {'type': 'leastPing'},
             'fallbackTag': 'direct',
+        }])
+
+    def test_balancer_without_observatory_omits_fallback_tag(self):
+        # Xray fails "not all dependencies are resolved" when a balancer
+        # carries fallbackTag but no observatory is configured. The template
+        # omits fallbackTag in that case (the balancer still functions).
+        cfg = render_config(balancers=[TEST_BALANCER])
+        self.assertEqual(cfg['routing']['balancers'], [{
+            'tag': 'auto',
+            'selector': ['node_'],
+            'strategy': {'type': 'leastPing'},
         }])
 
     def test_disabled_balancer_is_omitted(self):

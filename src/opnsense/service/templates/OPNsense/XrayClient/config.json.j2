@@ -558,7 +558,7 @@
         "selector": {% if _bal_selector != '' %}{{ json_array(_bal_selector, '[]') }}{% else %}["node_"]{% endif %},
         "strategy": {
           "type": {{ (balancer.strategy or 'leastPing') | tojson }}
-        }{% if _bal_fallback != '' %},
+        }{% if _bal_fallback != '' and _obs_type != 'none' %},
         "fallbackTag": {{ _bal_fallback | tojson }}{% endif %}
       }{{ "," if not loop.last else "" }}
 {%   endfor %}
