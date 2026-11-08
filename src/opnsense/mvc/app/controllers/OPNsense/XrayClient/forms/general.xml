@@ -217,10 +217,5 @@
         <type>checkbox</type>
         <help>Feed /etc/hosts into the built-in DNS as static hosts.</help>
     </field>
-    <field>
-        <id>xrayclient.general.dns_hosts_json</id>
-        <label>Static Hosts (JSON object)</label>
-        <type>textarea</type>
-        <help>Map of domains to addresses, e.g. {"example.com": "192.0.2.10", "internal.lan": ["192.0.2.11", "192.0.2.12"]}. Domains here are answered without any DNS query. Checked with JSON.parse; leave empty to omit.</help>
-    </field>
+    <!-- Static Hosts is a raw JSON object; it is edited in the Advanced JSON container next to "Built-in DNS", because the base_form has no JSON-textarea type. -->
 </form>

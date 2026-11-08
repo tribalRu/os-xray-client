@@ -1376,7 +1376,8 @@
             var checks = [
                 ['#xrayclient\\.general\\.dns_json', 'Built-in DNS', 'object'],
                 ['#xrayclient\\.general\\.balancers_json', 'Load Balancers', 'array'],
-                ['#xrayclient\\.general\\.observatory_json', 'Observatory', 'object']
+                ['#xrayclient\\.general\\.observatory_json', 'Observatory', 'object'],
+                ['#xrayclient\\.general\\.dns_hosts_json', 'Static Hosts', 'object']
             ];
             for (var i = 0; i < checks.length; i++) {
                 var raw = $.trim($(checks[i][0]).val() || '');
@@ -1588,6 +1589,11 @@
                     <label for="xrayclient.general.observatory_json"><b>Observatory — top-level <code>observatory</code> / <code>burstObservatory</code></b></label>
                     <textarea id="xrayclient.general.observatory_json" class="form-control json_section" rows="6" spellcheck="false" placeholder='{ "burstObservatory": { "subjectSelector": ["node_"], "pingConfig": { "destination": "https://connectivitycheck.gstatic.com/generate_204", "interval": "1m", "sampling": 10 } } }'></textarea>
                     <span class="help-block">The object is inserted at the top level of <code>config.json</code>, so it must contain <code>observatory</code> and/or <code>burstObservatory</code>. The observatory probes the nodes with HTTP and feeds <code>leastPing</code> / <code>leastLoad</code>; <code>subjectSelector</code> also matches tags by prefix.</span>
+                </div>
+                <div class="form-group">
+                    <label for="xrayclient.general.dns_hosts_json"><b>Static Hosts (built-in DNS) — <code>dns.hosts</code> object</b></label>
+                    <textarea id="xrayclient.general.dns_hosts_json" class="form-control json_section" rows="6" spellcheck="false" placeholder='{ "example.com": "192.0.2.10", "internal.lan": ["192.0.2.11", "192.0.2.12"] }'></textarea>
+                    <span class="help-block">Map of domains to addresses, answered without any DNS query. Only used when <b>Enable Built-in DNS</b> is on. Keys accept the full domain (internally matched by <code>full</code>); values may be a single address or an array. Checked with JSON.parse; leave empty to omit.</span>
                 </div>
             </div>
             <div class="col-md-12">
