@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>2.4.13</version>
+    <version>2.5.0</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -172,6 +172,53 @@
                 <default>0</default>
                 <Required>N</Required>
             </observatory_concurrency>
+            <!-- ====== Built-in DNS ======
+                 Xray's own DNS server. When dns_enabled is on, the
+                 generated config carries a top-level "dns" section built
+                 from these fields and the DNS Servers table, and the raw
+                 dns_json below is ignored. Off keeps dns_json as-is.
+                 Servers with domains are only used for those domains;
+                 untagged servers serve everything else (routing still
+                 decides who gets which traffic — see the Routing tab). -->
+            <dns_enabled type="BooleanField">
+                <default>0</default>
+                <Required>N</Required>
+            </dns_enabled>
+            <dns_query_strategy type="OptionField">
+                <default>useIp</default>
+                <Required>N</Required>
+                <OptionValues>
+                    <useIp>Use IP (prefer IPv4 and IPv6)</useIp>
+                    <useIp4>Use IPv4 only</useIp4>
+                    <useIp6>Use IPv6 only</useIp6>
+                </OptionValues>
+            </dns_query_strategy>
+            <dns_disable_cache type="BooleanField">
+                <default>0</default>
+                <Required>N</Required>
+            </dns_disable_cache>
+            <dns_disable_fallback type="BooleanField">
+                <default>0</default>
+                <Required>N</Required>
+            </dns_disable_fallback>
+            <dns_disable_fallback_if_match type="BooleanField">
+                <default>0</default>
+                <Required>N</Required>
+            </dns_disable_fallback_if_match>
+            <dns_enable_parallel_query type="BooleanField">
+                <default>0</default>
+                <Required>N</Required>
+            </dns_enable_parallel_query>
+            <dns_use_system_hosts type="BooleanField">
+                <default>0</default>
+                <Required>N</Required>
+            </dns_use_system_hosts>
+            <dns_hosts_json type="TextField">
+                <default></default>
+                <Required>N</Required>
+                <Mask>/^$|^\s*\{[\s\S]*\}\s*$/</Mask>
+                <ValidationMessage>Hosts must be a JSON object, e.g. {"dns.google": "8.8.8.8", "example.com": "192.0.2.10", "*.internal": ["192.0.2.11"]}.</ValidationMessage>
+            </dns_hosts_json>
             <raw_json type="TextField">
                 <default></default>
                 <Required>N</Required>
@@ -860,6 +907,59 @@
                 </fallback_tag>
             </balancer>
         </balancers>
+
+        <!-- ====== Built-in DNS servers ======
+             Servers with a domains list are used only for those domains
+             (e.g. geosite:ru over the domestic resolver); untagged servers
+             answer everything else. ExpectedIPs lets a server reject
+             poisoned answers (geoip: tags or CIDRs); unexpectedIPs rejects
+             answers containing them; skipFallback never uses the server as
+             a fallback for unmatched queries. -->
+        <dns>
+            <server type="ArrayField">
+                <enabled type="BooleanField">
+                    <default>1</default>
+                    <Required>Y</Required>
+                </enabled>
+                <address type="TextField">
+                    <default></default>
+                    <Required>Y</Required>
+                    <Mask>/^[A-Za-z0-9_.+\-:\/@=]{1,200}$/</Mask>
+                    <ValidationMessage>Server address: https://1.1.1.1/dns-query, https+local://1.1.1.1/dns-query (direct), tcp://dns1.yandex.ru, fakedns or localhost.</ValidationMessage>
+                </address>
+                <port type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[0-9]{1,5}$/</Mask>
+                    <ValidationMessage>Optional port (1-65535). Leave empty for the scheme default (DoH 443, plain DNS 53).</ValidationMessage>
+                </port>
+                <domains type="CSVListField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^[A-Za-z0-9_:.@*\/-]{1,128}$/</Mask>
+                    <MaskPerItem>Y</MaskPerItem>
+                    <ValidationMessage>Comma-separated domain rules, e.g. geosite:ru, domain:ya.ru, full:example.com. Empty serves all domains.</ValidationMessage>
+                </domains>
+                <expected_ips type="CSVListField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^[A-Za-z0-9_:.\/\-*]{1,64}$/</Mask>
+                    <MaskPerItem>Y</MaskPerItem>
+                    <ValidationMessage>Comma-separated CIDRs or geoip: tags, e.g. geoip:ru, 192.168.0.0/16. * means "any accepted" (default).</ValidationMessage>
+                </expected_ips>
+                <unexpected_ips type="CSVListField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^[A-Za-z0-9_:.\/\-*]{1,64}$/</Mask>
+                    <MaskPerItem>Y</MaskPerItem>
+                    <ValidationMessage>Comma-separated CIDRs or geoip: tags; answers containing any of them are rejected (e.g. geoip:ir to keep IR answers out of an RU server).</ValidationMessage>
+                </unexpected_ips>
+                <skip_fallback type="BooleanField">
+                    <default>0</default>
+                    <Required>N</Required>
+                </skip_fallback>
+            </server>
+        </dns>
 
         <!-- ====== Core & GeoData Updates ====== -->
         <maintenance>
