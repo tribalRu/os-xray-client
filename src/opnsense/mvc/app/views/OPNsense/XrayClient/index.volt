@@ -154,6 +154,61 @@
     #DialogRule.help-collapsed colgroup > col:nth-child(2) {
         width: 68% !important;
     }
+    /* The balancer dialog mirrors the node/rule dialog geometry. */
+    #DialogBalancer .modal-dialog {
+        width: 95%;
+        max-width: 675px;
+        margin: 62px auto 10px;
+    }
+    #DialogBalancer .modal-dialog .modal-content {
+        display: flex;
+        flex-direction: column;
+        max-height: calc(100vh - 72px);
+        max-height: calc(100dvh - 72px);
+    }
+    #DialogBalancer .modal-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: none;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+    #DialogBalancer .modal-header,
+    #DialogBalancer .modal-footer {
+        flex: 0 0 auto;
+    }
+    #DialogBalancer .form-search-section,
+    #frm_DialogBalancer {
+        width: 100%;
+    }
+    #DialogBalancer .modal-body .form-group {
+        margin-bottom: 10px;
+    }
+    #DialogBalancer colgroup > col:nth-child(2) { width: 58% !important; }
+    #DialogBalancer colgroup > col:nth-child(3) { width: 17% !important; }
+    #DialogBalancer .form-control { max-width: none; }
+    #DialogBalancer textarea { max-width: none !important; width: 100%; }
+    #DialogBalancer .bootstrap-select { width: 100% !important; max-width: none; }
+    #DialogBalancer .modal-header {
+        display: flex !important;
+        align-items: center !important;
+        gap: 10px;
+        min-height: 48px;
+        padding: 6px 10px !important;
+    }
+    #DialogBalancer .modal-header .model-header-icon { order: 0; }
+    #DialogBalancer .modal-header h4 { order: 1; flex: 1 1 auto; margin: 0 !important; }
+    #DialogBalancer .modal-header .form-search {
+        order: 2;
+        margin: 0 !important;
+        float: none !important;
+        width: 230px !important;
+    }
+    #DialogBalancer .modal-header .close { order: 3; margin: 0 !important; float: none !important; }
+    #DialogBalancer.help-collapsed colgroup > col:nth-child(3) { display: none; }
+    #DialogBalancer.help-collapsed tr > td:nth-child(3) { display: none; }
+    #DialogBalancer.help-collapsed colgroup > col:first-child { width: 32% !important; }
+    #DialogBalancer.help-collapsed colgroup > col:nth-child(2) { width: 68% !important; }
 </style>
 
 <script>
@@ -170,6 +225,7 @@
             if (typeof toggleExpertTab === 'function') {
                 toggleExpertTab($('#xrayclient\\.general\\.expert_mode').prop('checked'));
             }
+            toggleObservatoryRows();
         });
 
         updateServiceControlUI('xrayclient');
@@ -188,7 +244,7 @@
                 });
                 $dialog.toggleClass('help-collapsed', !anyContent);
             }
-            $('#DialogNode, #DialogRule').each(function () {
+            $('#DialogNode, #DialogRule, #DialogBalancer').each(function () {
                 var $dialog = $(this);
                 refresh($dialog);
                 var observer = new MutationObserver(function () {
@@ -393,6 +449,32 @@
         }
         $('#xrayclient\\.general\\.config_mode').on('change', toggleConfigModeUI);
 
+        // Load Balancer Observatory: show only the fields that apply to the
+        // selected type (burst and background use different Xray keys).
+        function toggleObservatoryRows() {
+            var type = $('#xrayclient\\.general\\.observatory_type').val() || 'none';
+            var rows = {
+                selector: '#xrayclient\\.general\\.observatory_selector',
+                url: '#xrayclient\\.general\\.observatory_url',
+                interval: '#xrayclient\\.general\\.observatory_interval',
+                sampling: '#xrayclient\\.general\\.observatory_sampling',
+                timeout: '#xrayclient\\.general\\.observatory_timeout',
+                method: '#xrayclient\\.general\\.observatory_http_method',
+                concurrency: '#xrayclient\\.general\\.observatory_concurrency'
+            };
+            $.each(rows, function (name, selector) {
+                var show = false;
+                if (type === 'burst') {
+                    show = (name !== 'concurrency');
+                } else if (type === 'background') {
+                    show = (name === 'selector' || name === 'url' ||
+                            name === 'interval' || name === 'concurrency');
+                }
+                $(selector).closest('.form-group').toggle(show);
+            });
+        }
+        $('#xrayclient\\.general\\.observatory_type').on('change', toggleObservatoryRows);
+
         function toggleGeoDataCustomUI() {
             var preset = $('#xrayclient\\.maintenance\\.geodata_preset').val();
             var $rows = $('.geodata_custom').closest('tr, .form-group');
@@ -561,6 +643,31 @@
                                '<button type="button" class="btn btn-xs btn-default command-copy bootgrid-tooltip" data-row-id="' + row.uuid + '"><span class="fa fa-fw fa-clone"></span></button> ' +
                                '<button type="button" class="btn btn-xs btn-default command-move-up" data-row-id="' + row.uuid + '" title="Move rule up"><span class="fa fa-fw fa-arrow-up"></span></button> ' +
                                '<button type="button" class="btn btn-xs btn-default command-move-down" data-row-id="' + row.uuid + '" title="Move rule down"><span class="fa fa-fw fa-arrow-down"></span></button> ' +
+                               '<button type="button" class="btn btn-xs btn-default command-delete bootgrid-tooltip" data-row-id="' + row.uuid + '"><span class="fa fa-fw fa-trash-o"></span></button>';
+                    },
+                    "rowtoggle": function (column, row) {
+                        if (parseInt(row[column.id], 2) === 1) {
+                            return '<span style="cursor: pointer;" class="fa fa-fw fa-check-square-o command-toggle bootgrid-tooltip" data-value="1" data-row-id="' + row.uuid + '"></span>';
+                        } else {
+                            return '<span style="cursor: pointer;" class="fa fa-fw fa-square-o command-toggle bootgrid-tooltip" data-value="0" data-row-id="' + row.uuid + '"></span>';
+                        }
+                    }
+                }
+            }
+        });
+
+        $("#grid-balancers").UIBootgrid({
+            search: '/api/xrayclient/settings/searchBalancer',
+            get: '/api/xrayclient/settings/getBalancer/',
+            set: '/api/xrayclient/settings/setBalancer/',
+            add: '/api/xrayclient/settings/addBalancer/',
+            del: '/api/xrayclient/settings/delBalancer/',
+            toggle: '/api/xrayclient/settings/toggleBalancer/',
+            options: {
+                formatters: {
+                    "commands": function (column, row) {
+                        return '<button type="button" class="btn btn-xs btn-default command-edit bootgrid-tooltip" data-row-id="' + row.uuid + '"><span class="fa fa-fw fa-pencil"></span></button> ' +
+                               '<button type="button" class="btn btn-xs btn-default command-copy bootgrid-tooltip" data-row-id="' + row.uuid + '"><span class="fa fa-fw fa-clone"></span></button> ' +
                                '<button type="button" class="btn btn-xs btn-default command-delete bootgrid-tooltip" data-row-id="' + row.uuid + '"><span class="fa fa-fw fa-trash-o"></span></button>';
                     },
                     "rowtoggle": function (column, row) {
@@ -1382,6 +1489,7 @@
     <li class="active"><a data-toggle="tab" href="#tab_general"><b>General Settings</b></a></li>
     <li><a data-toggle="tab" href="#tab_nodes"><b>Outbound Nodes (Servers)</b></a></li>
     <li><a data-toggle="tab" href="#tab_rules"><b>Routing Rules</b></a></li>
+    <li><a data-toggle="tab" href="#tab_balancers"><b>Balancers</b></a></li>
     <li id="tab_expert_li" style="display: none;"><a data-toggle="tab" href="#tab_expert"><b>Expert Config</b></a></li>
     <li><a data-toggle="tab" href="#tab_maintenance"><b>Maintenance &amp; Updates</b></a></li>
     <li><a data-toggle="tab" href="#tab_logs"><b>Log Viewer</b></a></li>
@@ -1510,6 +1618,41 @@
         </div>
     </div>
 
+    <div id="tab_balancers" class="tab-pane fade in">
+        <div class="col-md-12" style="margin-top: 10px; margin-bottom: 4px;">
+            <span class="text-muted" style="font-size: 13px;">A balancer groups nodes by tag prefix and picks one for every connection. Rules choose it from the «Balancers» group in Target Outbound. leastPing / leastLoad need an observatory (General Settings → Load Balancer Observatory). Entries save instantly &mdash; click <b>Apply &amp; Restart Xray</b>.</span>
+        </div>
+        <table id="grid-balancers" class="table table-condensed table-hover table-striped" data-editDialog="DialogBalancer">
+            <thead>
+                <tr>
+                    <th data-column-id="uuid" data-type="string" data-identifier="true" data-visible="false">ID</th>
+                    <th data-column-id="enabled" data-width="6em" data-type="string" data-formatter="rowtoggle">Enabled</th>
+                    <th data-column-id="tag" data-width="12em" data-type="string">Tag</th>
+                    <th data-column-id="selector" data-type="string">Node Selector (tag prefixes)</th>
+                    <th data-column-id="strategy" data-width="12em" data-type="string">Strategy</th>
+                    <th data-column-id="fallback_tag" data-width="12em" data-type="string">Fallback</th>
+                    <th data-column-id="commands" data-width="10em" data-formatter="commands" data-sortable="false">Actions</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+            <tfoot>
+                <tr>
+                    <td></td>
+                    <td>
+                        <button data-action="add" type="button" class="btn btn-xs btn-primary"><span class="fa fa-fw fa-plus"></span></button>
+                        <button data-action="deleteSelected" type="button" class="btn btn-xs btn-default"><span class="fa fa-fw fa-trash-o"></span></button>
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+        <div class="col-md-12" style="padding-bottom: 15px;">
+            <hr/>
+            <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves General + Maintenance settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
+                <b>Apply &amp; Restart Xray</b> <i class="fa fa-spinner fa-pulse" style="display: none;"></i>
+            </button>
+        </div>
+    </div>
+
     <div id="tab_expert" class="tab-pane fade">
         <div class="col-md-12" style="margin-top: 15px; padding-bottom: 15px;">
             <div class="alert alert-warning" style="margin-bottom: 10px;">
@@ -1593,6 +1736,7 @@
 
 {{ partial("layout_partials/base_dialog", ['fields': formDialogNode, 'id': 'DialogNode', 'label': 'Edit Outbound Server Node']) }}
 {{ partial("layout_partials/base_dialog", ['fields': formDialogRule, 'id': 'DialogRule', 'label': 'Edit Routing Rule']) }}
+{{ partial("layout_partials/base_dialog", ['fields': formDialogBalancer, 'id': 'DialogBalancer', 'label': 'Edit Load Balancer']) }}
 
 <div class="modal fade" id="DialogResetTemplate" tabindex="-1" role="dialog">
     <div class="modal-dialog" role="document">
