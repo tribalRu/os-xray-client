@@ -25,7 +25,6 @@
 namespace OPNsense\XrayClient\Migrations;
 
 use OPNsense\Base\BaseModelMigration;
-use OPNsense\Core\Config;
 use OPNsense\XrayClient\XrayClient;
 
 /**
@@ -46,20 +45,21 @@ class M2_7_0 extends BaseModelMigration
             return;
         }
 
-        $config = Config::getInstance()->object();
+        // Edits the model itself: runMigrations() serialises the model
+        // back to config.xml afterwards, discarding any direct edits made
+        // on the raw Config object here.
+        $http = (string)$model->general->http_listen;
+        $socks = (string)$model->general->socks_listen;
 
-        if (!isset($config->OPNsense->XrayClient->general)) {
-            return;
+        if ($socks === '') {
+            $socks = '127.0.0.1';
         }
 
-        $general = $config->OPNsense->XrayClient->general;
-        $http = isset($general->http_listen) ? trim((string)$general->http_listen) : '';
-        $socks = isset($general->socks_listen) ? trim((string)$general->socks_listen) : '127.0.0.1';
-
-        if ($http === '') {
-            $general->http_listen = $socks;
+        if (trim($http) === '') {
+            $model->general->http_listen = $socks;
         }
     }
 
     // Model is saved by 'run_migrations.php' afterwards.
 }
+
