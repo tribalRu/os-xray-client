@@ -364,8 +364,50 @@
       "statsOutboundDownlink": true
     }
   },
+{% set dns_enabled = (general.dns_enabled | default('0')) == '1' %}
+{% set active_dns = [] %}
+{% if dns_enabled and not helpers.empty('OPNsense.XrayClient.dns.server') %}
+{%   for server in helpers.toList('OPNsense.XrayClient.dns.server') %}
+{%     if server.enabled == '1' %}
+{%       do active_dns.append(server) %}
+{%     endif %}
+{%   endfor %}
+{% endif %}
+{% set _hosts_json = (general.dns_hosts_json or '') | trim %}
+{% set _hosts_body = header_object(_hosts_json) if _hosts_json != '' else '' %}
 {% set _dns_json = (general.dns_json or '') | trim %}
-{% if _dns_json != '' %}
+{% if dns_enabled and (active_dns | length > 0 or _hosts_body != '') %}
+  "dns": {
+{% if active_dns %}
+    "servers": [
+{%   for server in active_dns %}
+{%     set _address = server.address | string | trim %}
+{%     set _port = server.port | default('') | string | trim %}
+{%     set _domains = server.domains | string | trim %}
+{%     set _expected = server.expected_ips | string | trim %}
+{%     set _unexpected = server.unexpected_ips | string | trim %}
+      {
+        "address": {{ _address | tojson }},
+{% if _port != '' %}        "port": {{ _port | int }},
+{% endif %}        "skipFallback": {{ 'true' if server.skip_fallback == '1' else 'false' }}{% if _domains != '' %},
+        "domains": {{ json_array(_domains, '[]') }}{% endif %}{% if _expected != '' %},
+        "expectedIPs": {{ json_array(_expected, '[]') }}{% endif %}{% if _unexpected != '' %},
+        "unexpectedIPs": {{ json_array(_unexpected, '[]') }}{% endif %}
+      }{{ "," if not loop.last else "" }}
+{%   endfor %}
+    ],
+{% else %}
+    "servers": [],
+{% endif %}
+    "hosts": {{ _hosts_body or '{}' }},
+    "queryStrategy": {{ (general.dns_query_strategy or 'useIp') | tojson }},
+    "disableCache": {{ 'true' if general.dns_disable_cache | default('0') == '1' else 'false' }},
+    "disableFallback": {{ 'true' if general.dns_disable_fallback | default('0') == '1' else 'false' }},
+    "disableFallbackIfMatch": {{ 'true' if general.dns_disable_fallback_if_match | default('0') == '1' else 'false' }},
+    "enableParallelQuery": {{ 'true' if general.dns_enable_parallel_query | default('0') == '1' else 'false' }},
+    "useSystemHosts": {{ 'true' if general.dns_use_system_hosts | default('0') == '1' else 'false' }}
+  },
+{% elif _dns_json != '' %}
   "dns": {{ _dns_json }},
 {% endif %}
   "inbounds": [
