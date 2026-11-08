@@ -1821,7 +1821,7 @@
 
     <div id="tab_dns" class="tab-pane fade in">
         <div class="col-md-12" style="margin-top: 10px; margin-bottom: 4px;">
-            <span class="text-muted" style="font-size: 13px;">Switch on the built-in DNS in <b>General Settings → Built-in DNS server</b>. Servers with a domains list answer only those domains (e.g. <code>domain:ru</code> over the domestic resolver); servers without a list answer everything else. DNS requests follow the same routing rules (rule inbound/outbound of Xray), so «DoH via proxy» needs no extra hop. Add/edit starts from a built-in preset — same as the rule dialog. Entries save instantly &mdash; click <b>Apply &amp; Restart Xray</b>.</span>
+            <span class="text-muted" style="font-size: 13px;">Enable the built-in DNS in <b>General Settings → Built-in DNS server</b>, then list resolvers here. Servers with a domains list answer only those domains; the preset in the dialog fills typical setups. Entries save instantly — <b>Apply &amp; Restart Xray</b>.</span>
         </div>
         <table id="grid-dns" class="table table-condensed table-hover table-striped" data-editDialog="DialogDnsServer">
             <thead>
