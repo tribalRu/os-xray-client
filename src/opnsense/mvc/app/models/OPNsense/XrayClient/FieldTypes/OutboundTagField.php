@@ -33,7 +33,8 @@ use OPNsense\Core\Config;
  * Every enabled node is offered as "node_<uuid>" — a tag that never
  * changes across add/remove/reorder, so a saved routing rule always
  * points at the same node. "direct" and "block" are the core's
- * built-in outbounds (optgroup "Standard"). No aliases are emitted:
+ * built-in outbounds (optgroup "Standard"), enabled balancers are
+ * offered by their tag (optgroup "Balancers"). No aliases are emitted:
  * one node, one tag.
  */
 class OutboundTagField extends OptionField
@@ -70,8 +71,26 @@ class OutboundTagField extends OptionField
         try {
             $doc = Config::getInstance()->object();
             $nodes = $doc ? $doc->xpath('//OPNsense/XrayClient/nodes/node[enabled="1"]') : [];
+            $balancers = $doc ? $doc->xpath('//OPNsense/XrayClient/balancers/balancer[enabled="1"]') : [];
         } catch (\Throwable $e) {
             $nodes = [];
+            $balancers = [];
+        }
+
+        // A balancer tag is used verbatim: the template writes it as
+        // balancerTag (not outboundTag) when a rule selects it.
+        foreach ($balancers as $balancer) {
+            $tag = trim((string)$balancer->tag);
+            if ($tag === '') {
+                continue;
+            }
+            $strategy = trim((string)$balancer->strategy);
+            $label = $tag . ' — ' . gettext('balancer') .
+                ($strategy !== '' ? ' (' . $strategy . ')' : '');
+            $list[$tag] = [
+                'value' => $label,
+                'optgroup' => gettext('Balancers (load balancing, failover)'),
+            ];
         }
 
         foreach ($nodes as $node) {
@@ -94,6 +113,6 @@ class OutboundTagField extends OptionField
      */
     protected function defaultValidationMessage()
     {
-        return gettext('Select an existing outbound: direct, block or tag of an enabled node.');
+        return gettext('Select an existing outbound: direct, block, tag of an enabled node or balancer.');
     }
 }
