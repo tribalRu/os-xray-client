@@ -4,11 +4,19 @@ PRESET="$1"
 CUSTOM_GEOIP="$2"
 CUSTOM_GEOSITE="$3"
 
-ASSET_DIR="/usr/local/share/xray"
-TMP_DIR="/tmp/xray_geodata_update"
+# Paths can be overridden for testing.
+ASSET_DIR="${XRAY_ASSET_DIR:-/usr/local/share/xray}"
+RC_SCRIPT="${XRAY_RC_SCRIPT:-/usr/local/etc/rc.d/os-xray-client}"
 
-mkdir -p "${ASSET_DIR}" "${TMP_DIR}"
+TMP_DIR=$(mktemp -d /tmp/xray_geodata_update.XXXXXX) || {
+    echo "ERROR: Could not create a temporary directory."
+    exit 1
+}
+trap 'rm -rf "${TMP_DIR}"' EXIT INT TERM
+
+mkdir -p "${ASSET_DIR}"
 FAILED=0
+CHANGED=0
 
 case "${PRESET}" in
     official)
@@ -36,42 +44,64 @@ esac
 
 echo "=== Updating GeoIP & GeoSite Databases (Preset: ${PRESET}) ==="
 
-if [ -n "${GEOIP_URL}" ] && [ "${GEOIP_URL}" != "none" ]; then
-    echo "Downloading geoip.dat from: ${GEOIP_URL}"
-    if fetch -q -o "${TMP_DIR}/geoip.dat" "${GEOIP_URL}" && [ -s "${TMP_DIR}/geoip.dat" ]; then
-        install -m 0644 "${TMP_DIR}/geoip.dat" "${ASSET_DIR}/geoip.dat"
-        echo "geoip.dat updated successfully."
-    else
-        echo "ERROR: Failed to download geoip.dat or file is empty."
-        FAILED=1
-    fi
-else
-    echo "geoip.dat: no URL configured, skipping."
-fi
+# Download one list into TMP_DIR and install it, keeping the previous file as
+# <name>.previous so a failed restart can be rolled back.
+update_one() {
+    name="$1"
+    url="$2"
 
-if [ -n "${GEOSITE_URL}" ] && [ "${GEOSITE_URL}" != "none" ]; then
-    echo "Downloading geosite.dat from: ${GEOSITE_URL}"
-    if fetch -q -o "${TMP_DIR}/geosite.dat" "${GEOSITE_URL}" && [ -s "${TMP_DIR}/geosite.dat" ]; then
-        install -m 0644 "${TMP_DIR}/geosite.dat" "${ASSET_DIR}/geosite.dat"
-        echo "geosite.dat updated successfully."
-    else
-        echo "ERROR: Failed to download geosite.dat or file is empty."
-        FAILED=1
+    if [ -z "${url}" ] || [ "${url}" = "none" ]; then
+        echo "${name}: no URL configured, skipping."
+        return 0
     fi
-else
-    echo "geosite.dat: no URL configured, skipping."
-fi
+    case "${url}" in
+        https://*) ;;
+        *)
+            echo "ERROR: ${name}: only https:// URLs are allowed, got '${url}'."
+            return 1
+            ;;
+    esac
 
-rm -rf "${TMP_DIR}"
+    echo "Downloading ${name} from: ${url}"
+    if fetch -q -o "${TMP_DIR}/${name}" "${url}" && [ -s "${TMP_DIR}/${name}" ]; then
+        if [ -f "${ASSET_DIR}/${name}" ]; then
+            cp -p "${ASSET_DIR}/${name}" "${ASSET_DIR}/${name}.previous"
+        fi
+        install -m 0644 "${TMP_DIR}/${name}" "${ASSET_DIR}/${name}.new" &&
+            mv -f "${ASSET_DIR}/${name}.new" "${ASSET_DIR}/${name}" || {
+            echo "ERROR: Failed to install ${name}."
+            rm -f "${ASSET_DIR}/${name}.new"
+            return 1
+        }
+        echo "${name} updated successfully."
+        CHANGED=1
+        return 0
+    fi
+    echo "ERROR: Failed to download ${name} or file is empty."
+    return 1
+}
+
+update_one geoip.dat "${GEOIP_URL}" || FAILED=1
+update_one geosite.dat "${GEOSITE_URL}" || FAILED=1
 
 if [ "${FAILED}" -ne 0 ]; then
     echo "=== GeoData update FAILED ==="
     exit 1
 fi
 
-if /usr/local/etc/rc.d/os-xray-client status >/dev/null 2>&1; then
+if [ "${CHANGED}" -eq 1 ] && "${RC_SCRIPT}" status >/dev/null 2>&1; then
     echo "Restarting Xray service to reload GeoData..."
-    /usr/local/etc/rc.d/os-xray-client restart
+    "${RC_SCRIPT}" restart
+    sleep 2
+    if ! "${RC_SCRIPT}" status >/dev/null 2>&1; then
+        echo "ERROR: Xray did not restart with the new GeoData; restoring the previous files."
+        for f in geoip.dat geosite.dat; do
+            [ -f "${ASSET_DIR}/${f}.previous" ] && mv -f "${ASSET_DIR}/${f}.previous" "${ASSET_DIR}/${f}"
+        done
+        "${RC_SCRIPT}" start >/dev/null 2>&1 || true
+        echo "=== GeoData update FAILED (rolled back) ==="
+        exit 1
+    fi
 fi
 
 echo "=== GeoData update completed! ==="
