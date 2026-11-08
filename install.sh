@@ -21,6 +21,9 @@ install -d -m 0755 /var/log/xray
 cp -R "${SRC_DIR}/etc/"* /usr/local/etc/
 cp -R "${SRC_DIR}/opnsense/"* /usr/local/opnsense/
 
+# Developer-only unit tests are not needed on the firewall.
+rm -f /usr/local/opnsense/scripts/OPNsense/XrayClient/test_scripts.py
+
 chmod +x /usr/local/etc/rc.d/os-xray-client
 chmod +x /usr/local/opnsense/scripts/OPNsense/XrayClient/*.sh
 chmod +x /usr/local/opnsense/scripts/OPNsense/XrayClient/*.py
