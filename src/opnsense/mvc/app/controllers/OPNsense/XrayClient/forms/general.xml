@@ -24,6 +24,12 @@
         <help>Logging verbosity for Xray-core.</help>
     </field>
     <field>
+        <id>xrayclient.general.access_log</id>
+        <label>Enable Access Log</label>
+        <type>checkbox</type>
+        <help>Write every proxied connection to /var/log/xray/access.log. Off by default: with the TUN inbound all network traffic is logged and the file grows without rotation. Enable only while debugging, and clear it in the Logs tab afterwards.</help>
+    </field>
+    <field>
         <type>header</type>
         <label>TUN Interface Settings (Variant A)</label>
     </field>
@@ -71,7 +77,7 @@
         <id>xrayclient.general.socks_listen</id>
         <label>Listen IP Address</label>
         <type>text</type>
-        <help>IP to bind local SOCKS/HTTP ports (use 127.0.0.1 for local only, or 0.0.0.0 / LAN IP for LAN devices).</help>
+        <help>IP to bind local SOCKS/HTTP ports (use 127.0.0.1 for local only, or 0.0.0.0 / LAN IP for LAN devices). These proxies have no authentication: if you bind to anything other than 127.0.0.1, restrict access with firewall rules so that only trusted hosts can reach the ports.</help>
     </field>
     <field>
         <id>xrayclient.general.socks_port</id>

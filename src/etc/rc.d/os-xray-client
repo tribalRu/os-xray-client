@@ -18,7 +18,7 @@ load_rc_config $name
 
 pidfile="/var/run/${name}.pid"
 command="/usr/sbin/daemon"
-command_args="-c -f -P ${pidfile} -r ${xrayclient_bin} run -c ${xrayclient_config}"
+command_args="-c -f -P ${pidfile} -r -R 5 ${xrayclient_bin} run -c ${xrayclient_config}"
 
 start_precmd="xrayclient_prestart"
 stop_postcmd="xrayclient_poststop"

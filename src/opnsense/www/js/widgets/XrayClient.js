@@ -123,17 +123,13 @@ export default class XrayClient extends BaseWidget {
         if (!info) {
             return `<span class="label label-default">${this._esc(this.translations.unchecked)}</span>`;
         }
+        if (info.status === 'n/a') {
+            return `<span class="label label-default">n/a</span>`;
+        }
         if (info.status !== 'online') {
             return `<span class="label label-danger">${this._esc(this.translations.offline)}</span>`;
         }
         return `<span class="label label-${this._latencyClass(info.ms)}">${parseInt(info.ms, 10)} ms</span>`;
-    }
-
-    _tile(label, value) {
-        return `<div style="flex: 1; min-width: 0; background: rgba(128,128,128,0.12); border-radius: 4px; padding: 6px 10px;">
-            <div style="font-size: 11px; opacity: 0.7;">${this._esc(label)}</div>
-            <div style="font-size: 16px; font-weight: 600; white-space: nowrap;">${value}</div>
-        </div>`;
     }
 
     _buildHtml() {
@@ -169,15 +165,13 @@ export default class XrayClient extends BaseWidget {
             svcLabel = `<span class="label label-danger">${this._esc(t.stopped)}</span>`;
         }
 
-        let html = `<div style="display: flex; align-items: center; justify-content: space-between; margin: 4px 0 8px;">
-            <span>${svcLabel}</span>
-            <span style="font-size: 12px; opacity: 0.8;">${enabledNodes.length} / ${this.nodes.length} ${this._esc(t.active)}</span>
-        </div>`;
-
-        html += `<div style="display: flex; gap: 8px; margin-bottom: 8px;">
-            ${this._tile(t.best_latency, best === null ? '&mdash;' : parseInt(best, 10) + ' ms')}
-            ${this._tile(t.download, this._bytes(totalDown))}
-            ${this._tile(t.upload, this._bytes(totalUp))}
+        // One header line: service state, active count and total traffic.
+        let html = `<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 2px 8px; margin: 2px 0 4px; font-size: 12px;">
+            <span>${svcLabel} <span style="opacity: 0.8;">${enabledNodes.length}/${this.nodes.length} ${this._esc(t.active)}</span></span>
+            <span style="white-space: nowrap; opacity: 0.8;" title="${this._esc(t.best_latency)}: ${best === null ? '-' : parseInt(best, 10) + ' ms'}">
+                <i class="fa fa-arrow-down"></i> ${this._bytes(totalDown)}
+                &nbsp;<i class="fa fa-arrow-up"></i> ${this._bytes(totalUp)}
+            </span>
         </div>`;
 
         this.nodes.forEach(node => {
@@ -191,34 +185,36 @@ export default class XrayClient extends BaseWidget {
                 dotClass = this.running === false ? 'text-warning' : 'text-success';
             }
 
-            const tags = [node.protocol, node.network, node.security, node.port]
+            // Protocol, transport and security as one muted word group.
+            const tags = [node.protocol, node.network, node.security]
                 .filter(v => v !== undefined && v !== null && String(v) !== '')
-                .map(v => `<span class="label label-default" style="font-weight: normal;">${this._esc(String(v).toUpperCase())}</span>`)
-                .join(' ');
+                .map(v => this._esc(String(v).toUpperCase()))
+                .join(' &middot; ');
+            const hostPort = this._esc(node.address) + (node.port ? ':' + this._esc(node.port) : '');
 
             let bar = '';
             if (enabled && info && info.status === 'online') {
                 const pct = Math.max(4, Math.min(100, Math.round(info.ms / 600 * 100)));
-                bar = `<div style="height: 3px; margin-top: 8px; border-radius: 2px; background: rgba(128,128,128,0.2);">
-                    <div class="progress-bar-${this._latencyClass(info.ms)}" style="height: 3px; border-radius: 2px; width: ${pct}%;"></div>
+                bar = `<div style="height: 2px; margin-top: 4px; border-radius: 1px; background: rgba(128,128,128,0.2);">
+                    <div class="progress-bar-${this._latencyClass(info.ms)}" style="height: 2px; border-radius: 1px; width: ${pct}%;"></div>
                 </div>`;
             }
 
-            html += `<div style="padding: 10px 0; border-top: 1px solid rgba(128,128,128,0.25);${enabled ? '' : ' opacity: 0.6;'}">
+            html += `<div style="padding: 5px 0 6px; border-top: 1px solid rgba(128,128,128,0.25);${enabled ? '' : ' opacity: 0.6;'}">
                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-                    <div style="min-width: 0;">
-                        <i class="fa fa-circle ${dotClass}" style="font-size: 11px;"></i>&nbsp;
+                    <div style="min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        <i class="fa fa-circle ${dotClass}" style="font-size: 9px;"></i>&nbsp;
                         <a href="/ui/xrayclient" style="font-weight: 600;">${this._esc(node.name)}</a>
+                        <span style="font-size: 11px; opacity: 0.65;">&nbsp;${tags}</span>
                     </div>
                     ${this._latencyPill(node, info)}
                 </div>
-                <div style="margin: 3px 0 0 18px; font-size: 12px; opacity: 0.75; word-break: break-all;">${this._esc(node.address)}</div>
-                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 0 0 18px;">
-                    <div>${tags}</div>
-                    <div style="font-size: 12px; white-space: nowrap;${noTraffic ? ' opacity: 0.6;' : ''}">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 1px 0 0 15px; font-size: 11px;">
+                    <span style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.75;" title="${hostPort}">${hostPort}</span>
+                    <span style="white-space: nowrap;${noTraffic ? ' opacity: 0.6;' : ''}">
                         <i class="fa fa-arrow-down"></i> ${this._bytes(st.downlink)}
                         &nbsp;<i class="fa fa-arrow-up"></i> ${this._bytes(st.uplink)}
-                    </div>
+                    </span>
                 </div>
                 ${bar}
             </div>`;

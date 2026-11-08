@@ -4,7 +4,7 @@
 # os-xray-client plugin. Prints a single JSON object on stdout.
 # Network failures are reported in-band (never a non-zero exit code).
 
-exec python3 - << 'EOF'
+exec /usr/local/bin/python3 - << 'EOF'
 import json
 import re
 import subprocess

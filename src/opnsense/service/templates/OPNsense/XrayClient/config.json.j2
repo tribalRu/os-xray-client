@@ -345,7 +345,7 @@
 {%- endmacro -%}
 {
   "log": {
-    "access": "/var/log/xray/access.log",
+    "access": {{ '"/var/log/xray/access.log"' if general.access_log | default('0') == '1' else '"none"' }},
     "error": "/var/log/xray/error.log",
     "loglevel": {{ (general.loglevel or 'warning') | tojson }}
   },

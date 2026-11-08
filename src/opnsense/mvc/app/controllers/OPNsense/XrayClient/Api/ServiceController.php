@@ -22,6 +22,11 @@ class ServiceController extends ApiMutableServiceControllerBase
         $backend = new Backend();
         $mdl = new XrayClient();
 
+        // Remember the config that is currently on disk (and being used by the
+        // running service) so it can be put back if the new one is rejected.
+        $configFile = '/usr/local/etc/xray/config.json';
+        $previousConfig = is_file($configFile) ? @file_get_contents($configFile) : false;
+
         $renderStatus = trim((string)$backend->configdRun('template reload OPNsense/XrayClient'));
 
         // The configd template handler reports failures as "ERR". In UI mode
@@ -49,14 +54,8 @@ class ServiceController extends ApiMutableServiceControllerBase
                     ];
                 }
                 @mkdir('/usr/local/etc/xray', 0755, true);
-                $tmp = '/usr/local/etc/xray/.config.json.tmp';
-                if (file_put_contents($tmp, $rawJson) === false) {
+                if (!$this->writeSecretFile($configFile, $rawJson)) {
                     return ['status' => 'error', 'message' => 'Failed to write Xray config'];
-                }
-                chmod($tmp, 0640);
-                if (!rename($tmp, '/usr/local/etc/xray/config.json')) {
-                    @unlink($tmp);
-                    return ['status' => 'error', 'message' => 'Failed to replace Xray config'];
                 }
             }
         }
@@ -67,10 +66,17 @@ class ServiceController extends ApiMutableServiceControllerBase
             $testData = json_decode(trim($testOut), true);
             if (is_array($testData) && ($testData['status'] ?? '') !== 'ok') {
                 $testMsg = $testData['message'] ?? 'Xray config test failed';
+                // Put the previous config back: otherwise the broken file stays
+                // on disk and the next (re)start, including the automatic
+                // restart by daemon -r, would run with it.
+                $restored = $this->restoreConfig($configFile, $previousConfig);
                 return [
                     'status' => 'error',
                     'message' => 'Config test failed: ' . $testMsg
-                        . ' — service NOT restarted, previous config still running.'
+                        . ($restored
+                            ? ' — service NOT restarted, previous config restored.'
+                            : ' — service NOT restarted; the previous config could not be restored, '
+                                . 'fix or reset the config before starting the service.')
                 ];
             }
             if (!is_array($testData) && trim($testOut) !== '') {
@@ -88,6 +94,79 @@ class ServiceController extends ApiMutableServiceControllerBase
         }
 
         return ['status' => 'ok'];
+    }
+
+    /**
+     * Write a file atomically (temp file + rename) without it ever being
+     * readable by other users: config.json holds UUIDs and WireGuard private
+     * keys, and a plain file_put_contents() would create the temp file with
+     * the default 0644 before the chmod. Returns false on failure.
+     */
+    private function writeSecretFile($file, $content)
+    {
+        $tmp = $file . '.tmp';
+        $oldUmask = umask(0137);
+        $written = file_put_contents($tmp, $content) !== false;
+        umask($oldUmask);
+        if (!$written || !chmod($tmp, 0640) || !rename($tmp, $file)) {
+            @unlink($tmp);
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Copy a config file to a timestamped backup that is only readable by
+     * its owner. Returns the backup path, or false on failure.
+     */
+    private function backupSecretFile($file)
+    {
+        $backup = $file . '.bak-' . date('Ymd-His');
+        $oldUmask = umask(0177);
+        $copied = @copy($file, $backup);
+        umask($oldUmask);
+        if (!$copied) {
+            @unlink($backup);
+            return false;
+        }
+        @chmod($backup, 0600);
+        $this->pruneBackups($file, 5);
+        return $backup;
+    }
+
+    /**
+     * Keep only the newest $keep backups of a file. Backups carry private
+     * keys, so they must not pile up indefinitely.
+     */
+    private function pruneBackups($file, $keep)
+    {
+        // The timestamp suffix sorts chronologically.
+        $backups = glob($file . '.bak-*') ?: [];
+        sort($backups);
+        foreach (array_slice($backups, 0, max(0, count($backups) - $keep)) as $old) {
+            @unlink($old);
+        }
+    }
+
+    /**
+     * Restore config.json from a backup file created by backupSecretFile().
+     */
+    private function restoreFromBackup($backup, $file)
+    {
+        $content = @file_get_contents($backup);
+        return $content !== false && $this->writeSecretFile($file, $content);
+    }
+
+    /**
+     * Put a config snapshot back after a failed validation.
+     * Returns false when there was nothing to restore or the write failed.
+     */
+    private function restoreConfig($file, $previousConfig)
+    {
+        if ($previousConfig === false) {
+            return false;
+        }
+        return $this->writeSecretFile($file, $previousConfig);
     }
 
     /**
@@ -112,12 +191,7 @@ class ServiceController extends ApiMutableServiceControllerBase
         if ($normalized === false) {
             return;
         }
-        $tmp = $file . '.tmp';
-        if (file_put_contents($tmp, $normalized) === false || !rename($tmp, $file)) {
-            @unlink($tmp);
-            return;
-        }
-        @chmod($file, 0640);
+        $this->writeSecretFile($file, $normalized);
     }
 
     /**
@@ -180,22 +254,19 @@ class ServiceController extends ApiMutableServiceControllerBase
         }
 
         $file = '/usr/local/etc/xray/config.json';
-        $backup = $file . '.bak-' . date('Ymd-His');
         @mkdir(dirname($file), 0755, true);
 
         // Back up the current config before overwriting it.
+        $backup = null;
         if (file_exists($file)) {
-            if (!@copy($file, $backup)) {
+            $backup = $this->backupSecretFile($file);
+            if ($backup === false) {
                 return ['status' => 'error', 'message' => 'Failed to back up existing config.json'];
             }
-        } else {
-            $backup = null;
-        }        $tmp = $file . '.tmp';
-        if (file_put_contents($tmp, $content) === false || !rename($tmp, $file)) {
-            @unlink($tmp);
+        }
+        if (!$this->writeSecretFile($file, $content)) {
             return ['status' => 'error', 'message' => 'Failed to write ' . $file];
         }
-        @chmod($file, 0640);
 
         // Validate the written config with Xray itself.
         $backend = new Backend();
@@ -205,7 +276,7 @@ class ServiceController extends ApiMutableServiceControllerBase
         if (!$testOk) {
             // Roll back to the previous configuration.
             if ($backup !== null) {
-                @copy($backup, $file);
+                $this->restoreFromBackup($backup, $file);
             } else {
                 @unlink($file);
             }
@@ -250,8 +321,8 @@ class ServiceController extends ApiMutableServiceControllerBase
         $file = '/usr/local/etc/xray/config.json';
         $backup = null;
         if (file_exists($file)) {
-            $backup = $file . '.bak-' . date('Ymd-His');
-            if (!@copy($file, $backup)) {
+            $backup = $this->backupSecretFile($file);
+            if ($backup === false) {
                 return ['status' => 'error', 'message' => 'Failed to back up current config.json'];
             }
         }
@@ -281,7 +352,7 @@ class ServiceController extends ApiMutableServiceControllerBase
         if (!$testOk) {
             // Roll back to the previous configuration (and keep template mode).
             if ($backup !== null) {
-                @copy($backup, $file);
+                $this->restoreFromBackup($backup, $file);
             }
             $message = is_array($testData) ? ($testData['message'] ?? 'Xray config test failed') : trim($testOut);
             return [
@@ -411,7 +482,7 @@ class ServiceController extends ApiMutableServiceControllerBase
         return is_array($data) ? $data : [
             'core_version' => 'Not installed',
             'geodata_date' => 'N/A',
-            'plugin_version' => '2.4.9'
+            'plugin_version' => 'unknown'
         ];
     }
 

@@ -21,11 +21,19 @@ install -d -m 0755 /var/log/xray
 cp -R "${SRC_DIR}/etc/"* /usr/local/etc/
 cp -R "${SRC_DIR}/opnsense/"* /usr/local/opnsense/
 
+# Developer-only unit tests are not needed on the firewall.
+rm -f /usr/local/opnsense/scripts/OPNsense/XrayClient/test_scripts.py
+
 chmod +x /usr/local/etc/rc.d/os-xray-client
 chmod +x /usr/local/opnsense/scripts/OPNsense/XrayClient/*.sh
 chmod +x /usr/local/opnsense/scripts/OPNsense/XrayClient/*.py
 
-echo "2.4.9" > /usr/local/opnsense/scripts/OPNsense/XrayClient/PLUGIN_VERSION
+# The model version in XrayClient.xml is the plugin version (migrations are
+# keyed on it too), so it is the single place to bump; the UI reads it back
+# from PLUGIN_VERSION.
+MODEL_XML="${SRC_DIR}/opnsense/mvc/app/models/OPNsense/XrayClient/XrayClient.xml"
+PLUGIN_VER=$(sed -n 's|.*<version>[[:space:]]*\([0-9][0-9.]*\)[[:space:]]*</version>.*|\1|p' "${MODEL_XML}" 2>/dev/null | head -n 1)
+echo "${PLUGIN_VER:-unknown}" > /usr/local/opnsense/scripts/OPNsense/XrayClient/PLUGIN_VERSION
 
 echo "Running OPNsense MVC migrations..."
 /usr/local/opnsense/mvc/script/run_migrations.php || {
@@ -42,9 +50,18 @@ rm -rf /var/lib/php/cache/* 2>/dev/null || true
 rm -rf /var/tmp/volt 2>/dev/null || true
 rm -rf /tmp/volt* 2>/dev/null || true
 
-echo "Restarting configd service..."
-service configd restart
-configctl template reload OPNsense/XrayClient || echo "WARNING: template reload failed."
+# Restarting configd kills the process tree of the configd action that runs
+# the in-GUI plugin update (it started this script), which cut the response
+# off mid-update. In that case (update_plugin.sh sets XRAY_FROM_CONFIGD=1)
+# do the restart from a detached process once this script has finished.
+if [ "${XRAY_FROM_CONFIGD}" = "1" ]; then
+    echo "Scheduling configd restart and template reload..."
+    /usr/sbin/daemon -f /bin/sh -c 'sleep 3; service configd restart; sleep 2; configctl template reload OPNsense/XrayClient'
+else
+    echo "Restarting configd service..."
+    service configd restart
+    configctl template reload OPNsense/XrayClient || echo "WARNING: template reload failed."
+fi
 
 if [ ! -x "/usr/local/bin/xray" ]; then
     echo "Xray binary not found. Downloading latest stable Xray-core..."

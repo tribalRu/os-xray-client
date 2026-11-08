@@ -5,23 +5,30 @@ import xml.etree.ElementTree as ET
 
 CONFIG_PATH = '/conf/config.xml'
 
+_root_cache = None
+
+
+def _load_root():
+    """Parse /conf/config.xml once per process (it can be large)."""
+    global _root_cache
+    if _root_cache is None:
+        _root_cache = ET.parse(CONFIG_PATH).getroot()
+    return _root_cache
+
 
 def get_general_value(path):
     """Read a value from /OPNsense/XrayClient/general/<path>."""
     try:
-        tree = ET.parse(CONFIG_PATH)
-        root = tree.getroot()
-        el = root.findtext('.//OPNsense/XrayClient/general/' + path)
+        el = _load_root().findtext('.//OPNsense/XrayClient/general/' + path)
         return el.strip() if el else ''
     except Exception:
         return ''
 
 
 def iter_nodes():
-    """Yield dicts with uuid/address/port/enabled for all nodes."""
+    """Yield dicts with uuid/address/port/protocol/enabled for all nodes."""
     try:
-        tree = ET.parse(CONFIG_PATH)
-        root = tree.getroot()
+        root = _load_root()
     except Exception:
         return
 
@@ -30,12 +37,14 @@ def iter_nodes():
         enabled = (node_el.findtext('enabled') or '0').strip()
         address = (node_el.findtext('address') or '').strip()
         port = (node_el.findtext('port') or '443').strip()
+        protocol = (node_el.findtext('protocol') or '').strip()
         if uuid:
             yield {
                 'uuid': uuid,
                 'enabled': enabled,
                 'address': address,
                 'port': port,
+                'protocol': protocol,
             }
 
 

@@ -20,7 +20,6 @@ Outputs JSON to stdout. On error, outputs {"status": "error", "message": "..."}.
 import base64
 import datetime
 import json
-import secrets
 import socket
 import subprocess
 import sys
@@ -128,8 +127,8 @@ def build_payload(public_key_b64):
     - "type": "Android"
     - "model": ""
     """
-    # tos: ISO 8601 timestamp without microseconds, ending with Z
-    tos = datetime.datetime.now().isoformat(timespec='seconds') + "Z"
+    # tos: ISO 8601 UTC timestamp without microseconds, ending with Z
+    tos = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     return {
         "key": public_key_b64,
@@ -188,6 +187,22 @@ def warp_register(public_key_b64):
         if last_body:
             sys.stderr.write(f"warp.py: last response body: {last_body}\n")
     return None
+
+
+def reserved_from_client_id(client_id):
+    """WARP routes WireGuard packets by the 3 'reserved' bytes, which are the
+    first three bytes of the base64 'client_id' returned at registration.
+    Returns "a,b,c" or "" when the client_id is missing or malformed."""
+    if not client_id or not isinstance(client_id, str):
+        return ""
+    try:
+        padded = client_id + "=" * (-len(client_id) % 4)
+        raw = base64.b64decode(padded, validate=True)
+    except (ValueError, TypeError):
+        return ""
+    if len(raw) < 3:
+        return ""
+    return ",".join(str(b) for b in raw[:3])
 
 
 def extract_warp_fields(reg_response, client_private_key, client_public_key):
@@ -259,10 +274,12 @@ def extract_warp_fields(reg_response, client_private_key, client_public_key):
     # DNS - WARP uses 1.1.1.1 / 1.0.0.1 by default
     dns = WARP_FALLBACK_DNS
 
-    # Reserved bytes - three random bytes 0-255
-    reserved = ",".join(str(secrets.randbelow(256)) for _ in range(3))
+    # Reserved bytes come from the registered device's client_id; random
+    # values (as used before) do not match the device and WARP drops the
+    # traffic.
+    reserved = reserved_from_client_id(config.get("client_id", ""))
 
-    return {
+    result = {
         "status": "ok",
         "wg_secret_key": private_key,
         "wg_public_key": server_public_key,
@@ -276,6 +293,13 @@ def extract_warp_fields(reg_response, client_private_key, client_public_key):
         "license": reg_response.get("account", {}).get("license", ""),
         "token": reg_response.get("token", ""),
     }
+    if not reserved:
+        result["warning"] = (
+            "WARP response contained no usable client_id; the Reserved field "
+            "was left unchanged (default 0,0,0). WARP may not route traffic "
+            "until the correct reserved bytes are set."
+        )
+    return result
 
 
 def main():
@@ -287,25 +311,18 @@ def main():
 
     reg_response = warp_register(client_public_key)
 
-    if reg_response:
-        result = extract_warp_fields(reg_response, client_private_key, client_public_key)
-    else:
-        # Fallback: use locally generated keypair with public WARP defaults
-        result = {
-            "status": "ok",
-            "wg_secret_key": client_private_key,
-            "wg_public_key": WARP_FALLBACK_PUBLIC_KEY,
-            "wg_endpoint": WARP_FALLBACK_ENDPOINT,
-            "wg_address": "",
-            "wg_allowed_ips": WARP_FALLBACK_ALLOWED_IPS,
-            "wg_keepalive": "25",
-            "wg_mtu": WARP_FALLBACK_MTU,
-            "wg_reserved": ",".join(str(secrets.randbelow(256)) for _ in range(3)),
-            "wg_remote_dns": WARP_FALLBACK_DNS,
-            "license": "",
-            "token": "",
-            "warning": "WARP API registration unreachable - using public fallback values. You may need to register separately.",
-        }
+    if not reg_response:
+        # A locally generated keypair that was never registered with
+        # Cloudflare cannot work, so do not pretend that generation succeeded.
+        print(json.dumps({
+            "status": "error",
+            "message": "WARP registration failed (Cloudflare API unreachable or "
+                       "rejected the request). Check outbound HTTPS to "
+                       "api.cloudflareclient.com; no node fields were changed.",
+        }))
+        return
+
+    result = extract_warp_fields(reg_response, client_private_key, client_public_key)
 
     print(json.dumps(result))
 
