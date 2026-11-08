@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>2.4.10</version>
+    <version>2.4.11</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -95,6 +95,31 @@
                 <MaximumValue>3600</MaximumValue>
                 <Required>Y</Required>
             </telemetry_interval>
+            <!-- ====== Advanced JSON sections ======
+                 Raw blocks that the template inserts into the generated
+                 config.json as their own sections. They only apply in UI
+                 Builder mode (Raw JSON mode replaces the whole file) and
+                 exist so DNS / balancing / observatory can be used before
+                 they get proper forms. Each value is validated with
+                 `xray run -test` on Apply like the rest of the config. -->
+            <dns_json type="TextField">
+                <default></default>
+                <Required>N</Required>
+                <Mask>/^$|^\s*\{[\s\S]*\}\s*$/</Mask>
+                <ValidationMessage>DNS must be a JSON object, e.g. {"servers": ["https://1.1.1.1/dns-query"]}.</ValidationMessage>
+            </dns_json>
+            <balancers_json type="TextField">
+                <default></default>
+                <Required>N</Required>
+                <Mask>/^$|^\s*\[[\s\S]*\]\s*$/</Mask>
+                <ValidationMessage>Balancers must be a JSON array, e.g. [{"tag": "auto", "selector": ["node_"], "strategy": {"type": "leastPing"}}].</ValidationMessage>
+            </balancers_json>
+            <observatory_json type="TextField">
+                <default></default>
+                <Required>N</Required>
+                <Mask>/^$|^\s*\{[\s\S]*\}\s*$/</Mask>
+                <ValidationMessage>Observatory must be a JSON object, e.g. {"burstObservatory": {"subjectSelector": ["node_"]}}.</ValidationMessage>
+            </observatory_json>
             <raw_json type="TextField">
                 <default></default>
                 <Required>N</Required>
