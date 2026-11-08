@@ -719,7 +719,7 @@
             // unknown geosite: codes and the restart is rolled back).
             var servers = [
                 {server: {enabled: '1', address: 'https://1.1.1.1/dns-query', port: '', domains: '', expected_ips: '', unexpected_ips: '', skip_fallback: '0'}},
-                {server: {enabled: '1', address: 'https://dns.yandex.ru/dns-query', port: '443', domains: 'domain:ru, domain:xn--p1ai, domain:su', expected_ips: 'geoip:ru', unexpected_ips: '', skip_fallback: '1'}}
+                {server: {enabled: '1', address: 'https://dns.yandex.ru/dns-query', port: '443', domains: 'domain:ru,domain:xn--p1ai,domain:su', expected_ips: 'geoip:ru', unexpected_ips: '', skip_fallback: '1'}}
             ];
             var $checked = $('#xrayclient\\.general\\.dns_enabled');
             $checked.prop('checked', true).change();
