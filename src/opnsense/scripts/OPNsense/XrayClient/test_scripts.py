@@ -264,11 +264,21 @@ def render_config(general_overrides=None, nodes=None, rules=None,
         'tun_address': '10.255.0.1/30',
         'tun_mtu': '1500',
         'enable_sniffing': '1',
+        'sniffing_dest_override': 'http,tls,quic',
+        'sniffing_route_only': '1',
+        'sniffing_domains_excluded': '',
         'enable_socks': '1',
         'socks_listen': '127.0.0.1',
         'socks_port': '10808',
+        'socks_auth': 'noauth',
+        'socks_username': '',
+        'socks_password': '',
         'enable_http': '0',
         'http_port': '10809',
+        'http_listen': '',
+        'http_auth': 'noauth',
+        'http_username': '',
+        'http_password': '',
         'stats_port': '10085',
         'dns_json': '',
         'balancers_json': '',
@@ -336,6 +346,64 @@ class TestConfigTemplate(unittest.TestCase):
         for key in ('dns', 'observatory', 'burstObservatory'):
             self.assertNotIn(key, cfg)
         self.assertNotIn('balancers', cfg['routing'])
+
+    def test_socks_defaults_sniffing(self):
+        cfg = render_config()
+        socks = [i for i in cfg['inbounds'] if i['tag'] == 'socks-in'][0]
+        self.assertEqual(socks['settings']['auth'], 'noauth')
+        self.assertNotIn('users', socks['settings'])
+        self.assertEqual(socks['sniffing']['destOverride'], ['http', 'tls', 'quic'])
+        self.assertEqual(socks['sniffing']['routeOnly'], True)
+
+    def test_socks_password_auth(self):
+        cfg = render_config({'socks_auth': 'password',
+                             'socks_username': 'alice',
+                             'socks_password': 'hunter2'})
+        socks = [i for i in cfg['inbounds'] if i['tag'] == 'socks-in'][0]
+        self.assertEqual(socks['settings']['auth'], 'password')
+        self.assertEqual(socks['settings']['users'],
+                         [{'user': 'alice', 'pass': 'hunter2'}])
+
+    def test_http_inbound_disabled_by_default(self):
+        cfg = render_config()
+        tags = [i['tag'] for i in cfg['inbounds']]
+        self.assertNotIn('http-in', tags)
+
+    def test_http_inbound_listen_and_no_auth(self):
+        cfg = render_config({'enable_http': '1'})
+        http = [i for i in cfg['inbounds'] if i['tag'] == 'http-in'][0]
+        self.assertEqual(http['listen'], '127.0.0.1')
+        self.assertNotIn('users', http['settings'])
+
+    def test_http_inbound_own_listen_and_auth(self):
+        cfg = render_config({'enable_http': '1',
+                             'http_listen': '192.168.1.199',
+                             'http_auth': 'password',
+                             'http_username': 'bob',
+                             'http_password': 's3cret!'})
+        http = [i for i in cfg['inbounds'] if i['tag'] == 'http-in'][0]
+        self.assertEqual(http['listen'], '192.168.1.199')
+        self.assertEqual(http['settings']['users'],
+                         [{'user': 'bob', 'pass': 's3cret!'}])
+
+    def test_http_listen_falls_back_to_socks_listen(self):
+        cfg = render_config({'enable_http': '1',
+                             'http_listen': '',
+                             'socks_listen': '10.0.0.1'})
+        http = [i for i in cfg['inbounds'] if i['tag'] == 'http-in'][0]
+        self.assertEqual(http['listen'], '10.0.0.1')
+
+    def test_sniffing_dest_override_and_exclusions(self):
+        cfg = render_config({'sniffing_dest_override': 'http,tls',
+                             'sniffing_domains_excluded':
+                                 'geosite:category-ads-all, domain:my.local',
+                             'sniffing_route_only': '0'})
+        for inbound in cfg['inbounds']:
+            if inbound['tag'] in ('tun-in', 'socks-in'):
+                self.assertEqual(inbound['sniffing']['destOverride'], ['http', 'tls'])
+                self.assertEqual(inbound['sniffing']['routeOnly'], False)
+                self.assertEqual(inbound['sniffing']['domainsExcluded'],
+                                 ['geosite:category-ads-all', 'domain:my.local'])
 
     def test_empty_json_objects_keep_the_config_valid(self):
         cfg = render_config({'dns_json': '{}', 'observatory_json': '{}'})
