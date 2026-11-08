@@ -709,12 +709,17 @@
         });
 
         // Preset: default DoH (Cloudflare, any domain) + RU domestic DNS
-        // (geosite:ru, never used as a fallback). Adds both rows, switches
-        // on the built-in DNS checkbox; Apply & Restart is still required.
+        // (domain:ru / domain:xn--p1ai / domain:su, never used as a
+        // fallback). Adds both rows, switches on the built-in DNS
+        // checkbox; Apply & Restart is still required.
         $('#btn_dns_preset_ru').on('click', function () {
+            // Label-suffix rules match every .ru / .рф / .su domain without
+            // consulting geosite.dat, so the preset applies even when the
+            // local GeoData is missing or stale (xray rejects configs with
+            // unknown geosite: codes and the restart is rolled back).
             var servers = [
                 {server: {enabled: '1', address: 'https://1.1.1.1/dns-query', port: '', domains: '', expected_ips: '', unexpected_ips: '', skip_fallback: '0'}},
-                {server: {enabled: '1', address: 'https://dns.yandex.ru/dns-query', port: '443', domains: 'geosite:ru', expected_ips: 'geoip:ru', unexpected_ips: '', skip_fallback: '1'}}
+                {server: {enabled: '1', address: 'https://dns.yandex.ru/dns-query', port: '443', domains: 'domain:ru, domain:xn--p1ai, domain:su', expected_ips: 'geoip:ru', unexpected_ips: '', skip_fallback: '1'}}
             ];
             var $checked = $('#xrayclient\\.general\\.dns_enabled');
             $checked.prop('checked', true).change();
@@ -1724,10 +1729,10 @@
 
     <div id="tab_dns" class="tab-pane fade in">
         <div class="col-md-12" style="margin-top: 10px; margin-bottom: 4px;">
-            <span class="text-muted" style="font-size: 13px;">Switch on the built-in DNS in <b>General Settings → Built-in DNS server</b>. Servers with a domains list answer only those domains (e.g. <code>geosite:ru</code> over the domestic resolver); servers without a list answer everything else. DNS requests follow the same routing rules (rule inbound/outbound of Xray), so «DoH via proxy» needs no extra hop. Entries save instantly &mdash; click <b>Apply &amp; Restart Xray</b>.</span>
+            <span class="text-muted" style="font-size: 13px;">Switch on the built-in DNS in <b>General Settings → Built-in DNS server</b>. Servers with a domains list answer only those domains (e.g. <code>domain:ru</code> over the domestic resolver); servers without a list answer everything else. DNS requests follow the same routing rules (rule inbound/outbound of Xray), so «DoH via proxy» needs no extra hop. Entries save instantly &mdash; click <b>Apply &amp; Restart Xray</b>.</span>
         </div>
         <div class="col-md-12" style="margin-bottom: 10px;">
-            <button id="btn_dns_preset_ru" type="button" class="btn btn-success" title="One click: add https://1.1.1.1/dns-query for all domains and https://dns.yandex.ru/dns-query for geosite:ru (skipFallback, expectedIPs geoip:ru), and switch 'Enable Built-in DNS' on. Then click Apply &amp; Restart Xray.">
+            <button id="btn_dns_preset_ru" type="button" class="btn btn-success" title="One click: add https://1.1.1.1/dns-query for all domains and https://dns.yandex.ru/dns-query for .ru/.рф/.su (skipFallback, expectedIPs geoip:ru), and switch 'Enable Built-in DNS' on. Then click Apply &amp; Restart Xray.">
                 <i class="fa fa-magic"></i> <b>Fill preset: DoH + RU via Yandex</b>
             </button>
         </div>

@@ -22,7 +22,7 @@
         <type>select_multiple</type>
         <style>tokenize</style>
         <allownew>true</allownew>
-        <help>Type a rule and press Enter: geosite:ru, geosite:category-ads-all, domain:ya.ru, full:myip.ru, regexp:.*\.ru$. Only these domains are answered by this server; empty means «everything». Prefix matching applies (domain:ya.ru also covers subdomains).</help>
+        <help>Type a rule and press Enter: domain:ru (suffix — needs no GeoData), geosite:ru (needs the matching GeoData list), geosite:category-ads-all, domain:ya.ru, full:myip.ru, regexp:.*\.ru$. Only these domains are answered by this server; empty means «everything». «domain:example.com» matches the domain itself and all its subdomains; a GeoData-free RU rule is "domain:ru, domain:xn--p1ai, domain:su".</help>
     </field>
     <field>
         <id>server.expected_ips</id>
