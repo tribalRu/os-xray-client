@@ -772,6 +772,42 @@
             }
         });
 
+        // Live balancer selection (xray api bi): show which outbound the
+        // balancer picks right now, translated to node names where possible.
+        $('#btn_balancer_info').on('click', function () {
+            var $btn = $(this).prop('disabled', true);
+            var $out = $('#balancer_info_output').show();
+            $out.html('<div class="alert alert-info"><i class="fa fa-spinner fa-pulse"></i> Asking Xray RoutingService…</div>');
+            ajaxCall('/api/xrayclient/settings/searchNode', {}, function (nodesData) {
+                var nodeNames = {};
+                (nodesData.rows || nodesData || []).forEach(function (n) {
+                    if (n.uuid) {
+                        nodeNames['node_' + n.uuid] = n.name + (n['%protocol'] ? ' (' + n['%protocol'] + ')' : '');
+                    }
+                });
+                function pretty(tag) {
+                    return (nodeNames[tag] ? nodeNames[tag] : tag);
+                }
+                ajaxCall('/api/xrayclient/service/balancerInfo', {}, function (data) {
+                    if (!data || !data.balancers || data.balancers.length === 0) {
+                        $out.html('<div class="alert alert-warning">No enabled balancers, or Xray answered with nothing. Check that the RoutingService is listed under api.services in the generated config.</div>');
+                        $btn.prop('disabled', false);
+                        return;
+                    }
+                    var html = '<table class="table table-condensed table-bordered" style="margin-bottom:0; font-size:13px;"><thead><tr><th>Balancer</th><th>Selecting</th><th>Override</th><th>Status</th></tr></thead><tbody>';
+                    data.balancers.forEach(function (b) {
+                        var selecting = (b.selecting || []).map(pretty).join(', ');
+                        var override = b.override ? pretty(b.override) : '&mdash;';
+                        var status = b.status === 'ok' ? '<span class="label label-success">ok</span>' : '<span class="label label-danger">' + (b.message || 'error') + '</span>';
+                        html += '<tr><td><code>' + (b.tag || '?') + '</code></td><td>' + (selecting || '<i>empty — waiting for the first probe</i>') + '</td><td>' + override + '</td><td>' + status + '</td></tr>';
+                    });
+                    html += '</tbody></table>';
+                    $out.html(html);
+                    $btn.prop('disabled', false);
+                });
+            });
+        });
+
         $("#grid-dns").UIBootgrid({
             search: '/api/xrayclient/settings/searchDnsServer',
             get: '/api/xrayclient/settings/getDnsServer/',
@@ -1768,6 +1804,13 @@
                 </tr>
             </tfoot>
         </table>
+        <div class="col-md-12" style="margin-top: 6px; margin-bottom: 2px;">
+            <button id="btn_balancer_info" type="button" class="btn btn-info btn-xs" title="Ask the Xray RoutingService (xray api bi) which outbound each balancer currently selects, per the observatory measurements this minute.">
+                <i class="fa fa-signal"></i> <b>Show live selection</b>
+            </button>
+            <span style="margin-left: 10px; font-size: 12px;" class="text-muted">LeastPing needs a reachable observatory; the answer is empty until the first probe completes.</span>
+        </div>
+        <div class="col-md-12" id="balancer_info_output" style="display: none; margin-bottom: 6px;"></div>
         <div class="col-md-12" style="padding-bottom: 15px;">
             <hr/>
             <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves General + Maintenance settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
