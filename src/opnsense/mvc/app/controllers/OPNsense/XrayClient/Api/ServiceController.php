@@ -474,6 +474,19 @@ class ServiceController extends ApiMutableServiceControllerBase
         return is_array($data) ? $data : ['status' => 'error', 'stats' => []];
     }
 
+    /**
+     * Live view of what xray's balancer currently selects (xray api bi
+     * --json). Requires "RoutingService" under api.services, which the
+     * generated config carries since 2.9.0.
+     */
+    public function balancerInfoAction()
+    {
+        $backend = new Backend();
+        $response = $backend->configdRun('xrayclient balancer_info');
+        $data = json_decode(trim($response), true);
+        return is_array($data) ? $data : ['status' => 'error', 'balancers' => []];
+    }
+
     public function versionAction()
     {
         $backend = new Backend();

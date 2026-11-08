@@ -61,3 +61,26 @@ def all_nodes_with_tags():
             continue
         result[node['uuid']] = 'node_' + node['uuid']
     return result
+
+
+def iter_balancers():
+    """Yield dicts with uuid/tag/enabled for all balancers."""
+    try:
+        root = _load_root()
+    except Exception:
+        return
+
+    for el in root.findall('.//OPNsense/XrayClient/balancers/balancer'):
+        uuid = el.attrib.get('uuid', '')
+        tag = (el.findtext('tag') or '').strip()
+        if uuid:
+            yield {
+                'uuid': uuid,
+                'tag': tag,
+                'enabled': (el.findtext('enabled') or '0').strip(),
+            }
+
+
+def active_balancers():
+    """Yield dicts for balancers with enabled == '1'."""
+    return [b for b in iter_balancers() if b['enabled'] == '1']
