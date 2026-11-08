@@ -44,9 +44,23 @@ class M2_7_0 extends BaseModelMigration
         if (!$model instanceof XrayClient) {
             return;
         }
-        throw new \Exception('DEBUGTEST-M2_7_0-run-called');
+
+        // Edits the model itself: runMigrations() serialises the model
+        // back to config.xml afterwards, discarding direct edits made
+        // on the raw Config object here.
+        $http = $model->getNodeByReference('general.http_listen');
+        $socks = $model->getNodeByReference('general.socks_listen');
+
+        if ($http === null or $socks === null) {
+            parent::run($model);
+            return;
+        }
+
+        if (trim((string)$http->getValue()) === '') {
+            $target = trim((string)$socks->getValue());
+            $http->setValue($target === '' ? '127.0.0.1' : $target);
+        }
+
+        parent::run($model);
     }
-
-    // Model is saved by 'run_migrations.php' afterwards.
 }
-
