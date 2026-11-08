@@ -1,0 +1,33 @@
+<form>
+    <field>
+        <id>balancer.enabled</id>
+        <label>Enabled</label>
+        <type>checkbox</type>
+    </field>
+    <field>
+        <id>balancer.tag</id>
+        <label>Balancer Tag</label>
+        <type>text</type>
+        <help>Name this balancer (letters, digits, _ . -). Routing rules select it from the «Balancers» group in Target Outbound, and the template then writes balancerTag instead of outboundTag. Use a unique tag: do not reuse direct, block, api or a node tag.</help>
+    </field>
+    <field>
+        <id>balancer.selector</id>
+        <label>Node Selector (tag prefixes)</label>
+        <type>select_multiple</type>
+        <style>tokenize</style>
+        <allownew>true</allownew>
+        <help>Type a tag prefix and press Enter. Prefixes match outbound tags from the start, so «node_» selects every configured node; «node_ab» narrows it. The stable node_&lt;uuid&gt; tags mean no reconfiguration is needed when nodes are added or removed.</help>
+    </field>
+    <field>
+        <id>balancer.strategy</id>
+        <label>Strategy</label>
+        <type>dropdown</type>
+        <help>random — pick a random node; roundRobin — rotate through the nodes in order; leastPing — lowest measured latency; leastLoad — lowest load. leastPing and leastLoad require an enabled observatory in General Settings → Load Balancer Observatory, otherwise Xray rejects the config.</help>
+    </field>
+    <field>
+        <id>balancer.fallback_tag</id>
+        <label>Fallback Tag</label>
+        <type>text</type>
+        <help>Outbound used when the selector matches no enabled node or every probe fails: direct (default), block, a node tag or another balancer tag. Leave empty to let Xray deny the traffic.</help>
+    </field>
+</form>

@@ -41,6 +41,40 @@ class SettingsController extends ApiMutableModelControllerBase
         return $this->toggleBase('nodes.node', $uuid, $enabled);
     }
 
+    // --- Load Balancers CRUD ---
+    public function searchBalancerAction()
+    {
+        return $this->searchBase(
+            'balancers.balancer',
+            ['enabled', 'tag', 'selector', 'strategy', 'fallback_tag']
+        );
+    }
+
+    public function getBalancerAction($uuid = null)
+    {
+        return $this->getBase('balancer', 'balancers.balancer', $uuid);
+    }
+
+    public function addBalancerAction()
+    {
+        return $this->addBase('balancer', 'balancers.balancer');
+    }
+
+    public function setBalancerAction($uuid)
+    {
+        return $this->setBase('balancer', 'balancers.balancer', $uuid);
+    }
+
+    public function delBalancerAction($uuid)
+    {
+        return $this->delBase('balancers.balancer', $uuid);
+    }
+
+    public function toggleBalancerAction($uuid, $enabled = null)
+    {
+        return $this->toggleBase('balancers.balancer', $uuid, $enabled);
+    }
+
     // --- Routing Rules CRUD ---
     public function searchRuleAction()
     {

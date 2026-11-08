@@ -54,6 +54,6 @@
         <id>rule.outbound_tag</id>
         <label>Target Outbound Action</label>
         <type>dropdown</type>
-        <help>Route matching traffic to one of the outbounds in the list: «Standard (core)» — built-in direct and block; «Custom (from outbound nodes)» — the nodes enabled in the Outbound section, each tagged node_&lt;uuid&gt; (stable across add/remove/reorder). Unmatched traffic goes direct.</help>
+        <help>Route matching traffic to one of the outbounds in the list: «Standard (core)» — built-in direct and block; «Balancers (load balancing, failover)» — the balancers enabled in the Balancers tab, selected by their tag (leastPing/leastLoad pick the best node automatically); «Custom (from outbound nodes)» — the nodes enabled in the Outbound section, each tagged node_&lt;uuid&gt; (stable across add/remove/reorder). Unmatched traffic goes direct.</help>
     </field>
 </form>
