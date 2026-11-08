@@ -130,7 +130,22 @@ class ServiceController extends ApiMutableServiceControllerBase
             return false;
         }
         @chmod($backup, 0600);
+        $this->pruneBackups($file, 5);
         return $backup;
+    }
+
+    /**
+     * Keep only the newest $keep backups of a file. Backups carry private
+     * keys, so they must not pile up indefinitely.
+     */
+    private function pruneBackups($file, $keep)
+    {
+        // The timestamp suffix sorts chronologically.
+        $backups = glob($file . '.bak-*') ?: [];
+        sort($backups);
+        foreach (array_slice($backups, 0, max(0, count($backups) - $keep)) as $old) {
+            @unlink($old);
+        }
     }
 
     /**
