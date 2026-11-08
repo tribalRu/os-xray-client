@@ -1,0 +1,49 @@
+<form>
+    <field>
+        <id>server.enabled</id>
+        <label>Enabled</label>
+        <type>checkbox</type>
+    </field>
+    <field>
+        <id>server.address</id>
+        <label>DNS Server Address</label>
+        <type>text</type>
+        <help>DoH: https://1.1.1.1/dns-query; DoH direct (bypasses the proxy, hairpinning rules still apply): https+local://1.1.1.1/dns-query; plain Do53: tcp://dns1.yandex.ru or an IP like 77.88.8.8 (UDP is used when no scheme is given); fakedns for the built-in fake DNS; localhost for the system resolver. DNS requests from Xray are routed with the same routing rules as ordinary traffic.</help>
+    </field>
+    <field>
+        <id>server.port</id>
+        <label>Port</label>
+        <type>text</type>
+        <help>Leave empty for the scheme default (DoH 443, plain DNS 53, tcp 53). Only set when your server uses a custom port.</help>
+    </field>
+    <field>
+        <id>server.domains</id>
+        <label>Domains this server serves</label>
+        <type>select_multiple</type>
+        <style>tokenize</style>
+        <allownew>true</allownew>
+        <help>Type a rule and press Enter: geosite:ru, geosite:category-ads-all, domain:ya.ru, full:myip.ru, regexp:.*\.ru$. Only these domains are answered by this server; empty means «everything». Prefix matching applies (domain:ya.ru also covers subdomains).</help>
+    </field>
+    <field>
+        <id>server.expected_ips</id>
+        <label>Expected IPs (answer filter)</label>
+        <type>select_multiple</type>
+        <style>tokenize</style>
+        <allownew>true</allownew>
+        <help>Accepted answers only: CIDR ranges or geoip: tags (geoip:ru, geoip:cn, 192.168.0.0/16). Answers outside the list are discarded (and the next matching server is tried). Use * to accept any (the default).</help>
+    </field>
+    <field>
+        <id>server.unexpected_ips</id>
+        <label>Unexpected IPs (answer filter)</label>
+        <type>select_multiple</type>
+        <style>tokenize</style>
+        <allownew>true</allownew>
+        <help>Answers containing any of these CIDRs or geoip: tags are rejected (e.g. geoip:ir to keep IR answers out of an RU domestic server). Empty disables the filter.</help>
+    </field>
+    <field>
+        <id>server.skip_fallback</id>
+        <label>Never use as fallback</label>
+        <type>checkbox</type>
+        <help>Only for the domains this server lists — it is never used to answer other domains when every tagged server fails. This is what the «RU domestic DNS + default DoH» preset wants.</help>
+    </field>
+</form>

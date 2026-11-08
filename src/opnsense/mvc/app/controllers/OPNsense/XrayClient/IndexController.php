@@ -12,6 +12,7 @@ class IndexController extends BaseIndexController
         $this->view->formDialogNode = $this->getForm("dialogNode");
         $this->view->formDialogRule = $this->getForm("dialogRule");
         $this->view->formDialogBalancer = $this->getForm("dialogBalancer");
+        $this->view->formDialogDnsServer = $this->getForm("dialogDnsServer");
         $this->view->maintenanceForm = $this->getForm("maintenance");
         $this->view->pick('OPNsense/XrayClient/index');
     }

@@ -41,6 +41,40 @@ class SettingsController extends ApiMutableModelControllerBase
         return $this->toggleBase('nodes.node', $uuid, $enabled);
     }
 
+    // --- DNS Servers CRUD ---
+    public function searchDnsServerAction()
+    {
+        return $this->searchBase(
+            'dns.server',
+            ['enabled', 'address', 'port', 'domains', 'expected_ips', 'unexpected_ips', 'skip_fallback']
+        );
+    }
+
+    public function getDnsServerAction($uuid = null)
+    {
+        return $this->getBase('server', 'dns.server', $uuid);
+    }
+
+    public function addDnsServerAction()
+    {
+        return $this->addBase('server', 'dns.server');
+    }
+
+    public function setDnsServerAction($uuid)
+    {
+        return $this->setBase('server', 'dns.server', $uuid);
+    }
+
+    public function delDnsServerAction($uuid)
+    {
+        return $this->delBase('dns.server', $uuid);
+    }
+
+    public function toggleDnsServerAction($uuid, $enabled = null)
+    {
+        return $this->toggleBase('dns.server', $uuid, $enabled);
+    }
+
     // --- Load Balancers CRUD ---
     public function searchBalancerAction()
     {
