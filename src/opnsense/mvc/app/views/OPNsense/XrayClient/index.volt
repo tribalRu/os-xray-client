@@ -90,9 +90,14 @@
     /* Expert/Raw JSON areas must use the full width, not the core 348px cap. */
     #tab_expert pre,
     #tab_expert textarea,
-    #raw_json_container textarea {
+    #raw_json_container textarea,
+    #json_sections_container textarea {
         width: 100% !important;
         max-width: none !important;
+    }
+    #json_sections_container textarea {
+        font-family: monospace;
+        font-size: 12px;
     }
     #tab_expert .tab-pane,
     #tab_expert #expert_view_wrap,
@@ -372,12 +377,18 @@
         // Raw JSON would never be saved to config.xml.
         $('#frm_general').append($('#raw_json_container'));
 
+        // Same for the advanced JSON sections: they are plain textareas that
+        // carry the model field ids, so saveFormToEndpoint() picks them up.
+        $('#frm_general').append($('#json_sections_container'));
+
         function toggleConfigModeUI() {
             var mode = $('#xrayclient\\.general\\.config_mode').val();
             if (mode === 'raw') {
                 $('#raw_json_container').show();
+                $('#json_sections_container').hide();
             } else {
                 $('#raw_json_container').hide();
+                $('#json_sections_container').show();
             }
         }
         $('#xrayclient\\.general\\.config_mode').on('change', toggleConfigModeUI);
@@ -1189,7 +1200,55 @@
             });
         });
 
+        // Advanced JSON sections: catch syntax and shape errors in the browser
+        // so the user gets a readable message instead of a configd template
+        // error or an `xray run -test` failure on Apply.
+        function jsonSectionError() {
+            var checks = [
+                ['#xrayclient\\.general\\.dns_json', 'Built-in DNS', 'object'],
+                ['#xrayclient\\.general\\.balancers_json', 'Load Balancers', 'array'],
+                ['#xrayclient\\.general\\.observatory_json', 'Observatory', 'object']
+            ];
+            for (var i = 0; i < checks.length; i++) {
+                var raw = $.trim($(checks[i][0]).val() || '');
+                if (raw === '') {
+                    continue;
+                }
+                var parsed;
+                try {
+                    parsed = JSON.parse(raw);
+                } catch (e) {
+                    return checks[i][1] + ': invalid JSON — ' + e.message;
+                }
+                var isArray = Object.prototype.toString.call(parsed) === '[object Array]';
+                if (checks[i][2] === 'array' && !isArray) {
+                    return checks[i][1] + ': must be a JSON array, e.g. [ { ... } ].';
+                }
+                if (checks[i][2] === 'object' && (isArray || parsed === null || typeof parsed !== 'object')) {
+                    return checks[i][1] + ': must be a JSON object, e.g. { ... }.';
+                }
+            }
+            return '';
+        }
+
+        function showJsonSectionError(message) {
+            if (typeof BootstrapDialog !== 'undefined') {
+                BootstrapDialog.show({
+                    type: BootstrapDialog.TYPE_WARNING,
+                    title: 'Invalid JSON section',
+                    message: $('<div/>').text(message)
+                });
+            } else {
+                alert(message);
+            }
+        }
+
         $('.btn_save_apply').on('click', function () {
+            var jsonError = jsonSectionError();
+            if (jsonError) {
+                showJsonSectionError(jsonError);
+                return;
+            }
             var $btn = $(this);
             var originalHtml = $btn.html();
             $btn.prop('disabled', true).find('.fa-spinner').show();
@@ -1335,6 +1394,30 @@
             <div id="raw_json_container" style="display:none; padding: 0 15px 15px 15px;">
                 <label for="xrayclient.general.raw_json"><b>Raw Xray JSON Configuration (/usr/local/etc/xray/config.json):</b></label>
                 <textarea id="xrayclient.general.raw_json" class="form-control" rows="16" style="font-family: monospace; font-size: 12px;" placeholder="{ &quot;inbounds&quot;: [...], &quot;outbounds&quot;: [...] }"></textarea>
+            </div>
+            <div id="json_sections_container" style="padding: 0 15px 15px 15px;">
+                <hr/>
+                <h4 style="margin-top: 0;">Advanced JSON Sections</h4>
+                <p class="text-muted">
+                    Raw sections inserted into the generated <code>config.json</code> (UI Builder mode only; ignored in Raw JSON mode).
+                    Leave a field empty to omit its section. Syntax is checked here, and <code>xray run -test</code> validates the
+                    result on <b>Apply &amp; Restart Xray</b>.
+                </p>
+                <div class="form-group">
+                    <label for="xrayclient.general.dns_json"><b>Built-in DNS — top-level <code>dns</code> object</b></label>
+                    <textarea id="xrayclient.general.dns_json" class="form-control json_section" rows="6" spellcheck="false" placeholder='{ "servers": ["https://1.1.1.1/dns-query", "1.1.1.1"], "queryStrategy": "UseIP" }'></textarea>
+                    <span class="help-block">When set, Xray resolves domains for routing through this DNS instead of the system resolver. Server formats: an IP, <code>tcp://ip</code>, <code>https://host/dns-query</code> (DoH), <code>https+local://host/dns-query</code> (DoH without a detour), <code>localhost</code>, <code>fakedns</code>. Supports <code>hosts</code>, <code>queryStrategy</code>, <code>disableCache</code>, <code>tag</code>. A wrong DNS breaks domain-based routing, so start with a minimal list.</span>
+                </div>
+                <div class="form-group">
+                    <label for="xrayclient.general.balancers_json"><b>Load Balancers — <code>routing.balancers</code> array</b></label>
+                    <textarea id="xrayclient.general.balancers_json" class="form-control json_section" rows="6" spellcheck="false" placeholder='[ { "tag": "auto", "selector": ["node_"], "strategy": { "type": "leastPing" }, "fallbackTag": "direct" } ]'></textarea>
+                    <span class="help-block">Each entry needs <code>tag</code>, <code>selector</code> and <code>strategy.type</code> (<code>random</code>, <code>roundRobin</code>, <code>leastPing</code>, <code>leastLoad</code>). <code>selector</code> matches outbound tags by prefix, so <code>"node_"</code> covers every node. <code>leastPing</code> and <code>leastLoad</code> also need an observatory (next field); a rule can use a balancer only by its <code>tag</code>.</span>
+                </div>
+                <div class="form-group">
+                    <label for="xrayclient.general.observatory_json"><b>Observatory — top-level <code>observatory</code> / <code>burstObservatory</code></b></label>
+                    <textarea id="xrayclient.general.observatory_json" class="form-control json_section" rows="6" spellcheck="false" placeholder='{ "burstObservatory": { "subjectSelector": ["node_"], "pingConfig": { "destination": "https://connectivitycheck.gstatic.com/generate_204", "interval": "1m", "sampling": 10 } } }'></textarea>
+                    <span class="help-block">The object is inserted at the top level of <code>config.json</code>, so it must contain <code>observatory</code> and/or <code>burstObservatory</code>. The observatory probes the nodes with HTTP and feeds <code>leastPing</code> / <code>leastLoad</code>; <code>subjectSelector</code> also matches tags by prefix.</span>
+                </div>
             </div>
             <div class="col-md-12">
                 <hr/>
