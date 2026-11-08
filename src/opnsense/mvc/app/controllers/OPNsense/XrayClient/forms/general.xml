@@ -77,7 +77,7 @@
         <id>xrayclient.general.socks_listen</id>
         <label>Listen IP Address</label>
         <type>text</type>
-        <help>IP to bind local SOCKS/HTTP ports (use 127.0.0.1 for local only, or 0.0.0.0 / LAN IP for LAN devices).</help>
+        <help>IP to bind local SOCKS/HTTP ports (use 127.0.0.1 for local only, or 0.0.0.0 / LAN IP for LAN devices). These proxies have no authentication: if you bind to anything other than 127.0.0.1, restrict access with firewall rules so that only trusted hosts can reach the ports.</help>
     </field>
     <field>
         <id>xrayclient.general.socks_port</id>
