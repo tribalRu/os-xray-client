@@ -436,8 +436,13 @@
       "settings": {
         "name": {{ (general.tun_iface or 'tun_xray0') | tojson }},
         "mtu": {{ general.tun_mtu | default('1500') | int }},
-        "gateway": [ {{ (general.tun_address or '10.255.0.1/30') | tojson }} ],
-        "userLevel": 0
+        "gateway": [
+          {{ (general.tun_address or '10.255.0.1/30') | tojson }}{% set _tun_v6 = general.tun_ipv6_address | string | trim %}{% if _tun_v6 != '' %},
+          {{ _tun_v6 | tojson }}{% endif %}
+        ],
+        "userLevel": 0{% set _tun_out_iface = general.tun_auto_outbounds_interface | string | trim %}{% if _tun_out_iface != '' %},
+        "autoOutboundsInterface": {{ _tun_out_iface | tojson }}
+{% endif %}
       },
 {{ sniffing_block(general) }}
     }

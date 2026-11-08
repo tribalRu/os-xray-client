@@ -263,6 +263,8 @@ def render_config(general_overrides=None, nodes=None, rules=None,
         'tun_iface': 'tun_xray0',
         'tun_address': '10.255.0.1/30',
         'tun_mtu': '1500',
+        'tun_ipv6_address': '',
+        'tun_auto_outbounds_interface': '',
         'enable_sniffing': '1',
         'sniffing_dest_override': 'http,tls,quic',
         'sniffing_route_only': '1',
@@ -346,6 +348,24 @@ class TestConfigTemplate(unittest.TestCase):
         for key in ('dns', 'observatory', 'burstObservatory'):
             self.assertNotIn(key, cfg)
         self.assertNotIn('balancers', cfg['routing'])
+
+    def test_tun_ipv6_gateway_is_emitted(self):
+        cfg = render_config({'tun_ipv6_address': 'fd00::1/64'})
+        tun = [i for i in cfg['inbounds'] if i['tag'] == 'tun-in'][0]
+        self.assertEqual(tun['settings']['gateway'],
+                         ['10.255.0.1/30', 'fd00::1/64'])
+
+    def test_tun_auto_outbounds_interface(self):
+        cfg = render_config({'tun_auto_outbounds_interface': 'auto'})
+        tun = [i for i in cfg['inbounds'] if i['tag'] == 'tun-in'][0]
+        self.assertEqual(tun['settings']['autoOutboundsInterface'], 'auto')
+        cfg = render_config({'tun_auto_outbounds_interface': 'vmx1'})
+        tun = [i for i in cfg['inbounds'] if i['tag'] == 'tun-in'][0]
+        self.assertEqual(tun['settings']['autoOutboundsInterface'], 'vmx1')
+        # Default: not emitted (xray binds via the default FIB).
+        cfg = render_config()
+        tun = [i for i in cfg['inbounds'] if i['tag'] == 'tun-in'][0]
+        self.assertNotIn('autoOutboundsInterface', tun['settings'])
 
     def test_socks_defaults_sniffing(self):
         cfg = render_config()

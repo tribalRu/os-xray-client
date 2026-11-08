@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>2.7.6</version>
+    <version>2.8.0</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -55,6 +55,18 @@
                 <MaximumValue>9000</MaximumValue>
                 <Required>Y</Required>
             </tun_mtu>
+            <tun_ipv6_address type="TextField">
+                <default></default>
+                <Required>N</Required>
+                <Mask>/^$|^(fc|fd)[0-9a-fA-F:]{2,55}\/([0-9]{1,2}|1[01][0-9]|12[0-8])$/</Mask>
+                <ValidationMessage>IPv6 unique-local prefix, e.g. fd00::1/64 (ULA only, link-local fe80:: is auto-assigned and cannot be entered here). Leave empty to disable IPv6 on the TUN.</ValidationMessage>
+            </tun_ipv6_address>
+            <tun_auto_outbounds_interface type="TextField">
+                <default></default>
+                <Required>N</Required>
+                <Mask>/^$|^auto$|^[A-Za-z][A-Za-z0-9._-]{0,15}$/</Mask>
+                <ValidationMessage>Empty disables outbound interface binding. "auto" or an interface name (e.g. vmx1) binds Xray's outbound sockets so they cannot loop back through the TUN. On FreeBSD this needs net.fibs=2 in /boot/loader.conf and a reboot; with net.fibs=1 (the OPNsense default) Xray fails to start and this plugin refuses to apply. On Linux/macOS this works out of the box.</ValidationMessage>
+            </tun_auto_outbounds_interface>
             <enable_sniffing type="BooleanField">
                 <default>1</default>
                 <Required>Y</Required>
