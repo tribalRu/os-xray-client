@@ -461,15 +461,63 @@
       "settings": {}
     }
   ],
-{% set _observatory_json = (general.observatory_json or '') | trim %}
-{% set _observatory_body = header_object(_observatory_json) if _observatory_json != '' else '' %}
-{% if _observatory_body != '' %}
-  {{ _observatory_body }},
+{% set _obs_type = general.observatory_type or 'none' %}
+{% set _obs_raw = (general.observatory_json or '') | trim %}
+{% set _obs_raw_body = header_object(_obs_raw) if _obs_raw != '' else '' %}
+{% set _obs_selector = (general.observatory_selector | string | trim) or 'node_' %}
+{% if _obs_type == 'burst' %}
+  "burstObservatory": {
+    "subjectSelector": {{ json_array(_obs_selector, '["node_"]') }},
+    "pingConfig": {
+      "destination": {{ (general.observatory_url or 'https://connectivitycheck.gstatic.com/generate_204') | tojson }},
+      "interval": {{ (general.observatory_interval or '1m') | tojson }},
+      "sampling": {{ general.observatory_sampling | default('10') | int or 10 }},
+      "timeout": {{ (general.observatory_timeout or '5s') | tojson }}{% set _obs_method = general.observatory_http_method | string | trim %}{% if _obs_method != '' %},
+      "httpMethod": {{ _obs_method | tojson }}{% endif %}
+    }
+  },
+{% elif _obs_type == 'background' %}
+  "observatory": {
+    "subjectSelector": {{ json_array(_obs_selector, '["node_"]') }},
+    "probeURL": {{ (general.observatory_url or 'https://connectivitycheck.gstatic.com/generate_204') | tojson }},
+    "probeInterval": {{ (general.observatory_interval or '1m') | tojson }},
+    "enableConcurrency": {{ 'true' if general.observatory_concurrency | default('0') == '1' else 'false' }}
+  },
+{% elif _obs_raw_body != '' %}
+  {{ _obs_raw_body }},
 {% endif %}
+{% set active_balancers = [] %}
+{% if not helpers.empty('OPNsense.XrayClient.balancers.balancer') %}
+{%   for balancer in helpers.toList('OPNsense.XrayClient.balancers.balancer') %}
+{%     if balancer.enabled == '1' %}
+{%       do active_balancers.append(balancer) %}
+{%     endif %}
+{%   endfor %}
+{% endif %}
+{% set balancer_tags = [] %}
+{% for balancer in active_balancers %}
+{%   do balancer_tags.append(balancer.tag | string | trim) %}
+{% endfor %}
   "routing": {
     "domainStrategy": "IPIfNonMatch",
 {% set _balancers_json = (general.balancers_json or '') | trim %}
-{% if _balancers_json != '' %}
+{% if active_balancers %}
+    "balancers": [
+{%   for balancer in active_balancers %}
+{%     set _bal_tag = (balancer.tag or 'auto') | string | trim %}
+{%     set _bal_selector = balancer.selector | string | trim %}
+{%     set _bal_fallback = balancer.fallback_tag | string | trim %}
+      {
+        "tag": {{ _bal_tag | tojson }},
+        "selector": {% if _bal_selector != '' %}{{ json_array(_bal_selector, '[]') }}{% else %}["node_"]{% endif %},
+        "strategy": {
+          "type": {{ (balancer.strategy or 'leastPing') | tojson }}
+        }{% if _bal_fallback != '' %},
+        "fallbackTag": {{ _bal_fallback | tojson }}{% endif %}
+      }{{ "," if not loop.last else "" }}
+{%   endfor %}
+    ],
+{% elif _balancers_json != '' %}
     "balancers": {{ _balancers_json }},
 {% endif %}
     "rules": [
@@ -513,7 +561,12 @@
         ],
 {%       endif %}
         "network": {{ ('tcp,udp' if rule.network_proto == 'tcp_udp' else (rule.network_proto or 'tcp,udp')) | tojson }},
-        "outboundTag": {{ (rule.outbound_tag or 'direct') | tojson }}
+{%       set _target = (rule.outbound_tag or 'direct') | string | trim %}
+{%       if _target in balancer_tags %}
+        "balancerTag": {{ _target | tojson }}
+{%       else %}
+        "outboundTag": {{ _target | tojson }}
+{%       endif %}
       }
 {%     endif %}
 {%   endfor %}
