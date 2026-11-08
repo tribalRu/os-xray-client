@@ -470,7 +470,9 @@
                     show = (name === 'selector' || name === 'url' ||
                             name === 'interval' || name === 'concurrency');
                 }
-                $(selector).closest('.form-group').toggle(show);
+                // OPNsense 26 renders base_form rows as <tr id="row_...">;
+                // older layouts use .form-group, so match both.
+                $(selector).closest('tr, .form-group').toggle(show);
             });
         }
         $('#xrayclient\\.general\\.observatory_type').on('change', toggleObservatoryRows);
