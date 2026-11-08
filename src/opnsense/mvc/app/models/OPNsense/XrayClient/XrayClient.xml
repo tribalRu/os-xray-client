@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>2.5.5</version>
+    <version>2.6.0</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -219,6 +219,22 @@
                 <Mask>/^$|^\s*\{[\s\S]*\}\s*$/</Mask>
                 <ValidationMessage>Hosts must be a JSON object, e.g. {"dns.google": "8.8.8.8", "example.com": "192.0.2.10", "*.internal": ["192.0.2.11"]}.</ValidationMessage>
             </dns_hosts_json>
+            <!-- ====== Routing policy ======
+                 Xray's router domainStrategy. IPIfNonMatch (default) resolves
+                 domains that match no domain rule before matching them
+                 against IP rules — but it leaks every unmatched domain to
+                 the resolver. AsIs never resolves and is cheapest; it breaks
+                 rules by ip with unresolved domains. IPOnDemand resolves
+                 only when an IP rule actually needs it. -->
+            <routing_domain_strategy type="OptionField">
+                <default>IPIfNonMatch</default>
+                <Required>Y</Required>
+                <OptionValues>
+                    <IPIfNonMatch>IPIfNonMatch — resolve only when domains fail to match (default)</IPIfNonMatch>
+                    <IPOnDemand>IPOnDemand — resolve only when an IP rule needs it</IPOnDemand>
+                    <AsIs>AsIs — never resolve, cheapest</AsIs>
+                </OptionValues>
+            </routing_domain_strategy>
             <raw_json type="TextField">
                 <default></default>
                 <Required>N</Required>
@@ -858,6 +874,39 @@
                         <bittorrent>bittorrent</bittorrent>
                     </OptionValues>
                 </protocol>
+                <inbound_tag type="CSVListField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^[A-Za-z0-9_.:-]{1,64}$/</Mask>
+                    <MaskPerItem>Y</MaskPerItem>
+                    <ValidationMessage>Comma-separated inbound tags, e.g. tun-in, socks-in. Only traffic from those inbounds matches this rule.</ValidationMessage>
+                </inbound_tag>
+                <source type="CSVListField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^!?[A-Za-z0-9_:.\/\-*]{1,64}$/</Mask>
+                    <MaskPerItem>Y</MaskPerItem>
+                    <ValidationMessage>Comma-separated source addresses/CIDRs or geoip: tags, e.g. 192.168.0.0/16, geoip:private. Only LAN/TUN-routed traffic carries the real source IP; NAT'd sources appear as the NAT address.</ValidationMessage>
+                </source>
+                <source_port type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^\d{1,5}(-\d{1,5})?(,\d{1,5}(-\d{1,5})?)*$/</Mask>
+                    <ValidationMessage>Comma-separated ports or ranges, e.g. 53, 1000-2000, 53,853.</ValidationMessage>
+                </source_port>
+                <user type="CSVListField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^[A-Za-z0-9_.\-@]{1,128}$/</Mask>
+                    <MaskPerItem>Y</MaskPerItem>
+                    <ValidationMessage>Comma-separated user names of the SOCKS/HTTP inbounds (auth users). Useful for forcing one user through a node.</ValidationMessage>
+                </user>
+                <rule_tag type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[A-Za-z0-9_.-]{1,64}$/</Mask>
+                    <ValidationMessage>Optional tag for this rule (1-64 characters), shown in Xray stats for the rule.</ValidationMessage>
+                </rule_tag>
                 <outbound_tag type=".\OutboundTagField">
                     <default>direct</default>
                     <Required>Y</Required>
