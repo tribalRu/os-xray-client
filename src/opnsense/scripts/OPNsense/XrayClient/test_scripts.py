@@ -207,6 +207,26 @@ TEST_BALANCER = {
     'fallback_tag': 'direct',
 }
 
+TEST_DNS_SERVER = {
+    'enabled': '1',
+    'address': 'https://1.1.1.1/dns-query',
+    'port': '',
+    'domains': '',
+    'expected_ips': '',
+    'unexpected_ips': '',
+    'skip_fallback': '0',
+}
+
+TEST_DNS_RU = {
+    'enabled': '1',
+    'address': 'https://dns.yandex.ru/dns-query',
+    'port': '443',
+    'domains': 'geosite:ru, domain:ya.ru',
+    'expected_ips': 'geoip:ru',
+    'unexpected_ips': '',
+    'skip_fallback': '1',
+}
+
 
 class _FakeHelpers:
     """Minimal stand-in for the OPNsense `helpers` template object."""
@@ -232,7 +252,7 @@ class _FakeHelpers:
 
 
 def render_config(general_overrides=None, nodes=None, rules=None,
-                  balancers=None):
+                  balancers=None, dns_servers=None):
     """Render config.json.j2 with sample data and return the parsed JSON."""
     general = {
         'config_mode': 'ui',
@@ -261,6 +281,14 @@ def render_config(general_overrides=None, nodes=None, rules=None,
         'observatory_timeout': '5s',
         'observatory_http_method': '',
         'observatory_concurrency': '0',
+        'dns_enabled': '0',
+        'dns_query_strategy': 'useIp',
+        'dns_disable_cache': '0',
+        'dns_disable_fallback': '0',
+        'dns_disable_fallback_if_match': '0',
+        'dns_enable_parallel_query': '0',
+        'dns_use_system_hosts': '0',
+        'dns_hosts_json': '',
     }
     general.update(general_overrides or {})
     data = {'OPNsense': {'XrayClient': {
@@ -268,6 +296,7 @@ def render_config(general_overrides=None, nodes=None, rules=None,
         'nodes': {'node': nodes or []},
         'rules': {'rule': rules or []},
         'balancers': {'balancer': balancers or []},
+        'dns': {'server': dns_servers or []},
     }}}
     with open(TEMPLATE_PATH, encoding='utf-8') as handle:
         source = handle.read()
@@ -319,6 +348,72 @@ class TestConfigTemplate(unittest.TestCase):
         cfg = render_config({'dns_json': dns, 'observatory_json': obs})
         self.assertEqual(cfg['dns']['servers'], ['1.1.1.1', '8.8.8.8'])
         self.assertEqual(cfg['observatory'], {'subjectSelector': ['node_']})
+
+    def test_dns_disabled_keeps_raw_json(self):
+        raw = '{"servers": ["https://9.9.9.9/dns-query"]}'
+        cfg = render_config({'dns_json': raw}, dns_servers=[TEST_DNS_SERVER])
+        self.assertEqual(cfg['dns'], {'servers': ['https://9.9.9.9/dns-query']})
+
+    def test_dns_generated_from_model(self):
+        cfg = render_config({'dns_enabled': '1'}, dns_servers=[TEST_DNS_SERVER])
+        self.assertEqual(cfg['dns']['servers'], [{
+            'address': 'https://1.1.1.1/dns-query',
+            'skipFallback': False,
+        }])
+        self.assertEqual(cfg['dns']['hosts'], {})
+        self.assertEqual(cfg['dns']['queryStrategy'], 'useIp')
+
+    def test_dns_server_full_fields(self):
+        cfg = render_config({'dns_enabled': '1'}, dns_servers=[TEST_DNS_RU])
+        server = cfg['dns']['servers'][0]
+        self.assertEqual(server['address'],
+                         'https://dns.yandex.ru/dns-query')
+        self.assertEqual(server['port'], 443)
+        self.assertEqual(server['skipFallback'], True)
+        self.assertEqual(server['domains'], ['geosite:ru', 'domain:ya.ru'])
+        self.assertEqual(server['expectedIPs'], ['geoip:ru'])
+
+    def test_dns_disabled_server_is_omitted(self):
+        disabled = dict(TEST_DNS_SERVER, enabled='0')
+        cfg = render_config({'dns_enabled': '1'},
+                            dns_servers=[disabled, TEST_DNS_RU])
+        self.assertEqual([s['address'] for s in cfg['dns']['servers']],
+                         [TEST_DNS_RU['address']])
+
+    def test_dns_hosts_only_config(self):
+        hosts = '{"example.com": "192.0.2.10"}'
+        cfg = render_config({'dns_enabled': '1', 'dns_hosts_json': hosts})
+        self.assertEqual(cfg['dns']['servers'], [])
+        self.assertEqual(cfg['dns']['hosts'], {'example.com': '192.0.2.10'})
+
+    def test_dns_form_wins_over_raw_json(self):
+        raw = '{"servers": ["https://9.9.9.9/dns-query"]}'
+        cfg = render_config({'dns_enabled': '1', 'dns_json': raw},
+                            dns_servers=[TEST_DNS_SERVER])
+        self.assertEqual(cfg['dns']['servers'][0]['address'],
+                         'https://1.1.1.1/dns-query')
+
+    def test_dns_enabled_without_content_falls_back_to_raw(self):
+        raw = '{"servers": ["https://9.9.9.9/dns-query"]}'
+        cfg = render_config({'dns_enabled': '1', 'dns_json': raw})
+        self.assertEqual(cfg['dns'], {'servers': ['https://9.9.9.9/dns-query']})
+
+    def test_dns_query_strategy_and_flags(self):
+        cfg = render_config({
+            'dns_enabled': '1',
+            'dns_query_strategy': 'useIp4',
+            'dns_disable_cache': '1',
+            'dns_disable_fallback': '1',
+            'dns_disable_fallback_if_match': '1',
+            'dns_enable_parallel_query': '1',
+        }, dns_servers=[TEST_DNS_SERVER])
+        self.assertEqual(cfg['dns']['queryStrategy'], 'useIp4')
+        self.assertEqual(cfg['dns']['disableCache'], True)
+        self.assertEqual(cfg['dns']['disableFallback'], True)
+        self.assertEqual(cfg['dns']['disableFallbackIfMatch'], True)
+        self.assertEqual(cfg['dns']['enableParallelQuery'], True)
+        self.assertEqual(cfg['dns']['useSystemHosts'], False)
+
 
     def test_balancer_generated_from_model(self):
         cfg = render_config(balancers=[TEST_BALANCER])
