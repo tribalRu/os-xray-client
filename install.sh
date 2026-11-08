@@ -28,7 +28,12 @@ chmod +x /usr/local/etc/rc.d/os-xray-client
 chmod +x /usr/local/opnsense/scripts/OPNsense/XrayClient/*.sh
 chmod +x /usr/local/opnsense/scripts/OPNsense/XrayClient/*.py
 
-echo "2.4.9" > /usr/local/opnsense/scripts/OPNsense/XrayClient/PLUGIN_VERSION
+# The model version in XrayClient.xml is the plugin version (migrations are
+# keyed on it too), so it is the single place to bump; the UI reads it back
+# from PLUGIN_VERSION.
+MODEL_XML="${SRC_DIR}/opnsense/mvc/app/models/OPNsense/XrayClient/XrayClient.xml"
+PLUGIN_VER=$(sed -n 's|.*<version>[[:space:]]*\([0-9][0-9.]*\)[[:space:]]*</version>.*|\1|p' "${MODEL_XML}" 2>/dev/null | head -n 1)
+echo "${PLUGIN_VER:-unknown}" > /usr/local/opnsense/scripts/OPNsense/XrayClient/PLUGIN_VERSION
 
 echo "Running OPNsense MVC migrations..."
 /usr/local/opnsense/mvc/script/run_migrations.php || {
