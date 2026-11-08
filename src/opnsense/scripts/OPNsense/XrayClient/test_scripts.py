@@ -199,6 +199,14 @@ TEST_RULE = {
     'outbound_tag': 'node_' + TEST_NODE['@uuid'],
 }
 
+TEST_BALANCER = {
+    'enabled': '1',
+    'tag': 'auto',
+    'selector': 'node_',
+    'strategy': 'leastPing',
+    'fallback_tag': 'direct',
+}
+
 
 class _FakeHelpers:
     """Minimal stand-in for the OPNsense `helpers` template object."""
@@ -223,7 +231,8 @@ class _FakeHelpers:
         return list(value) if value else []
 
 
-def render_config(general_overrides=None, nodes=None, rules=None):
+def render_config(general_overrides=None, nodes=None, rules=None,
+                  balancers=None):
     """Render config.json.j2 with sample data and return the parsed JSON."""
     general = {
         'config_mode': 'ui',
@@ -244,12 +253,21 @@ def render_config(general_overrides=None, nodes=None, rules=None):
         'dns_json': '',
         'balancers_json': '',
         'observatory_json': '',
+        'observatory_type': 'none',
+        'observatory_selector': 'node_',
+        'observatory_url': 'https://connectivitycheck.gstatic.com/generate_204',
+        'observatory_interval': '1m',
+        'observatory_sampling': '10',
+        'observatory_timeout': '5s',
+        'observatory_http_method': '',
+        'observatory_concurrency': '0',
     }
     general.update(general_overrides or {})
     data = {'OPNsense': {'XrayClient': {
         'general': general,
         'nodes': {'node': nodes or []},
         'rules': {'rule': rules or []},
+        'balancers': {'balancer': balancers or []},
     }}}
     with open(TEMPLATE_PATH, encoding='utf-8') as handle:
         source = handle.read()
@@ -301,6 +319,102 @@ class TestConfigTemplate(unittest.TestCase):
         cfg = render_config({'dns_json': dns, 'observatory_json': obs})
         self.assertEqual(cfg['dns']['servers'], ['1.1.1.1', '8.8.8.8'])
         self.assertEqual(cfg['observatory'], {'subjectSelector': ['node_']})
+
+    def test_balancer_generated_from_model(self):
+        cfg = render_config(balancers=[TEST_BALANCER])
+        self.assertEqual(cfg['routing']['balancers'], [{
+            'tag': 'auto',
+            'selector': ['node_'],
+            'strategy': {'type': 'leastPing'},
+            'fallbackTag': 'direct',
+        }])
+
+    def test_disabled_balancer_is_omitted(self):
+        disabled = dict(TEST_BALANCER, enabled='0')
+        rule = dict(TEST_RULE, outbound_tag='auto')
+        cfg = render_config(balancers=[disabled], rules=[rule])
+        self.assertNotIn('balancers', cfg['routing'])
+        # Without an enabled balancer the tag cannot become balancerTag.
+        self.assertEqual(cfg['routing']['rules'][1]['outboundTag'], 'auto')
+        self.assertNotIn('balancerTag', cfg['routing']['rules'][1])
+
+    def test_rule_can_target_a_balancer(self):
+        rule = dict(TEST_RULE, outbound_tag='auto')
+        cfg = render_config(balancers=[TEST_BALANCER], rules=[rule])
+        self.assertEqual(cfg['routing']['rules'][1]['balancerTag'], 'auto')
+        self.assertNotIn('outboundTag', cfg['routing']['rules'][1])
+
+    def test_rule_on_node_keeps_outbound_tag(self):
+        cfg = render_config(balancers=[TEST_BALANCER], rules=[TEST_RULE])
+        self.assertEqual(cfg['routing']['rules'][1]['outboundTag'],
+                         'node_' + TEST_NODE['@uuid'])
+        self.assertNotIn('balancerTag', cfg['routing']['rules'][1])
+
+    def test_form_balancers_win_over_raw_json(self):
+        raw = ('[{"tag": "raw", "selector": ["node_"], '
+               '"strategy": {"type": "random"}}]')
+        cfg = render_config({'balancers_json': raw}, balancers=[TEST_BALANCER])
+        self.assertEqual([b['tag'] for b in cfg['routing']['balancers']],
+                         ['auto'])
+
+    def test_raw_balancers_are_used_without_table_rows(self):
+        raw = ('[{"tag": "raw", "selector": ["node_"], '
+               '"strategy": {"type": "random"}}]')
+        cfg = render_config({'balancers_json': raw})
+        self.assertEqual(cfg['routing']['balancers'][0]['tag'], 'raw')
+
+    def test_burst_observatory_generated(self):
+        cfg = render_config({
+            'observatory_type': 'burst',
+            'observatory_selector': 'node_, exit_',
+            'observatory_url': 'https://example.com/generate_204',
+            'observatory_interval': '30s',
+            'observatory_sampling': '5',
+            'observatory_timeout': '2s',
+            'observatory_http_method': 'GET',
+        })
+        self.assertEqual(cfg['burstObservatory'], {
+            'subjectSelector': ['node_', 'exit_'],
+            'pingConfig': {
+                'destination': 'https://example.com/generate_204',
+                'interval': '30s',
+                'sampling': 5,
+                'timeout': '2s',
+                'httpMethod': 'GET',
+            },
+        })
+        self.assertNotIn('observatory', cfg)
+
+    def test_empty_observatory_selector_falls_back_to_node_prefix(self):
+        cfg = render_config({'observatory_type': 'burst',
+                             'observatory_selector': ''})
+        self.assertEqual(cfg['burstObservatory']['subjectSelector'],
+                         ['node_'])
+
+    def test_background_observatory_generated(self):
+        cfg = render_config({
+            'observatory_type': 'background',
+            'observatory_url': 'https://example.com/generate_204',
+            'observatory_interval': '10s',
+            'observatory_concurrency': '1',
+        })
+        self.assertEqual(cfg['observatory'], {
+            'subjectSelector': ['node_'],
+            'probeURL': 'https://example.com/generate_204',
+            'probeInterval': '10s',
+            'enableConcurrency': True,
+        })
+
+    def test_form_observatory_wins_over_raw_json(self):
+        raw = '{"burstObservatory": {"subjectSelector": ["raw_"]}}'
+        cfg = render_config({'observatory_type': 'burst',
+                             'observatory_json': raw})
+        self.assertEqual(cfg['burstObservatory']['subjectSelector'], ['node_'])
+
+    def test_observatory_none_keeps_raw_json(self):
+        raw = '{"burstObservatory": {"subjectSelector": ["raw_"]}}'
+        cfg = render_config({'observatory_json': raw})
+        self.assertEqual(cfg['burstObservatory'], {'subjectSelector': ['raw_']})
 
 
 class _FakeFile:
