@@ -364,6 +364,10 @@
       "statsOutboundDownlink": true
     }
   },
+{% set _dns_json = (general.dns_json or '') | trim %}
+{% if _dns_json != '' %}
+  "dns": {{ _dns_json }},
+{% endif %}
   "inbounds": [
     {
       "tag": "api-in",
@@ -457,8 +461,17 @@
       "settings": {}
     }
   ],
+{% set _observatory_json = (general.observatory_json or '') | trim %}
+{% set _observatory_body = header_object(_observatory_json) if _observatory_json != '' else '' %}
+{% if _observatory_body != '' %}
+  {{ _observatory_body }},
+{% endif %}
   "routing": {
     "domainStrategy": "IPIfNonMatch",
+{% set _balancers_json = (general.balancers_json or '') | trim %}
+{% if _balancers_json != '' %}
+    "balancers": {{ _balancers_json }},
+{% endif %}
     "rules": [
       {
         "type": "field",
