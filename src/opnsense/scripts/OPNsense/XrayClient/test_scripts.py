@@ -170,6 +170,139 @@ class TestWarpMain(unittest.TestCase):
         self.assertNotIn('wg_secret_key', data)
 
 
+JINJA2_AVAILABLE = True
+try:
+    import jinja2
+except ImportError:  # pragma: no cover - dev machines without Jinja2
+    JINJA2_AVAILABLE = False
+
+TEMPLATE_PATH = os.path.normpath(os.path.join(
+    SCRIPT_DIR, '..', '..', '..', '..', 'service', 'templates',
+    'OPNsense', 'XrayClient', 'config.json.j2'))
+
+TEST_NODE = {
+    '@uuid': '11111111-2222-3333-4444-555555555555',
+    'enabled': '1',
+    'name': 'test node',
+    'protocol': 'freedom',
+    'address': '',
+    'port': '0',
+}
+
+TEST_RULE = {
+    'enabled': '1',
+    'domain': 'geosite:ru',
+    'ip': '',
+    'port': '',
+    'protocol': '',
+    'network_proto': 'tcp_udp',
+    'outbound_tag': 'node_' + TEST_NODE['@uuid'],
+}
+
+
+class _FakeHelpers:
+    """Minimal stand-in for the OPNsense `helpers` template object."""
+
+    def __init__(self, data):
+        self._data = data
+
+    def _resolve(self, path):
+        node = self._data
+        for part in path.split('.'):
+            if not isinstance(node, dict) or part not in node:
+                return None
+            node = node[part]
+        return node
+
+    def empty(self, path):
+        value = self._resolve(path)
+        return value is None or value == [] or value == ''
+
+    def toList(self, path, sort_key=None, order=None):
+        value = self._resolve(path)
+        return list(value) if value else []
+
+
+def render_config(general_overrides=None, nodes=None, rules=None):
+    """Render config.json.j2 with sample data and return the parsed JSON."""
+    general = {
+        'config_mode': 'ui',
+        'enabled': '1',
+        'loglevel': 'warning',
+        'access_log': '0',
+        'enable_tun': '1',
+        'tun_iface': 'tun_xray0',
+        'tun_address': '10.255.0.1/30',
+        'tun_mtu': '1500',
+        'enable_sniffing': '1',
+        'enable_socks': '1',
+        'socks_listen': '127.0.0.1',
+        'socks_port': '10808',
+        'enable_http': '0',
+        'http_port': '10809',
+        'stats_port': '10085',
+        'dns_json': '',
+        'balancers_json': '',
+        'observatory_json': '',
+    }
+    general.update(general_overrides or {})
+    data = {'OPNsense': {'XrayClient': {
+        'general': general,
+        'nodes': {'node': nodes or []},
+        'rules': {'rule': rules or []},
+    }}}
+    with open(TEMPLATE_PATH, encoding='utf-8') as handle:
+        source = handle.read()
+    env = jinja2.Environment(extensions=['jinja2.ext.do'], autoescape=False)
+    rendered = env.from_string(source).render(
+        OPNsense=data['OPNsense'], helpers=_FakeHelpers(data))
+    return json.loads(rendered)
+
+
+@unittest.skipUnless(JINJA2_AVAILABLE, 'jinja2 is needed to render config.json.j2')
+class TestConfigTemplate(unittest.TestCase):
+
+    def test_advanced_sections_are_inserted(self):
+        cfg = render_config(
+            {
+                'dns_json': '{"servers": ["https://1.1.1.1/dns-query"]}',
+                'balancers_json': ('[{"tag": "auto", "selector": ["node_"], '
+                                   '"strategy": {"type": "leastPing"}}]'),
+                'observatory_json': '{"burstObservatory": {"subjectSelector": ["node_"]}}',
+            },
+            nodes=[TEST_NODE],
+            rules=[TEST_RULE],
+        )
+        self.assertEqual(cfg['dns'], {'servers': ['https://1.1.1.1/dns-query']})
+        self.assertEqual(cfg['routing']['balancers'][0]['tag'], 'auto')
+        self.assertEqual(cfg['burstObservatory'], {'subjectSelector': ['node_']})
+        # The rest of the generated config must stay intact.
+        self.assertEqual(cfg['outbounds'][0]['tag'], 'node_' + TEST_NODE['@uuid'])
+        self.assertEqual(cfg['routing']['rules'][0]['inboundTag'], ['api-in'])
+        self.assertEqual(cfg['routing']['rules'][1]['domain'], ['geosite:ru'])
+        self.assertEqual(cfg['routing']['rules'][1]['outboundTag'],
+                         'node_' + TEST_NODE['@uuid'])
+
+    def test_sections_are_omitted_when_empty(self):
+        cfg = render_config()
+        for key in ('dns', 'observatory', 'burstObservatory'):
+            self.assertNotIn(key, cfg)
+        self.assertNotIn('balancers', cfg['routing'])
+
+    def test_empty_json_objects_keep_the_config_valid(self):
+        cfg = render_config({'dns_json': '{}', 'observatory_json': '{}'})
+        self.assertEqual(cfg['dns'], {})
+        self.assertNotIn('observatory', cfg)
+        self.assertIn('routing', cfg)
+
+    def test_multiline_sections(self):
+        dns = '{\n  "servers": [\n    "1.1.1.1",\n    "8.8.8.8"\n  ]\n}'
+        obs = '{\n  "observatory": {\n    "subjectSelector": ["node_"]\n  }\n}'
+        cfg = render_config({'dns_json': dns, 'observatory_json': obs})
+        self.assertEqual(cfg['dns']['servers'], ['1.1.1.1', '8.8.8.8'])
+        self.assertEqual(cfg['observatory'], {'subjectSelector': ['node_']})
+
+
 class _FakeFile:
     def __init__(self, content):
         self.content = content
