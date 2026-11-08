@@ -155,60 +155,60 @@
         width: 68% !important;
     }
     /* The balancer dialog mirrors the node/rule dialog geometry. */
-    #DialogBalancer .modal-dialog {
+    #DialogBalancer, #DialogDnsServer .modal-dialog {
         width: 95%;
         max-width: 675px;
         margin: 62px auto 10px;
     }
-    #DialogBalancer .modal-dialog .modal-content {
+    #DialogBalancer, #DialogDnsServer .modal-dialog .modal-content {
         display: flex;
         flex-direction: column;
         max-height: calc(100vh - 72px);
         max-height: calc(100dvh - 72px);
     }
-    #DialogBalancer .modal-body {
+    #DialogBalancer, #DialogDnsServer .modal-body {
         flex: 1 1 auto;
         min-height: 0;
         max-height: none;
         overflow-y: auto;
         overscroll-behavior: contain;
     }
-    #DialogBalancer .modal-header,
-    #DialogBalancer .modal-footer {
+    #DialogBalancer, #DialogDnsServer .modal-header,
+    #DialogBalancer, #DialogDnsServer .modal-footer {
         flex: 0 0 auto;
     }
-    #DialogBalancer .form-search-section,
+    #DialogBalancer, #DialogDnsServer .form-search-section,
     #frm_DialogBalancer {
         width: 100%;
     }
-    #DialogBalancer .modal-body .form-group {
+    #DialogBalancer, #DialogDnsServer .modal-body .form-group {
         margin-bottom: 10px;
     }
-    #DialogBalancer colgroup > col:nth-child(2) { width: 58% !important; }
-    #DialogBalancer colgroup > col:nth-child(3) { width: 17% !important; }
-    #DialogBalancer .form-control { max-width: none; }
-    #DialogBalancer textarea { max-width: none !important; width: 100%; }
-    #DialogBalancer .bootstrap-select { width: 100% !important; max-width: none; }
-    #DialogBalancer .modal-header {
+    #DialogBalancer, #DialogDnsServer colgroup > col:nth-child(2) { width: 58% !important; }
+    #DialogBalancer, #DialogDnsServer colgroup > col:nth-child(3) { width: 17% !important; }
+    #DialogBalancer, #DialogDnsServer .form-control { max-width: none; }
+    #DialogBalancer, #DialogDnsServer textarea { max-width: none !important; width: 100%; }
+    #DialogBalancer, #DialogDnsServer .bootstrap-select { width: 100% !important; max-width: none; }
+    #DialogBalancer, #DialogDnsServer .modal-header {
         display: flex !important;
         align-items: center !important;
         gap: 10px;
         min-height: 48px;
         padding: 6px 10px !important;
     }
-    #DialogBalancer .modal-header .model-header-icon { order: 0; }
-    #DialogBalancer .modal-header h4 { order: 1; flex: 1 1 auto; margin: 0 !important; }
-    #DialogBalancer .modal-header .form-search {
+    #DialogBalancer, #DialogDnsServer .modal-header .model-header-icon { order: 0; }
+    #DialogBalancer, #DialogDnsServer .modal-header h4 { order: 1; flex: 1 1 auto; margin: 0 !important; }
+    #DialogBalancer, #DialogDnsServer .modal-header .form-search {
         order: 2;
         margin: 0 !important;
         float: none !important;
         width: 230px !important;
     }
-    #DialogBalancer .modal-header .close { order: 3; margin: 0 !important; float: none !important; }
-    #DialogBalancer.help-collapsed colgroup > col:nth-child(3) { display: none; }
-    #DialogBalancer.help-collapsed tr > td:nth-child(3) { display: none; }
-    #DialogBalancer.help-collapsed colgroup > col:first-child { width: 32% !important; }
-    #DialogBalancer.help-collapsed colgroup > col:nth-child(2) { width: 68% !important; }
+    #DialogBalancer, #DialogDnsServer .modal-header .close { order: 3; margin: 0 !important; float: none !important; }
+    #DialogBalancer, #DialogDnsServer.help-collapsed colgroup > col:nth-child(3) { display: none; }
+    #DialogBalancer, #DialogDnsServer.help-collapsed tr > td:nth-child(3) { display: none; }
+    #DialogBalancer, #DialogDnsServer.help-collapsed colgroup > col:first-child { width: 32% !important; }
+    #DialogBalancer, #DialogDnsServer.help-collapsed colgroup > col:nth-child(2) { width: 68% !important; }
 </style>
 
 <script>
@@ -244,7 +244,7 @@
                 });
                 $dialog.toggleClass('help-collapsed', !anyContent);
             }
-            $('#DialogNode, #DialogRule, #DialogBalancer').each(function () {
+            $('#DialogNode, #DialogRule, #DialogBalancer, #DialogDnsServer').each(function () {
                 var $dialog = $(this);
                 refresh($dialog);
                 var observer = new MutationObserver(function () {
@@ -681,6 +681,66 @@
                     }
                 }
             }
+        });
+
+        $("#grid-dns").UIBootgrid({
+            search: '/api/xrayclient/settings/searchDnsServer',
+            get: '/api/xrayclient/settings/getDnsServer/',
+            set: '/api/xrayclient/settings/setDnsServer/',
+            add: '/api/xrayclient/settings/addDnsServer/',
+            del: '/api/xrayclient/settings/delDnsServer/',
+            toggle: '/api/xrayclient/settings/toggleDnsServer/',
+            options: {
+                formatters: {
+                    "commands": function (column, row) {
+                        return '<button type="button" class="btn btn-xs btn-default command-edit bootgrid-tooltip" data-row-id="' + row.uuid + '"><span class="fa fa-fw fa-pencil"></span></button> ' +
+                               '<button type="button" class="btn btn-xs btn-default command-copy bootgrid-tooltip" data-row-id="' + row.uuid + '"><span class="fa fa-fw fa-clone"></span></button> ' +
+                               '<button type="button" class="btn btn-xs btn-default command-delete bootgrid-tooltip" data-row-id="' + row.uuid + '"><span class="fa fa-fw fa-trash-o"></span></button>';
+                    },
+                    "rowtoggle": function (column, row) {
+                        if (parseInt(row[column.id], 2) === 1) {
+                            return '<span style="cursor: pointer;" class="fa fa-fw fa-check-square-o command-toggle bootgrid-tooltip" data-value="1" data-row-id="' + row.uuid + '"></span>';
+                        } else {
+                            return '<span style="cursor: pointer;" class="fa fa-fw fa-square-o command-toggle bootgrid-tooltip" data-value="0" data-row-id="' + row.uuid + '"></span>';
+                        }
+                    }
+                }
+            }
+        });
+
+        // Preset: default DoH (Cloudflare, any domain) + RU domestic DNS
+        // (geosite:ru, never used as a fallback). Adds both rows, switches
+        // on the built-in DNS checkbox; Apply & Restart is still required.
+        $('#btn_dns_preset_ru').on('click', function () {
+            var servers = [
+                {server: {enabled: '1', address: 'https://1.1.1.1/dns-query', port: '', domains: '', expected_ips: '', unexpected_ips: '', skip_fallback: '0'}},
+                {server: {enabled: '1', address: 'https://dns.yandex.ru/dns-query', port: '443', domains: 'geosite:ru', expected_ips: 'geoip:ru', unexpected_ips: '', skip_fallback: '1'}}
+            ];
+            var $checked = $('#xrayclient\\.general\\.dns_enabled');
+            $checked.prop('checked', true).change();
+            var $btn = $(this);
+            var originalHtml = $btn.html();
+            $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-pulse"></i> Adding preset…');
+            var pending = 0;
+            var failed = 0;
+            servers.forEach(function (body) {
+                ajaxCall('/api/xrayclient/settings/addDnsServer', body, function (data, status) {
+                    pending += 1;
+                    if (status !== 'success' || !data || data.validations) {
+                        failed += 1;
+                    }
+                    if (pending === servers.length) {
+                        if (failed) {
+                            $btn.html('<b>Failed — see validation messages</b>').prop('disabled', false);
+                            setTimeout(function () { $btn.html(originalHtml); }, 2500);
+                        } else {
+                            $btn.html('<b>Added — click Apply &amp; Restart</b>').prop('disabled', false);
+                            setTimeout(function () { $btn.html(originalHtml); }, 2500);
+                        }
+                        $('#grid-dns').bootgrid('reload');
+                    }
+                });
+            });
         });
 
         $('#btn_open_import_modal').on('click', function () {
@@ -1492,6 +1552,7 @@
     <li><a data-toggle="tab" href="#tab_nodes"><b>Outbound Nodes (Servers)</b></a></li>
     <li><a data-toggle="tab" href="#tab_rules"><b>Routing Rules</b></a></li>
     <li><a data-toggle="tab" href="#tab_balancers"><b>Balancers</b></a></li>
+    <li><a data-toggle="tab" href="#tab_dns"><b>DNS Servers</b></a></li>
     <li id="tab_expert_li" style="display: none;"><a data-toggle="tab" href="#tab_expert"><b>Expert Config</b></a></li>
     <li><a data-toggle="tab" href="#tab_maintenance"><b>Maintenance &amp; Updates</b></a></li>
     <li><a data-toggle="tab" href="#tab_logs"><b>Log Viewer</b></a></li>
@@ -1655,6 +1716,46 @@
         </div>
     </div>
 
+    <div id="tab_dns" class="tab-pane fade in">
+        <div class="col-md-12" style="margin-top: 10px; margin-bottom: 4px;">
+            <span class="text-muted" style="font-size: 13px;">Switch on the built-in DNS in <b>General Settings → Built-in DNS server</b>. Servers with a domains list answer only those domains (e.g. <code>geosite:ru</code> over the domestic resolver); servers without a list answer everything else. DNS requests follow the same routing rules (rule inbound/outbound of Xray), so «DoH via proxy» needs no extra hop. Entries save instantly &mdash; click <b>Apply &amp; Restart Xray</b>.</span>
+        </div>
+        <div class="col-md-12" style="margin-bottom: 10px;">
+            <button id="btn_dns_preset_ru" type="button" class="btn btn-success" title="One click: add https://1.1.1.1/dns-query for all domains and https://dns.yandex.ru/dns-query for geosite:ru (skipFallback, expectedIPs geoip:ru), and switch 'Enable Built-in DNS' on. Then click Apply &amp; Restart Xray.">
+                <i class="fa fa-magic"></i> <b>Fill preset: DoH + RU via Yandex</b>
+            </button>
+        </div>
+        <table id="grid-dns" class="table table-condensed table-hover table-striped" data-editDialog="DialogDnsServer">
+            <thead>
+                <tr>
+                    <th data-column-id="uuid" data-type="string" data-identifier="true" data-visible="false">ID</th>
+                    <th data-column-id="enabled" data-width="6em" data-type="string" data-formatter="rowtoggle">Enabled</th>
+                    <th data-column-id="address" data-width="18em" data-type="string">Address</th>
+                    <th data-column-id="port" data-width="5em" data-type="string">Port</th>
+                    <th data-column-id="domains" data-type="string">Domains</th>
+                    <th data-column-id="expected_ips" data-type="string">Expected IPs</th>
+                    <th data-column-id="commands" data-width="10em" data-formatter="commands" data-sortable="false">Actions</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+            <tfoot>
+                <tr>
+                    <td></td>
+                    <td>
+                        <button data-action="add" type="button" class="btn btn-xs btn-primary"><span class="fa fa-fw fa-plus"></span></button>
+                        <button data-action="deleteSelected" type="button" class="btn btn-xs btn-default"><span class="fa fa-fw fa-trash-o"></span></button>
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+        <div class="col-md-12" style="padding-bottom: 15px;">
+            <hr/>
+            <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves General + Maintenance settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
+                <b>Apply &amp; Restart Xray</b> <i class="fa fa-spinner fa-pulse" style="display: none;"></i>
+            </button>
+        </div>
+    </div>
+
     <div id="tab_expert" class="tab-pane fade">
         <div class="col-md-12" style="margin-top: 15px; padding-bottom: 15px;">
             <div class="alert alert-warning" style="margin-bottom: 10px;">
@@ -1739,6 +1840,7 @@
 {{ partial("layout_partials/base_dialog", ['fields': formDialogNode, 'id': 'DialogNode', 'label': 'Edit Outbound Server Node']) }}
 {{ partial("layout_partials/base_dialog", ['fields': formDialogRule, 'id': 'DialogRule', 'label': 'Edit Routing Rule']) }}
 {{ partial("layout_partials/base_dialog", ['fields': formDialogBalancer, 'id': 'DialogBalancer', 'label': 'Edit Load Balancer']) }}
+{{ partial("layout_partials/base_dialog", ['fields': formDialogDnsServer, 'id': 'DialogDnsServer', 'label': 'Edit DNS Server']) }}
 
 <div class="modal fade" id="DialogResetTemplate" tabindex="-1" role="dialog">
     <div class="modal-dialog" role="document">
