@@ -105,6 +105,16 @@
     </field>
     <field>
         <type>header</type>
+        <label>Routing Policy</label>
+    </field>
+    <field>
+        <id>xrayclient.general.routing_domain_strategy</id>
+        <label>Domain Strategy</label>
+        <type>dropdown</type>
+        <help>How Xray matches domain rules that fell through to IP matching: IPIfNonMatch (default) — resolve and retry; IPOnDemand — resolve only when an IP rule actually needs it; AsIs — never resolve (cheapest, leaks nothing to DNS, but geoip/country rules never match a bare domain).</help>
+    </field>
+    <field>
+        <type>header</type>
         <label>Automatic Latency &amp; Traffic Telemetry</label>
     </field>
     <field>

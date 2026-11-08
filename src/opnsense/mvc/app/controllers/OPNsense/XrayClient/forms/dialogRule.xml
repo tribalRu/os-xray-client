@@ -51,6 +51,42 @@
         <help>Select sniffed protocols to match (multi-select): http, tls, quic, bittorrent. Leave empty for any protocol.</help>
     </field>
     <field>
+        <id>rule.inbound_tag</id>
+        <label>Inbound Tags</label>
+        <type>select_multiple</type>
+        <style>tokenize</style>
+        <allownew>true</allownew>
+        <help>Type and press Enter. Only traffic from these inbounds matches: <code>tun-in</code> (transparent VPN gateway), <code>socks-in</code> / <code>http-in</code> (local proxies), <code>api-in</code> (stats). Example: <code>socks-in</code> to always route local SOCKS clients via one node.</help>
+    </field>
+    <field>
+        <id>rule.source</id>
+        <label>Source IPs / Subnets</label>
+        <type>select_multiple</type>
+        <style>tokenize</style>
+        <allownew>true</allownew>
+        <help>Type and press Enter. CIDRs or geoip: tags, with ! to negate. Examples: 192.168.1.0/24, 10.0.0.0/8, geoip:private, !geoip:ru. Only visible for LAN-routed (TUN) clients; traffic from the Internet arrives at the firewall with the NAT source.</help>
+    </field>
+    <field>
+        <id>rule.source_port</id>
+        <label>Source Port(s)</label>
+        <type>text</type>
+        <help>Optional source port or comma-separated ports/ranges (e.g. 53, 1000-2000, 53,853). Leave empty for any source port.</help>
+    </field>
+    <field>
+        <id>rule.user</id>
+        <label>Users (auth)</label>
+        <type>select_multiple</type>
+        <style>tokenize</style>
+        <allownew>true</allownew>
+        <help>Type and press Enter. Only users of the local SOCKS/HTTP inbounds with auth enabled. Example: <code>alice</code> to force one account through a specific node.</help>
+    </field>
+    <field>
+        <id>rule.rule_tag</id>
+        <label>Rule Tag</label>
+        <type>text</type>
+        <help>Optional tag for this rule; it is used by Xray to label the rule in its traffic stats. Empty is fine.</help>
+    </field>
+    <field>
         <id>rule.outbound_tag</id>
         <label>Target Outbound Action</label>
         <type>dropdown</type>
