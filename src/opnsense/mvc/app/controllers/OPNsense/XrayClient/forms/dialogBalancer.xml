@@ -22,7 +22,7 @@
         <id>balancer.strategy</id>
         <label>Strategy</label>
         <type>dropdown</type>
-        <help>random — pick a random node; roundRobin — rotate through the nodes in order; leastPing — lowest measured latency; leastLoad — lowest load. leastPing and leastLoad require an enabled observatory in General Settings → Load Balancer Observatory, otherwise Xray rejects the config.</help>
+        <help>random — pick a random node; roundRobin — rotate through the nodes in order; leastPing — lowest measured latency; leastLoad — lowest load. <b>leastPing and leastLoad require an enabled observatory</b> in General Settings → Load Balancer Observatory — without one Xray refuses to start and Apply is rejected with an error.</help>
     </field>
     <field>
         <id>balancer.fallback_tag</id>

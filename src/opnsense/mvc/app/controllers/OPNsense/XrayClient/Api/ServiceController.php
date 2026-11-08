@@ -22,6 +22,36 @@ class ServiceController extends ApiMutableServiceControllerBase
         $backend = new Backend();
         $mdl = new XrayClient();
 
+        // Xray refuses to start when an enabled balancer uses leastPing or
+        // leastLoad but no observatory is configured anywhere (form, raw
+        // JSON or the plugin's template itself). Reject the Apply up front
+        // with a readable message instead of letting the rollback hide
+        // the failure and the GUI show "Applied".
+        $obsType = (string)$mdl->general->observatory_type;
+        $rawObs = trim((string)$mdl->general->observatory_json);
+        $needsObservatory = false;
+        try {
+            foreach ($mdl->balancers->iterateItems() as $balancer) {
+                if ((string)$balancer->enabled !== '1') {
+                    continue;
+                }
+                $strategy = strtolower((string)$balancer->strategy);
+                if ($strategy === 'leastping' || $strategy === 'leastload') {
+                    $needsObservatory = true;
+                    break;
+                }
+            }
+        } catch (\Throwable $e) {
+            // A model with no balancers yet also has none to check — let the
+            // generic xray run -test path deal with anything else.
+        }
+        if ($needsObservatory && ($obsType === '' || $obsType === 'none') && $rawObs === '') {
+            return [
+                'status' => 'error',
+                'message' => 'LeastPing/LeastLoad balancers require an observatory. Enable it in General Settings → Load Balancer Observatory (burst recommended), or switch the balancer to random/roundRobin. The previous configuration was kept — Xray was not restarted.',
+            ];
+        }
+
         // Remember the config that is currently on disk (and being used by the
         // running service) so it can be put back if the new one is rejected.
         $configFile = '/usr/local/etc/xray/config.json';
