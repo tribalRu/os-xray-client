@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>2.4.11</version>
+    <version>2.4.12</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -120,6 +120,58 @@
                 <Mask>/^$|^\s*\{[\s\S]*\}\s*$/</Mask>
                 <ValidationMessage>Observatory must be a JSON object, e.g. {"burstObservatory": {"subjectSelector": ["node_"]}}.</ValidationMessage>
             </observatory_json>
+            <!-- ====== Balancer observatory ======
+                 leastPing / leastLoad balancers need Xray to probe the
+                 nodes. "none" keeps observatory_json (if set) as the
+                 source; burst/background generate the section from the
+                 fields below and ignore observatory_json. -->
+            <observatory_type type="OptionField">
+                <default>none</default>
+                <Required>Y</Required>
+                <OptionValues>
+                    <none>Disabled (use raw JSON above, if set)</none>
+                    <burst>Burst observatory (recommended for leastPing)</burst>
+                    <background>Background observatory</background>
+                </OptionValues>
+            </observatory_type>
+            <observatory_selector type="CSVListField">
+                <default>node_</default>
+                <Required>N</Required>
+            </observatory_selector>
+            <observatory_url type="TextField">
+                <default>https://connectivitycheck.gstatic.com/generate_204</default>
+                <Required>N</Required>
+                <Mask>/^$|^https:\/\/[A-Za-z0-9._~:\/?=%+@-]{1,500}$/</Mask>
+                <ValidationMessage>Enter an https:// URL (letters, digits and . _ ~ : / ? = % + @ - only).</ValidationMessage>
+            </observatory_url>
+            <observatory_interval type="TextField">
+                <default>1m</default>
+                <Required>N</Required>
+                <Mask>/^$|^[0-9]{1,6}(ms|s|m|h)$/</Mask>
+                <ValidationMessage>Enter a duration such as 10s, 1m or 1h.</ValidationMessage>
+            </observatory_interval>
+            <observatory_sampling type="IntegerField">
+                <default>10</default>
+                <MinimumValue>1</MinimumValue>
+                <MaximumValue>1000</MaximumValue>
+                <Required>N</Required>
+            </observatory_sampling>
+            <observatory_timeout type="TextField">
+                <default>5s</default>
+                <Required>N</Required>
+                <Mask>/^$|^[0-9]{1,6}(ms|s|m|h)$/</Mask>
+                <ValidationMessage>Enter a duration such as 5s or 1m.</ValidationMessage>
+            </observatory_timeout>
+            <observatory_http_method type="TextField">
+                <default></default>
+                <Required>N</Required>
+                <Mask>/^$|^(GET|HEAD|POST)$/</Mask>
+                <ValidationMessage>Use GET, HEAD or leave empty (Xray default: HEAD).</ValidationMessage>
+            </observatory_http_method>
+            <observatory_concurrency type="BooleanField">
+                <default>0</default>
+                <Required>N</Required>
+            </observatory_concurrency>
             <raw_json type="TextField">
                 <default></default>
                 <Required>N</Required>
@@ -765,6 +817,49 @@
                 </outbound_tag>
             </rule>
         </rules>
+
+        <!-- ====== Load Balancers ======
+             A balancer selects one of the outbounds whose tag starts with
+             one of the selector prefixes, so "node_" covers every enabled
+             node without listing UUIDs. A routing rule picks a balancer by
+             its tag; the template emits balancerTag instead of outboundTag. -->
+        <balancers>
+            <balancer type="ArrayField">
+                <enabled type="BooleanField">
+                    <default>1</default>
+                    <Required>Y</Required>
+                </enabled>
+                <tag type="TextField">
+                    <default>auto</default>
+                    <Required>Y</Required>
+                    <Mask>/^(?!direct$|block$|api$)[A-Za-z0-9_.-]{1,64}$/</Mask>
+                    <ValidationMessage>Tag must be 1-64 characters (letters, digits, _ . -); direct, block and api are reserved.</ValidationMessage>
+                </tag>
+                <selector type="CSVListField">
+                    <default>node_</default>
+                    <Required>Y</Required>
+                    <Mask>/^[A-Za-z0-9_.:-]{1,64}$/</Mask>
+                    <MaskPerItem>Y</MaskPerItem>
+                    <ValidationMessage>Each selector must be a tag prefix, e.g. node_ (1-64 characters).</ValidationMessage>
+                </selector>
+                <strategy type="OptionField">
+                    <default>leastPing</default>
+                    <Required>Y</Required>
+                    <OptionValues>
+                        <random>random — random node</random>
+                        <roundRobin>roundRobin — rotate in order</roundRobin>
+                        <leastPing>leastPing — lowest latency (needs observatory)</leastPing>
+                        <leastLoad>leastLoad — lowest load (needs observatory)</leastLoad>
+                    </OptionValues>
+                </strategy>
+                <fallback_tag type="TextField">
+                    <default>direct</default>
+                    <Required>N</Required>
+                    <Mask>/^$|^(?!api$)[A-Za-z0-9_.:-]{1,64}$/</Mask>
+                    <ValidationMessage>Fallback tag must be direct, block, a node tag or another balancer tag (1-64 characters).</ValidationMessage>
+                </fallback_tag>
+            </balancer>
+        </balancers>
 
         <!-- ====== Core & GeoData Updates ====== -->
         <maintenance>
