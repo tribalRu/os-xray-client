@@ -48,15 +48,16 @@ class M2_7_0 extends BaseModelMigration
         // Edits the model itself: runMigrations() serialises the model
         // back to config.xml afterwards, discarding any direct edits made
         // on the raw Config object here.
-        $http = (string)$model->general->http_listen;
-        $socks = (string)$model->general->socks_listen;
+        $http = $model->getNodeByReference('general.http_listen');
+        $socks = $model->getNodeByReference('general.socks_listen');
 
-        if ($socks === '') {
-            $socks = '127.0.0.1';
+        if ($http === null or $socks === null) {
+            return;
         }
 
-        if (trim($http) === '') {
-            $model->general->http_listen = $socks;
+        if (trim($http->getValue()) === '') {
+            $http->setValue(trim((string)$socks->getValue()) !== '' ?
+                $socks->getValue() : '127.0.0.1');
         }
     }
 
