@@ -763,10 +763,14 @@
             <custom_geoip_url type="TextField">
                 <default></default>
                 <Required>N</Required>
+                <Mask>/^$|^https:\/\/[A-Za-z0-9._~:\/?=%+@-]{1,500}$/</Mask>
+                <ValidationMessage>Enter an https:// URL (letters, digits and . _ ~ : / ? = % + @ - only).</ValidationMessage>
             </custom_geoip_url>
             <custom_geosite_url type="TextField">
                 <default></default>
                 <Required>N</Required>
+                <Mask>/^$|^https:\/\/[A-Za-z0-9._~:\/?=%+@-]{1,500}$/</Mask>
+                <ValidationMessage>Enter an https:// URL (letters, digits and . _ ~ : / ? = % + @ - only).</ValidationMessage>
             </custom_geosite_url>
         </maintenance>
     </items>
