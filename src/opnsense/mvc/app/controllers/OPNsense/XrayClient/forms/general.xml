@@ -30,6 +30,18 @@
         <help>Write every proxied connection to /var/log/xray/access.log. Off by default: with the TUN inbound all network traffic is logged and the file grows without rotation. Enable only while debugging, and clear it in the Logs tab afterwards.</help>
     </field>
     <field>
+        <id>xrayclient.general.dns_log</id>
+        <label>Enable DNS Log</label>
+        <type>checkbox</type>
+        <help>Log every DNS query the built-in DNS server handles (domain, matched server, result) — invaluable when a domain silently fails to resolve. Off by default.</help>
+    </field>
+    <field>
+        <id>xrayclient.general.mask_address</id>
+        <label>Mask IP Addresses in Logs</label>
+        <type>text</type>
+        <help>A CIDR range, e.g. 10.0.0.0/8 — the matching octets are masked in Xray's logs (e.g. 192.168.1.200 → 192.168.x.x). Useful when sharing logs without leaking your LAN or client addresses.</help>
+    </field>
+    <field>
         <type>header</type>
         <label>TUN Interface Settings (Variant A)</label>
     </field>

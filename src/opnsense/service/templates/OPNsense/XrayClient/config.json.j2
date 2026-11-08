@@ -355,13 +355,17 @@
   "log": {
     "access": {{ '"/var/log/xray/access.log"' if general.access_log | default('0') == '1' else '"none"' }},
     "error": "/var/log/xray/error.log",
-    "loglevel": {{ (general.loglevel or 'warning') | tojson }}
+    "loglevel": {{ (general.loglevel or 'warning') | tojson }}{% set _dns_log = general.dns_log | default('0') == '1' %}{% if _dns_log %},
+    "dnsLog": true{% endif %}{% set _mask_addr = general.mask_address | string | trim %}{% if _mask_addr != '' %},
+    "maskAddress": {{ _mask_addr | tojson }}{% endif %}
   },
   "stats": {},
   "api": {
     "tag": "api",
     "services": [
-      "StatsService"
+      "StatsService",
+      "ObservatoryService",
+      "RoutingService"
     ]
   },
   "policy": {
