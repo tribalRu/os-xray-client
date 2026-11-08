@@ -50,17 +50,25 @@ rm -rf /var/lib/php/cache/* 2>/dev/null || true
 rm -rf /var/tmp/volt 2>/dev/null || true
 rm -rf /tmp/volt* 2>/dev/null || true
 
+# The in-memory Xray process still runs the code it was started with, and it
+# may be using a config rendered by the previous template. Restart it once
+# the new plugin files are in place and configd has re-rendered config.json.
+# The helper keeps a stopped (or GUI-disabled) service stopped and refuses to
+# restart into a config `xray run -test` rejects.
+RESTART_HELPER="/usr/local/opnsense/scripts/OPNsense/XrayClient/restart_service.sh"
+
 # Restarting configd kills the process tree of the configd action that runs
 # the in-GUI plugin update (it started this script), which cut the response
 # off mid-update. In that case (update_plugin.sh sets XRAY_FROM_CONFIGD=1)
 # do the restart from a detached process once this script has finished.
 if [ "${XRAY_FROM_CONFIGD}" = "1" ]; then
-    echo "Scheduling configd restart and template reload..."
-    /usr/sbin/daemon -f /bin/sh -c 'sleep 3; service configd restart; sleep 2; configctl template reload OPNsense/XrayClient'
+    echo "Scheduling configd restart, template reload and Xray Client restart..."
+    /usr/sbin/daemon -f /bin/sh -c "sleep 3; service configd restart; sleep 2; configctl template reload OPNsense/XrayClient; sleep 1; ${RESTART_HELPER}"
 else
     echo "Restarting configd service..."
     service configd restart
     configctl template reload OPNsense/XrayClient || echo "WARNING: template reload failed."
+    "${RESTART_HELPER}"
 fi
 
 if [ ! -x "/usr/local/bin/xray" ]; then

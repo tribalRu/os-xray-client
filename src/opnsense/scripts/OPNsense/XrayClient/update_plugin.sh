@@ -63,4 +63,8 @@ XRAY_FROM_CONFIGD=1 sh "${EXTRACTED_DIR}/install.sh" || {
 }
 
 echo "=== Plugin successfully updated from GitHub! ==="
+# install.sh schedules the configd restart, template reload and service
+# restart in a detached process, because restarting configd would otherwise
+# kill this very update.
+echo "Xray Client will be restarted automatically once configd and the config template are reloaded."
 exit 0
