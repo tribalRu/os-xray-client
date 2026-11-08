@@ -289,6 +289,7 @@ def render_config(general_overrides=None, nodes=None, rules=None,
         'dns_enable_parallel_query': '0',
         'dns_use_system_hosts': '0',
         'dns_hosts_json': '',
+        'routing_domain_strategy': 'IPIfNonMatch',
     }
     general.update(general_overrides or {})
     data = {'OPNsense': {'XrayClient': {
@@ -413,6 +414,35 @@ class TestConfigTemplate(unittest.TestCase):
         self.assertEqual(cfg['dns']['disableFallbackIfMatch'], True)
         self.assertEqual(cfg['dns']['enableParallelQuery'], True)
         self.assertEqual(cfg['dns']['useSystemHosts'], False)
+
+    def test_rule_conditions_are_omitted_when_empty(self):
+        cfg = render_config(rules=[TEST_RULE])
+        rule = cfg['routing']['rules'][1]
+        for key in ('inboundTag', 'source', 'sourcePort', 'user', 'ruleTag'):
+            self.assertNotIn(key, rule)
+
+    def test_rule_conditions_are_emitted(self):
+        rule = dict(TEST_RULE,
+                    inbound_tag='tun-in, socks-in',
+                    source='192.168.0.0/16, geoip:private',
+                    source_port='53,1000-2000',
+                    user='alice, bob',
+                    rule_tag='home-rules')
+        cfg = render_config(rules=[rule])
+        out = cfg['routing']['rules'][1]
+        self.assertEqual(out['inboundTag'], ['tun-in', 'socks-in'])
+        self.assertEqual(out['source'], ['192.168.0.0/16', 'geoip:private'])
+        self.assertEqual(out['sourcePort'], '53,1000-2000')
+        self.assertEqual(out['user'], ['alice', 'bob'])
+        self.assertEqual(out['ruleTag'], 'home-rules')
+
+    def test_routing_domain_strategy_from_general(self):
+        self.assertEqual(render_config()['routing']['domainStrategy'],
+                         'IPIfNonMatch')
+        cfg = render_config({'routing_domain_strategy': 'AsIs'})
+        self.assertEqual(cfg['routing']['domainStrategy'], 'AsIs')
+        cfg = render_config({'routing_domain_strategy': 'IPOnDemand'})
+        self.assertEqual(cfg['routing']['domainStrategy'], 'IPOnDemand')
 
 
     def test_balancer_generated_from_model(self):
