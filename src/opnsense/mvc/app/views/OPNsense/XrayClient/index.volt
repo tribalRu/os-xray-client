@@ -785,8 +785,12 @@
                         nodeNames['node_' + n.uuid] = n.name + (n['%protocol'] ? ' (' + n['%protocol'] + ')' : '');
                     }
                 });
+                // Node names, tags and Xray error text are data, not markup.
+                function esc(value) {
+                    return $('<div/>').text(String(value === undefined || value === null ? '' : value)).html();
+                }
                 function pretty(tag) {
-                    return (nodeNames[tag] ? nodeNames[tag] : tag);
+                    return esc(nodeNames[tag] ? nodeNames[tag] : tag);
                 }
                 ajaxCall('/api/xrayclient/service/balancerInfo', {}, function (data) {
                     if (!data || !data.balancers || data.balancers.length === 0) {
@@ -798,8 +802,8 @@
                     data.balancers.forEach(function (b) {
                         var selecting = (b.selecting || []).map(pretty).join(', ');
                         var override = b.override ? pretty(b.override) : '&mdash;';
-                        var status = b.status === 'ok' ? '<span class="label label-success">ok</span>' : '<span class="label label-danger">' + (b.message || 'error') + '</span>';
-                        html += '<tr><td><code>' + (b.tag || '?') + '</code></td><td>' + (selecting || '<i>empty — waiting for the first probe</i>') + '</td><td>' + override + '</td><td>' + status + '</td></tr>';
+                        var status = b.status === 'ok' ? '<span class="label label-success">ok</span>' : '<span class="label label-danger">' + esc(b.message || 'error') + '</span>';
+                        html += '<tr><td><code>' + esc(b.tag || '?') + '</code></td><td>' + (selecting || '<i>empty — waiting for the first probe</i>') + '</td><td>' + override + '</td><td>' + status + '</td></tr>';
                     });
                     html += '</tbody></table>';
                     $out.html(html);
