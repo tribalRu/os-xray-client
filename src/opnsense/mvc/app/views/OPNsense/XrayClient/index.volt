@@ -67,6 +67,14 @@
     #DialogNode.optional-hidden div.form-group:has(.expert_only) {
         display: none !important;
     }
+    /* Same collapse for Optional knobs on the General Settings tab.
+       #json_sections_container is the raw-JSON fallback block: it is
+       optional by definition, so it is hidden too. */
+    #tab_general.optional-hidden tr:has(.expert_only),
+    #tab_general.optional-hidden div.form-group:has(.expert_only),
+    #tab_general.optional-hidden #json_sections_container {
+        display: none !important;
+    }
     /* The OPNsense base_dialog partial renders a third, 35%-wide column
        reserved for validation messages (span.help-block). When empty it
        shows up as a useless grey sidebar. Collapse it while every
@@ -1099,6 +1107,46 @@
                 var show = $(this).prop('checked');
                 localStorage.setItem('osxray_show_advanced', show ? '1' : '0');
                 $('#DialogNode').toggleClass('optional-hidden', !show);
+            });
+        })();
+
+        // --- Optional General Settings toggle ---
+        // Same hide/show idea as the node dialog: fields that rarely change
+        // (extra logging, advanced TUN/sniffing/observatory/DNS knobs) get the
+        // expert_only class and disappear unless the user opts in. The choice
+        // persists per browser, independently from the dialog's checkbox.
+        (function injectGeneralAdvancedToggle() {
+            var generalExpertIds = [
+                'xrayclient.general.access_log', 'xrayclient.general.dns_log', 'xrayclient.general.mask_address',
+                'xrayclient.general.tun_mtu', 'xrayclient.general.tun_ipv6_address', 'xrayclient.general.tun_auto_outbounds_interface',
+                'xrayclient.general.sniffing_dest_override', 'xrayclient.general.sniffing_route_only', 'xrayclient.general.sniffing_domains_excluded',
+                'xrayclient.general.stats_port',
+                'xrayclient.general.telemetry_interval',
+                'xrayclient.general.observatory_interval', 'xrayclient.general.observatory_sampling', 'xrayclient.general.observatory_timeout',
+                'xrayclient.general.observatory_http_method', 'xrayclient.general.observatory_concurrency',
+                'xrayclient.general.dns_disable_cache', 'xrayclient.general.dns_disable_fallback', 'xrayclient.general.dns_disable_fallback_if_match',
+                'xrayclient.general.dns_enable_parallel_query', 'xrayclient.general.dns_use_system_hosts'
+            ];
+            generalExpertIds.forEach(function (id) {
+                $('[id="' + id + '"]').addClass('expert_only');
+            });
+            var $tab = $('#tab_general');
+            var saved = localStorage.getItem('osxray_show_advanced_general') === '1';
+            var $row = $(
+                '<div class="xray-advanced-toggle" style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid rgba(255,255,255,0.08);">' +
+                '<i class="fa fa-eye fa-fw text-muted"></i>' +
+                '<label style="margin:0;cursor:pointer;user-select:none;font-weight:normal;">' +
+                '<input type="checkbox" id="chk_show_advanced_general" style="margin-right:6px;">Show advanced fields' +
+                '</label>' +
+                '<span class="small text-muted">(optional, rarely needed)</span>' +
+                '</div>'
+            );
+            $tab.children('.content-box').first().prepend($row);
+            $tab.toggleClass('optional-hidden', !saved);
+            $('#chk_show_advanced_general').prop('checked', saved).on('change', function () {
+                var show = $(this).prop('checked');
+                localStorage.setItem('osxray_show_advanced_general', show ? '1' : '0');
+                $tab.toggleClass('optional-hidden', !show);
             });
         })();
 
