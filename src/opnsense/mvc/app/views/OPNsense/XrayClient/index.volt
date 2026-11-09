@@ -234,6 +234,7 @@
                 toggleExpertTab($('#xrayclient\\.general\\.expert_mode').prop('checked'));
             }
             toggleObservatoryRows();
+            toggleAuthRows();
         });
 
         updateServiceControlUI('xrayclient');
@@ -573,6 +574,24 @@
             });
         }
         $('#xrayclient\\.general\\.observatory_type').on('change', toggleObservatoryRows);
+
+        // Local proxies: credentials are only useful with password auth.
+        // Hide them with noauth; the model also refuses to save filled
+        // credentials unless authentication is set to password.
+        function toggleAuthRows() {
+            var pairs = [
+                ['#xrayclient\\.general\\.socks_auth', '#xrayclient\\.general\\.socks_username', '#xrayclient\\.general\\.socks_password'],
+                ['#xrayclient\\.general\\.http_auth', '#xrayclient\\.general\\.http_username', '#xrayclient\\.general\\.http_password']
+            ];
+            $.each(pairs, function (_, pair) {
+                var show = ($(pair[0]).val() || 'noauth') === 'password';
+                // OPNsense 26 renders base_form rows as <tr id="row_...">;
+                // older layouts use .form-group, so match both.
+                $(pair[1]).closest('tr, .form-group').toggle(show);
+                $(pair[2]).closest('tr, .form-group').toggle(show);
+            });
+        }
+        $('#xrayclient\\.general\\.socks_auth, #xrayclient\\.general\\.http_auth').on('change', toggleAuthRows);
 
         function toggleGeoDataCustomUI() {
             var preset = $('#xrayclient\\.maintenance\\.geodata_preset').val();

@@ -11,6 +11,9 @@ class XrayClient extends BaseModel
      * Cross-field checks the per-field masks cannot express:
      * - a local proxy with "password" authentication needs a user name and a
      *   password, otherwise Xray starts an inbound nobody can log in to;
+     * - with "noauth" authentication the user name and password must be
+     *   empty, otherwise stale credentials linger in a config that ignores
+     *   them;
      * - balancer tags must be unique, because routing rules pick a balancer
      *   by tag alone;
      * - an XDRIVE node must satisfy the rules Xray enforces in
@@ -27,15 +30,29 @@ class XrayClient extends BaseModel
         ];
         foreach ($inbounds as $names) {
             list($enable, $auth, $user, $pass) = $names;
-            if ((string)$this->general->$enable !== '1' || (string)$this->general->$auth !== 'password') {
+            if ((string)$this->general->$enable !== '1') {
                 continue;
             }
-            foreach ([$user, $pass] as $name) {
-                if (trim((string)$this->general->$name) === '') {
-                    $messages->appendMessage(new Message(
-                        gettext('Required when authentication is set to password.'),
-                        $this->general->$name->__reference
-                    ));
+            $mode = (string)$this->general->$auth;
+            if ($mode === 'password') {
+                foreach ([$user, $pass] as $name) {
+                    if (trim((string)$this->general->$name) === '') {
+                        $messages->appendMessage(new Message(
+                            gettext('Required when authentication is set to password.'),
+                            $this->general->$name->__reference
+                        ));
+                    }
+                }
+            } elseif ($mode === 'noauth') {
+                // Fail closed: with noauth the credentials are silently
+                // ignored by Xray, so do not let them linger in the config.
+                foreach ([$user, $pass] as $name) {
+                    if (trim((string)$this->general->$name) !== '') {
+                        $messages->appendMessage(new Message(
+                            gettext('Must be empty when authentication is set to noauth.'),
+                            $this->general->$name->__reference
+                        ));
+                    }
                 }
             }
         }
