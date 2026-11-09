@@ -92,11 +92,21 @@ DGST_URL=$(echo "${RELEASE_INFO}" | cut -d'|' -f3)
 echo "Found version: ${TAG}"
 echo "Downloading: ${URL}"
 
-if ! fetch -q -o "${TMP_DIR}/xray.zip" "${URL}"; then
+# BSD fetch gives up on some hosts/CA bundles; fall back to curl, the same
+# way update_plugin.sh and update_geodata.sh do.
+download() {
+    if fetch -q -o "$2" "$1" && [ -s "$2" ]; then
+        return 0
+    fi
+    echo "fetch failed; trying curl..." >&2
+    curl -fsSL --retry 3 -o "$2" "$1" && [ -s "$2" ]
+}
+
+if ! download "${URL}" "${TMP_DIR}/xray.zip"; then
     echo "ERROR: Failed to download Xray archive."
     exit 1
 fi
-if ! fetch -q -o "${TMP_DIR}/xray.zip.dgst" "${DGST_URL}"; then
+if ! download "${DGST_URL}" "${TMP_DIR}/xray.zip.dgst"; then
     echo "ERROR: Failed to download the checksum file."
     exit 1
 fi
