@@ -290,6 +290,38 @@
     },
 {%- endmacro -%}
 
+{% macro selector_array(value, nodes) -%}
+{#- Expand tag prefixes into explicit outbound tags, leaving out nodes that
+    are not real egress paths (freedom, blackhole, dns, loopback): a balancer
+    or observatory matching "node_" would otherwise rotate traffic into a
+    blackhole. A prefix that matches no node is passed through unchanged. -#}
+[
+{%- set _skip = ['freedom', 'blackhole', 'dns', 'loopback'] -%}
+{%- set _out = [] -%}
+{%- for _p in (value.split(',') if value is string else (value or [])) -%}
+{%-   set _pfx = _p | string | trim -%}
+{%-   if _pfx != '' -%}
+{%-     set _any = [] -%}
+{%-     set _hit = [] -%}
+{%-     for _n in nodes -%}
+{%-       set _tag = 'node_' ~ _n['@uuid'] -%}
+{%-       if _tag.startswith(_pfx) -%}
+{%-         do _any.append(_tag) -%}
+{%-         if (_n.protocol or '') not in _skip -%}
+{%-           do _hit.append(_tag) -%}
+{%-         endif -%}
+{%-       endif -%}
+{%-     endfor -%}
+{%-     for _t in (_hit if _hit else [_pfx]) -%}
+{%-       if _t not in _out -%}{%- do _out.append(_t) -%}{%- endif -%}
+{%-     endfor -%}
+{%-   endif -%}
+{%- endfor -%}
+{%- for _t in _out -%}
+{{ _t | tojson }}{{ "," if not loop.last else "" }}
+{%- endfor -%}
+]
+{%- endmacro -%}
 {% macro int_array(value, fallback) -%}
 [
 {%- set _vals = value.split(',') if value is string else (value or []) -%}
@@ -512,7 +544,7 @@
 {% set _obs_selector = (general.observatory_selector | string | trim) or 'node_' %}
 {% if _obs_type == 'burst' %}
   "burstObservatory": {
-    "subjectSelector": {{ json_array(_obs_selector, '["node_"]') }},
+    "subjectSelector": {{ selector_array(_obs_selector, active_nodes) }},
     "pingConfig": {
       "destination": {{ (general.observatory_url or 'https://connectivitycheck.gstatic.com/generate_204') | tojson }},
       "interval": {{ (general.observatory_interval or '1m') | tojson }},
@@ -523,7 +555,7 @@
   },
 {% elif _obs_type == 'background' %}
   "observatory": {
-    "subjectSelector": {{ json_array(_obs_selector, '["node_"]') }},
+    "subjectSelector": {{ selector_array(_obs_selector, active_nodes) }},
     "probeURL": {{ (general.observatory_url or 'https://connectivitycheck.gstatic.com/generate_204') | tojson }},
     "probeInterval": {{ (general.observatory_interval or '1m') | tojson }},
     "enableConcurrency": {{ 'true' if general.observatory_concurrency | default('0') == '1' else 'false' }}
@@ -554,7 +586,7 @@
 {%     set _bal_fallback = balancer.fallback_tag | string | trim %}
       {
         "tag": {{ _bal_tag | tojson }},
-        "selector": {% if _bal_selector != '' %}{{ json_array(_bal_selector, '[]') }}{% else %}["node_"]{% endif %},
+        "selector": {{ selector_array(_bal_selector or 'node_', active_nodes) }},
         "strategy": {
           "type": {{ (balancer.strategy or 'leastPing') | tojson }}
         }{% if _bal_fallback != '' and _obs_type != 'none' %},

@@ -550,6 +550,29 @@ class TestConfigTemplate(unittest.TestCase):
             'fallbackTag': 'direct',
         }])
 
+    def test_balancer_selector_skips_non_proxy_nodes(self):
+        vless = dict(TEST_NODE, **{'@uuid': 'aaaaaaaa-0000-0000-0000-000000000001',
+                                   'protocol': 'vless', 'address': 'a.example', 'port': '443'})
+        wg = dict(TEST_NODE, **{'@uuid': 'aaaaaaaa-0000-0000-0000-000000000002',
+                                'protocol': 'wireguard'})
+        hole = dict(TEST_NODE, **{'@uuid': 'aaaaaaaa-0000-0000-0000-000000000003',
+                                  'protocol': 'blackhole'})
+        cfg = render_config({'observatory_type': 'burst'},
+                            nodes=[vless, wg, hole, TEST_NODE],
+                            balancers=[TEST_BALANCER])
+        expected = ['node_aaaaaaaa-0000-0000-0000-000000000001',
+                    'node_aaaaaaaa-0000-0000-0000-000000000002']
+        self.assertEqual(cfg['routing']['balancers'][0]['selector'], expected)
+        self.assertEqual(cfg['burstObservatory']['subjectSelector'], expected)
+
+    def test_balancer_selector_passes_other_prefixes_through(self):
+        vless = dict(TEST_NODE, **{'@uuid': 'bbbbbbbb-0000-0000-0000-000000000001',
+                                   'protocol': 'vless'})
+        bal = dict(TEST_BALANCER, selector='node_,custom_')
+        cfg = render_config(nodes=[vless], balancers=[bal])
+        self.assertEqual(cfg['routing']['balancers'][0]['selector'],
+                         ['node_bbbbbbbb-0000-0000-0000-000000000001', 'custom_'])
+
     def test_balancer_without_observatory_omits_fallback_tag(self):
         # Xray fails "not all dependencies are resolved" when a balancer
         # carries fallbackTag but no observatory is configured. The template
