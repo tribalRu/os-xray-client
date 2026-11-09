@@ -1718,9 +1718,9 @@
             });
         });
 
-        // The plugin's own tail preview was replaced by links to the standard
+        // The plugin's own tail preview was replaced by the standard
         // OPNsense log viewer (search, severity filter, history, CSV export,
-        // flush) — see #tab_logs below.
+        // flush) — see Services → Xray Client → Logs in the main menu.
     });
 </script>
 
@@ -1732,7 +1732,6 @@
     <li><a data-toggle="tab" href="#tab_dns"><b>DNS Servers</b></a></li>
     <li id="tab_expert_li" style="display: none;"><a data-toggle="tab" href="#tab_expert"><b>Expert Config</b></a></li>
     <li><a data-toggle="tab" href="#tab_maintenance"><b>Maintenance &amp; Updates</b></a></li>
-    <li><a data-toggle="tab" href="#tab_logs"><b>Log Viewer</b></a></li>
 </ul>
 
 <div class="tab-content content-box">
@@ -2003,29 +2002,6 @@
                 <i class="fa fa-github"></i> <b>Update Plugin from GitHub</b>
             </button>
             <pre id="maintenance_output" style="display:none; margin-top: 15px; max-height: 300px; overflow-y: auto;"></pre>
-        </div>
-    </div>
-
-    <div id="tab_logs" class="tab-pane fade in">
-        <div class="col-md-12" style="margin-top: 15px; margin-bottom: 15px;">
-            <p>Logs are <b>not</b> rendered inside the plugin. Use the standard OPNsense log viewer — it is the same viewer the Firewall logs use: full-text search, severity filter (range/exact), history (Last day/week/month/No limit), CSV export and a <b>Flush log</b> button. The grid refreshes with its reload button:</p>
-            <p>
-                <a class="btn btn-primary" href="/ui/diagnostics/log/xray/error" target="_blank" rel="noopener">
-                    <i class="fa fa-exclamation-triangle"></i> Xray Error &amp; System Log (/var/log/xray/error.log)
-                </a>
-                &nbsp;
-                <a class="btn btn-default" href="/ui/diagnostics/log/xray/access" target="_blank" rel="noopener">
-                    <i class="fa fa-exchange"></i> Xray Access &amp; Routing Log (/var/log/xray/access.log)
-                </a>
-            </p>
-            <p class="text-muted">
-                Rows are parsed by the <code>xraylog</code> format handler, which the plugin copies to
-                <code>/usr/local/opnsense/scripts/syslog/logformats/xraylog.py</code> on install and removes on uninstall:
-                timestamp, severity (Error/Warning/Info/Debug) and the tag (<code>core</code>, <code>app/router</code>, …) become filterable columns.
-                The access log only contains rows while <b>Enable Access Log</b> is on in General Settings.
-                Without the format handler the viewer still works, but severity and history filters have no effect.
-                Use the page's own <i class="fa fa-trash"></i> Flush log button to clear a log — it also removes rotated files.
-            </p>
         </div>
     </div>
 </div>

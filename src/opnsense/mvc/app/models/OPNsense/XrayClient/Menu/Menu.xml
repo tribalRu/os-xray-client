@@ -1,5 +1,10 @@
 <menu>
     <Services>
-        <XrayClient VisibleName="Xray Client" cssClass="fa fa-shield fa-fw" url="/ui/xrayclient"/>
+        <XrayClient VisibleName="Xray Client" cssClass="fa fa-shield fa-fw" url="/ui/xrayclient">
+            <Logs VisibleName="Logs" cssClass="fa fa-file-text-o fa-fw" order="100">
+                <ErrorLog VisibleName="Error Log" url="/ui/diagnostics/log/xray/error" order="10"/>
+                <AccessLog VisibleName="Access Log" url="/ui/diagnostics/log/xray/access" order="20"/>
+            </Logs>
+        </XrayClient>
     </Services>
 </menu>
