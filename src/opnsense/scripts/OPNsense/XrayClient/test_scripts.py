@@ -581,6 +581,14 @@ class TestConfigTemplate(unittest.TestCase):
         socks = [i for i in cfg['inbounds'] if i['tag'] == 'socks-in'][0]
         self.assertEqual(socks['settings']['users'][0]['pass'], pw)
 
+    def test_tls_use_system_ca_only_when_enabled(self):
+        node = dict(XDRIVE_NODE)
+        stream = render_config(nodes=[node])['outbounds'][0]['streamSettings']
+        self.assertNotIn('useSystemCA', stream['tlsSettings'])
+        node['tls_use_system_ca'] = '1'
+        stream = render_config(nodes=[node])['outbounds'][0]['streamSettings']
+        self.assertIs(stream['tlsSettings']['useSystemCA'], True)
+
     def test_balancer_selector_skips_non_proxy_nodes(self):
         vless = dict(TEST_NODE, **{'@uuid': 'aaaaaaaa-0000-0000-0000-000000000001',
                                    'protocol': 'vless', 'address': 'a.example', 'port': '443'})
@@ -822,6 +830,53 @@ class _FakeFile:
 
     def close(self):
         pass
+
+
+class TestConfigShellTest(unittest.TestCase):
+    """test_config.sh with a fake xray binary."""
+
+    def run_script(self, banner, rc, config):
+        import json
+        import shutil
+        import stat
+        import subprocess
+        import sys
+        import tempfile
+        script = os.path.join(SCRIPT_DIR, 'test_config.sh')
+        with tempfile.TemporaryDirectory() as tmp:
+            fake = os.path.join(tmp, 'xray')
+            with open(fake, 'w') as fh:
+                fh.write('#!/bin/sh\necho "%s"\necho "Failed to start: something"\nexit %d\n' % (banner, rc))
+            os.chmod(fake, os.stat(fake).st_mode | stat.S_IEXEC)
+            cfg = os.path.join(tmp, 'config.json')
+            with open(cfg, 'w') as fh:
+                json.dump(config, fh)
+            env = dict(os.environ, XRAY_BIN=fake, XRAY_CONFIG=cfg, XRAY_PYTHON=sys.executable)
+            out = subprocess.run(['sh', script], env=env, capture_output=True, text=True).stdout
+            return json.loads(out)
+
+    XDRIVE_CFG = {'outbounds': [{'streamSettings': {'network': 'xdrive'}}]}
+    PLAIN_CFG = {'outbounds': [{'streamSettings': {'network': 'tcp'}}]}
+
+    def test_ok(self):
+        res = self.run_script('Xray 26.11.9 (go1.26)', 0, self.PLAIN_CFG)
+        self.assertEqual(res, {'status': 'ok'})
+
+    def test_old_core_with_xdrive_gets_a_clear_message(self):
+        res = self.run_script('Xray 26.10.29 (go1.26)', 1, self.XDRIVE_CFG)
+        self.assertEqual(res['status'], 'error')
+        self.assertIn('26.11.9 or newer', res['message'])
+        self.assertIn('26.10.29', res['message'])
+        self.assertIn('something', res['message'])
+
+    def test_new_core_error_is_passed_through(self):
+        res = self.run_script('Xray 26.11.9 (go1.26)', 1, self.XDRIVE_CFG)
+        self.assertNotIn('26.11.9 or newer', res['message'])
+        self.assertIn('something', res['message'])
+
+    def test_old_core_without_xdrive_is_passed_through(self):
+        res = self.run_script('Xray 26.10.29 (go1.26)', 1, self.PLAIN_CFG)
+        self.assertNotIn('XDRIVE', res['message'])
 
 
 if __name__ == '__main__':

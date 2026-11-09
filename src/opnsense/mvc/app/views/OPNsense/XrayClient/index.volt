@@ -1091,7 +1091,7 @@
         (function injectAdvancedToggle() {
             var expertIds = [
                 'node.grpc_authority', 'node.grpc_user_agent', 'node.grpc_idle_timeout', 'node.grpc_health_check_timeout', 'node.grpc_permit_without_stream', 'node.grpc_initial_windows_size',
-                'node.tls_verify_peer_cert_by_name', 'node.tls_pinned_peer_cert_sha256', 'node.tls_ech_config_list', 'node.tls_min_version', 'node.tls_max_version',
+                'node.tls_verify_peer_cert_by_name', 'node.tls_use_system_ca', 'node.tls_pinned_peer_cert_sha256', 'node.tls_ech_config_list', 'node.tls_min_version', 'node.tls_max_version',
                 'node.reality_mldsa65_verify', 'node.ws_heartbeat_period',
                 'node.sockopt_domainStrategy', 'node.sockopt_dialer_proxy', 'node.sockopt_interface', 'node.sockopt_mark',
                 'node.sockopt_tcp_congestion', 'node.sockopt_tcp_fast_open',
