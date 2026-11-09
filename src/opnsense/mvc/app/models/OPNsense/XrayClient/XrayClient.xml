@@ -1018,8 +1018,8 @@
                 <tag type="TextField">
                     <default>auto</default>
                     <Required>Y</Required>
-                    <Mask>/^(?!direct$|block$|api$)[A-Za-z0-9_.-]{1,64}$/</Mask>
-                    <ValidationMessage>Tag must be 1-64 characters (letters, digits, _ . -); direct, block and api are reserved.</ValidationMessage>
+                    <Mask>/^(?!direct$|block$|api$|node_)[A-Za-z0-9_.-]{1,64}$/</Mask>
+                    <ValidationMessage>Tag must be 1-64 characters (letters, digits, _ . -); direct, block and api are reserved, and node_ is the prefix of node tags.</ValidationMessage>
                 </tag>
                 <selector type="CSVListField">
                     <default>node_</default>

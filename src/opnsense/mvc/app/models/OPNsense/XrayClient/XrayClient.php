@@ -10,7 +10,9 @@ class XrayClient extends BaseModel
     /**
      * Cross-field checks the per-field masks cannot express:
      * - a local proxy with "password" authentication needs a user name and a
-     *   password, otherwise Xray starts an inbound nobody can log in to.
+     *   password, otherwise Xray starts an inbound nobody can log in to;
+     * - balancer tags must be unique, because routing rules pick a balancer
+     *   by tag alone.
      */
     public function performValidation($validateFullModel = false)
     {
@@ -33,6 +35,24 @@ class XrayClient extends BaseModel
                     ));
                 }
             }
+        }
+
+        $seen = [];
+        foreach ($this->balancers->balancer->iterateItems() as $balancer) {
+            if ((string)$balancer->enabled !== '1') {
+                continue;
+            }
+            $tag = trim((string)$balancer->tag);
+            if ($tag === '') {
+                continue;
+            }
+            if (isset($seen[$tag])) {
+                $messages->appendMessage(new Message(
+                    gettext('Balancer tags must be unique.'),
+                    $balancer->tag->__reference
+                ));
+            }
+            $seen[$tag] = true;
         }
 
         return $messages;
