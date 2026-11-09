@@ -7,6 +7,7 @@
             <endpoint>/api/xrayclient/service/stats</endpoint>
             <endpoint>/api/xrayclient/service/healthcheck</endpoint>
             <endpoint>/api/xrayclient/service/status</endpoint>
+            <endpoint>/api/xrayclient/service/balancerInfo</endpoint>
         </endpoints>
         <translations>
             <title>Xray Client</title>
@@ -14,8 +15,6 @@
             <stopped>Stopped</stopped>
             <active>active</active>
             <best_latency>Best latency</best_latency>
-            <download>Download</download>
-            <upload>Upload</upload>
             <offline>Offline</offline>
             <unchecked>Unchecked</unchecked>
             <disabled>Disabled</disabled>
