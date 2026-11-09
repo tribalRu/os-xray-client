@@ -550,6 +550,13 @@ class TestConfigTemplate(unittest.TestCase):
             'fallbackTag': 'direct',
         }])
 
+    def test_inbound_password_with_quotes_and_backslash(self):
+        pw = 'p"a\\ss\'w'
+        cfg = render_config({'socks_auth': 'password', 'socks_username': 'u',
+                             'socks_password': pw})
+        socks = [i for i in cfg['inbounds'] if i['tag'] == 'socks-in'][0]
+        self.assertEqual(socks['settings']['users'][0]['pass'], pw)
+
     def test_balancer_selector_skips_non_proxy_nodes(self):
         vless = dict(TEST_NODE, **{'@uuid': 'aaaaaaaa-0000-0000-0000-000000000001',
                                    'protocol': 'vless', 'address': 'a.example', 'port': '443'})

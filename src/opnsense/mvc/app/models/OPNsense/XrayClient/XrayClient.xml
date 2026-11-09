@@ -124,8 +124,8 @@
             <socks_password type="TextField">
                 <default></default>
                 <Required>N</Required>
-                <Mask>/^$|^[^"'\\\x00-\x1F\x7F]{1,128}$/</Mask>
-                <ValidationMessage>Password up to 128 chars, no quotes or control characters.</ValidationMessage>
+                <Mask>/^$|^[^\x00-\x1F\x7F]{1,128}$/</Mask>
+                <ValidationMessage>Password up to 128 characters, no control characters.</ValidationMessage>
             </socks_password>
             <socks_listen type="TextField">
                 <default>127.0.0.1</default>
@@ -164,8 +164,8 @@
             <http_password type="TextField">
                 <default></default>
                 <Required>N</Required>
-                <Mask>/^$|^[^"'\\\x00-\x1F\x7F]{1,128}$/</Mask>
-                <ValidationMessage>Password up to 128 chars, no quotes or control characters.</ValidationMessage>
+                <Mask>/^$|^[^\x00-\x1F\x7F]{1,128}$/</Mask>
+                <ValidationMessage>Password up to 128 characters, no control characters.</ValidationMessage>
             </http_password>
             <http_port type="PortField">
                 <default>10809</default>
