@@ -1039,7 +1039,7 @@
                     </OptionValues>
                 </strategy>
                 <fallback_tag type="TextField">
-                    <default>direct</default>
+                    <default></default>
                     <Required>N</Required>
                     <Mask>/^$|^(?!api$)[A-Za-z0-9_.:-]{1,64}$/</Mask>
                     <ValidationMessage>Fallback tag must be direct, block, a node tag or another balancer tag (1-64 characters).</ValidationMessage>
