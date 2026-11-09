@@ -475,6 +475,13 @@ class TestConfigTemplate(unittest.TestCase):
         self.assertEqual(cfg['dns']['servers'], [])
         self.assertEqual(cfg['dns']['hosts'], {'example.com': '192.0.2.10'})
 
+    def test_dns_hosts_with_servers_and_list_values(self):
+        hosts = '{"a.example": "192.0.2.1", "*.lan": ["192.0.2.2", "192.0.2.3"]}'
+        cfg = render_config({'dns_enabled': '1', 'dns_hosts_json': hosts},
+                            dns_servers=[TEST_DNS_SERVER])
+        self.assertEqual(cfg['dns']['hosts']['*.lan'], ['192.0.2.2', '192.0.2.3'])
+        self.assertEqual(cfg['dns']['servers'][0]['address'], 'https://1.1.1.1/dns-query')
+
     def test_dns_form_wins_over_raw_json(self):
         raw = '{"servers": ["https://9.9.9.9/dns-query"]}'
         cfg = render_config({'dns_enabled': '1', 'dns_json': raw},

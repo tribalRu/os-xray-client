@@ -386,9 +386,8 @@
 {%   endfor %}
 {% endif %}
 {% set _hosts_json = (general.dns_hosts_json or '') | trim %}
-{% set _hosts_body = header_object(_hosts_json) if _hosts_json != '' else '' %}
 {% set _dns_json = (general.dns_json or '') | trim %}
-{% if dns_enabled and (active_dns | length > 0 or _hosts_body != '') %}
+{% if dns_enabled and (active_dns | length > 0 or _hosts_json != '') %}
   "dns": {
 {% if active_dns %}
     "servers": [
@@ -411,7 +410,7 @@
 {% else %}
     "servers": [],
 {% endif %}
-    "hosts": {{ _hosts_body or '{}' }},
+    "hosts": {{ _hosts_json or '{}' }},
     "queryStrategy": {{ (general.dns_query_strategy or 'useIp') | tojson }},
     "disableCache": {{ 'true' if general.dns_disable_cache | default('0') == '1' else 'false' }},
     "disableFallback": {{ 'true' if general.dns_disable_fallback | default('0') == '1' else 'false' }},
