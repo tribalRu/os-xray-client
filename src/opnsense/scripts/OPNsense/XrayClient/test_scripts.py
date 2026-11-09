@@ -572,6 +572,21 @@ class TestConfigTemplate(unittest.TestCase):
         self.assertEqual(cfg['routing']['balancers'][0]['selector'], expected)
         self.assertEqual(cfg['burstObservatory']['subjectSelector'], expected)
 
+    def test_balancer_selector_with_only_non_proxy_nodes_fails_closed(self):
+        # Xray rejects an empty selector list, so a prefix that matches only
+        # freedom/blackhole nodes becomes "__none__": it matches no outbound,
+        # so the balancer selects nothing instead of rotating traffic into
+        # freedom (a leak) or a blackhole (a silent outage).
+        hole = dict(TEST_NODE, **{'@uuid': 'cccccccc-0000-0000-0000-000000000001',
+                                  'protocol': 'blackhole'})
+        cfg = render_config({'observatory_type': 'burst'},
+                            nodes=[TEST_NODE, hole],
+                            balancers=[TEST_BALANCER])
+        self.assertEqual(cfg['routing']['balancers'][0]['selector'],
+                         ['__none__'])
+        self.assertEqual(cfg['burstObservatory']['subjectSelector'],
+                         ['__none__'])
+
     def test_balancer_selector_passes_other_prefixes_through(self):
         vless = dict(TEST_NODE, **{'@uuid': 'bbbbbbbb-0000-0000-0000-000000000001',
                                    'protocol': 'vless'})

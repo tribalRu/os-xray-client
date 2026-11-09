@@ -294,7 +294,11 @@
 {#- Expand tag prefixes into explicit outbound tags, leaving out nodes that
     are not real egress paths (freedom, blackhole, dns, loopback): a balancer
     or observatory matching "node_" would otherwise rotate traffic into a
-    blackhole. A prefix that matches no node is passed through unchanged. -#}
+    blackhole. A prefix that matches no node is passed through unchanged, so
+    balancers aimed at tags not generated here keep working. When the prefix
+    does match nodes but none of them is a proxy, emit "__none__" instead:
+    Xray rejects an empty selector list ("empty selector list") and the
+    balancer then selects nothing, which fails closed. -#}
 [
 {%- set _skip = ['freedom', 'blackhole', 'dns', 'loopback'] -%}
 {%- set _out = [] -%}
@@ -312,7 +316,7 @@
 {%-         endif -%}
 {%-       endif -%}
 {%-     endfor -%}
-{%-     for _t in (_hit if _hit else [_pfx]) -%}
+{%-     for _t in (_hit if _hit else (['__none__'] if _any else [_pfx])) -%}
 {%-       if _t not in _out -%}{%- do _out.append(_t) -%}{%- endif -%}
 {%-     endfor -%}
 {%-   endif -%}
