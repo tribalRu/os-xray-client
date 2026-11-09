@@ -546,6 +546,10 @@
                     <default>0</default>
                     <Required>Y</Required>
                 </allow_insecure>
+                <tls_use_system_ca type="BooleanField">
+                    <default>0</default>
+                    <Required>Y</Required>
+                </tls_use_system_ca>
                 <reality_pubkey type="TextField">
                     <default></default>
                     <Required>N</Required>

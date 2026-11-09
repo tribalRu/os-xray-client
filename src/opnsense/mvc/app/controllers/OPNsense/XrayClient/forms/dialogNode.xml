@@ -425,6 +425,13 @@
         <style>sec_tls</style>
     </field>
     <field>
+        <id>node.tls_use_system_ca</id>
+        <label>Use System CA Store</label>
+        <type>checkbox</type>
+        <style>sec_tls</style>
+        <help>Trust the operating system's CA list instead of Xray's built-in one (Xray default: off). Useful when the server certificate is signed by a private CA that is installed on the router. Needs Xray-core 26.11.9 or newer; older cores ignore the option.</help>
+    </field>
+    <field>
         <id>node.reality_pubkey</id>
         <label>REALITY Public Key (pbk)</label>
         <type>text</type>

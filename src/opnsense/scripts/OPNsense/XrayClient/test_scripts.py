@@ -581,6 +581,14 @@ class TestConfigTemplate(unittest.TestCase):
         socks = [i for i in cfg['inbounds'] if i['tag'] == 'socks-in'][0]
         self.assertEqual(socks['settings']['users'][0]['pass'], pw)
 
+    def test_tls_use_system_ca_only_when_enabled(self):
+        node = dict(XDRIVE_NODE)
+        stream = render_config(nodes=[node])['outbounds'][0]['streamSettings']
+        self.assertNotIn('useSystemCA', stream['tlsSettings'])
+        node['tls_use_system_ca'] = '1'
+        stream = render_config(nodes=[node])['outbounds'][0]['streamSettings']
+        self.assertIs(stream['tlsSettings']['useSystemCA'], True)
+
     def test_balancer_selector_skips_non_proxy_nodes(self):
         vless = dict(TEST_NODE, **{'@uuid': 'aaaaaaaa-0000-0000-0000-000000000001',
                                    'protocol': 'vless', 'address': 'a.example', 'port': '443'})
