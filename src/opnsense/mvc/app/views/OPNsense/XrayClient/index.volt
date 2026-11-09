@@ -1718,9 +1718,9 @@
             });
         });
 
-        // The plugin's own tail preview was replaced by links to the
-        // standard OPNsense log viewer (search, severity filter, history,
-        // SSE live tail, CSV export, flush) — see #tab_logs below.
+        // The plugin's own tail preview was replaced by links to the standard
+        // OPNsense log viewer (search, severity filter, history, CSV export,
+        // flush) — see #tab_logs below.
     });
 </script>
 
@@ -2008,13 +2008,13 @@
 
     <div id="tab_logs" class="tab-pane fade in">
         <div class="col-md-12" style="margin-top: 15px; margin-bottom: 15px;">
-            <p>Logs are <b>not</b> rendered inside the plugin. Use the standard OPNsense log viewer — it is a drop-in equivalent of the Firewall Live View: full-text search, severity filter (range/exact), history (Last day/week/month), live tail over SSE, CSV export and a <b>Flush log</b> button:</p>
+            <p>Logs are <b>not</b> rendered inside the plugin. Use the standard OPNsense log viewer — it is the same viewer the Firewall logs use: full-text search, severity filter (range/exact), history (Last day/week/month/No limit), CSV export and a <b>Flush log</b> button. The grid refreshes with its reload button:</p>
             <p>
-                <a class="btn btn-primary" href="/ui/diagnostics/logs/xray/error" target="_blank" rel="noopener">
+                <a class="btn btn-primary" href="/ui/diagnostics/log/xray/error" target="_blank" rel="noopener">
                     <i class="fa fa-exclamation-triangle"></i> Xray Error &amp; System Log (/var/log/xray/error.log)
                 </a>
                 &nbsp;
-                <a class="btn btn-default" href="/ui/diagnostics/logs/xray/access" target="_blank" rel="noopener">
+                <a class="btn btn-default" href="/ui/diagnostics/log/xray/access" target="_blank" rel="noopener">
                     <i class="fa fa-exchange"></i> Xray Access &amp; Routing Log (/var/log/xray/access.log)
                 </a>
             </p>
