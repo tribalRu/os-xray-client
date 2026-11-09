@@ -395,7 +395,7 @@
         <label>Pinned Peer Cert SHA-256</label>
         <type>text</type>
         <style>sec_tls</style>
-        <help>SHA-256 hex digest(s) of the peer certificate, comma-separated. Overrides normal certificate validation.</help>
+        <help>SHA-256 hex digest(s) of the peer certificate, comma-separated. Overrides normal certificate validation, so it also works with self-signed certificates and replaces Allow Insecure TLS. Produce the value with the xray tls hash or xray tls ping commands.</help>
     </field>
     <field>
         <id>node.tls_ech_config_list</id>
@@ -423,6 +423,7 @@
         <label>Allow Insecure TLS</label>
         <type>checkbox</type>
         <style>sec_tls</style>
+        <help>Skips server certificate verification. Deprecated by Xray-core and may be removed in a future release. Prefer Pinned Peer Cert SHA-256 below (the value can be produced with the xray tls hash or xray tls ping commands).</help>
     </field>
     <field>
         <id>node.tls_use_system_ca</id>
