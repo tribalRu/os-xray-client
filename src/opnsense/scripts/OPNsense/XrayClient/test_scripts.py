@@ -177,7 +177,7 @@ except ImportError:  # pragma: no cover - dev machines without Jinja2
     JINJA2_AVAILABLE = False
 
 TEMPLATE_PATH = os.path.normpath(os.path.join(
-    SCRIPT_DIR, '..', '..', '..', '..', 'service', 'templates',
+    SCRIPT_DIR, '..', '..', '..', 'service', 'templates',
     'OPNsense', 'XrayClient', 'config.json.j2'))
 
 TEST_NODE = {
