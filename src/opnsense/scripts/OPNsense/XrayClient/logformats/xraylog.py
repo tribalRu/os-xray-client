@@ -22,7 +22,6 @@
     Xray did not format itself can never crash the reader.
 """
 import re
-import html
 import datetime
 from . import NewBaseLogFormat
 
@@ -81,10 +80,10 @@ class XrayLogFormat(NewBaseLogFormat):
             else:
                 head, sep, _ = rest.partition(':')
                 self._process = head.strip() if sep else rest.split(' ', 1)[0][:64]
-            # The default bootgrid formatter inserts cell HTML unsanitized, so
-            # escape everything Xray wrote (a client-controlled SNI/URL in the
-            # access log could otherwise inject markup into the admin's browser).
-            self._rest = html.escape(rest, quote=False)
+            # The OPNsense bootgrid/tabulator cell renderer escapes raw
+            # HTML itself (cf. the process_name column), so Xray's text is
+            # inserted safely as-is. Escaping here too would double-encode.
+            self._rest = rest
             return
 
         match = _XRAY_GENERIC_RE.match(line)
@@ -109,7 +108,8 @@ class XrayLogFormat(NewBaseLogFormat):
             self._process = detour.group(1).strip()[:64]
         else:
             self._process = 'access'
-        self._rest = html.escape(rest, quote=False)
+        # Raw text: the OPNsense cell renderer escapes HTML itself.
+        self._rest = rest
 
     @property
     def timestamp(self):
