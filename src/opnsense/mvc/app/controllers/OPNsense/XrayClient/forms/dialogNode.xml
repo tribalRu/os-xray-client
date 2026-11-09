@@ -779,6 +779,6 @@
         <type>textbox</type>
         <style>stream_custom</style>
         <height>6</height>
-        <help>FinalMask traffic obfuscation settings as JSON object.</help>
+        <help>FinalMask traffic obfuscation settings as a JSON object with tcp and udp lists. tcp types: header-custom, fragment, sudoku, filter. udp types: header-custom, mkcp-legacy, noise, salamander, sudoku, xdns, xicmp, realm, udphop, filter. Xray-core 26.11.9 reads different keys than older cores: udphop takes mode, interval, remoteIPs and remotePorts (no sockopt), and xdns takes domains and resolvers (no domain). Keys the core does not read are ignored silently and do not fail the config test, so verify the obfuscation on a live connection.</help>
     </field>
 </form>
