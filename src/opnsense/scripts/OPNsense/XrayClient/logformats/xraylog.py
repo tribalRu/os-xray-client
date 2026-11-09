@@ -1,28 +1,42 @@
 """
     OPNsense log format handler for Xray-core log lines.
 
-    Xray writes "YYYY/MM/DD HH:MM:SS.microsecond [level] tag: line", which the
-    built-in syslog handlers do not recognize. Without this handler every
-    line is shown unfiltered: nothing is dropped, but the severity filter and
-    the history filter (valid_from) cannot work either. Install into
-    /usr/local/opnsense/scripts/syslog/logformats/xraylog.py (install.sh does
-    this; uninstall.sh removes it).
+    Xray has three line shapes that all belong here:
 
-    The handler is written defensively: an unparsable line is left for the
-    next handler (and ends up visible with severity=None/timestamp=None, as
-    with any unknown format), so a log line Xray did not format itself can
-    never crash the reader.
+    1. Error/system log: "YYYY/MM/DD HH:MM:SS.micro [level] tag: message"
+       (for example, "[Warning] core: Xray 26.10.31 started" or
+       "[app/router/burst]" style tags).
+    2. Access log: "YYYY/MM/DD HH:MM:SS.micro from <src> accepted|rejected <dst>
+       [<inboundTag> -> <outboundTag>]". No severity is logged here.
+    3. DNS log (when DNS logging is enabled, it goes to the access log file):
+       "<server> got answer: <domain> -> [ips]" or "cache HIT: ..." etc.
+
+    Severity is only meaningful for the first kind, so access/DNS lines are
+    reported as Informational (the OPNsense log page defaults to Warning for
+    non-core scopes — switch the severity filter to Informational there once,
+    the choice persists in browser storage). The access log detoured
+    inbound -> outbound is surfaced as the Process column.
+
+    An unparsable line is left for the next handler (and ends up visible with
+    severity=None/timestamp=None, as with any unknown format), so a log line
+    Xray did not format itself can never crash the reader.
 """
 import re
 import html
 import datetime
 from . import NewBaseLogFormat
 
-_XRAY_RE = re.compile(
+_XRAY_ERROR_RE = re.compile(
     r'^(\d{4})/(\d{2})/(\d{2}) (\d{2}):(\d{2}):(\d{2})\.(\d+)\s+'
     r'\[(Fatal|Fatal error|Panic|Error|Warning|Info|Debug)\]\s+(.*)$',
     re.IGNORECASE,
 )
+
+_XRAY_GENERIC_RE = re.compile(
+    r'^(\d{4})/(\d{2})/(\d{2}) (\d{2}):(\d{2}):(\d{2})\.(\d+)\s+(.*)$'
+)
+
+_DETOUR_RE = re.compile(r'\[([^\[\]]+)\]\s*$')
 
 _SEVERITY = {
     'fatal': 2,      # Critical
@@ -42,35 +56,59 @@ class XrayLogFormat(NewBaseLogFormat):
 
     @staticmethod
     def match(line):
-        return _XRAY_RE.match(line) is not None
+        return (_XRAY_ERROR_RE.match(line) is not None
+                or _XRAY_GENERIC_RE.match(line) is not None)
 
     def set_line(self, line):
         super().set_line(line)
-        match = _XRAY_RE.match(line)
-        if match is None:
-            self._rest = ''
-            self._severity = None
-            self._ts = None
+
+        def parse_ts(year, month, day, hour, minute, second, frac):
+            micro = (frac + '000000')[:6]
+            return datetime.datetime(
+                int(year), int(month), int(day),
+                int(hour), int(minute), int(second), int(micro),
+            )
+
+        match = _XRAY_ERROR_RE.match(line)
+        if match is not None:
+            year, month, day, hour, minute, second, frac, level, rest = match.groups()
+            self._ts = parse_ts(year, month, day, hour, minute, second, frac)
+            self._severity = _SEVERITY.get(level.lower())
+            rest = rest.strip()
+            if rest.startswith('['):
+                end = rest.find(']')
+                self._process = rest[1:end].strip() if end != -1 else rest[:64]
+            else:
+                head, sep, _ = rest.partition(':')
+                self._process = head.strip() if sep else rest.split(' ', 1)[0][:64]
+            # The default bootgrid formatter inserts cell HTML unsanitized, so
+            # escape everything Xray wrote (a client-controlled SNI/URL in the
+            # access log could otherwise inject markup into the admin's browser).
+            self._rest = html.escape(rest, quote=False)
             return
-        year, month, day, hour, minute, second, frac, level, rest = match.groups()
-        micro = (frac + '000000')[:6]
-        self._ts = datetime.datetime(
-            int(year), int(month), int(day),
-            int(hour), int(minute), int(second), int(micro),
-        )
-        self._severity = _SEVERITY.get(level.lower())
-        # Xray messages look like "core: Xray 26.10.31 started" or
-        # "app/router: ...". The access log uses "[ip:port sid] accepted ...".
+
+        match = _XRAY_GENERIC_RE.match(line)
+        if match is None:
+            self._ts = None
+            self._severity = None
+            self._process = ''
+            self._rest = ''
+            return
+
+        # Access (or DNS) log line: no level tag is written.
+        year, month, day, hour, minute, second, frac, rest = match.groups()
+        self._ts = parse_ts(year, month, day, hour, minute, second, frac)
+        self._severity = 6  # Informational
         rest = rest.strip()
-        if rest.startswith('['):
-            end = rest.find(']')
-            self._process = rest[1:end].strip() if end != -1 else rest[:64]
+        lowered = rest.lower()
+        detour = _DETOUR_RE.search(rest)
+        if any(marker in lowered for marker in (' got answer:', 'cache hit:',
+                                                'cache optimiste:')):
+            self._process = 'dns'
+        elif detour:
+            self._process = detour.group(1).strip()[:64]
         else:
-            head, sep, _ = rest.partition(':')
-            self._process = head.strip() if sep else rest.split(' ', 1)[0][:64]
-        # The default bootgrid formatter inserts cell HTML unsanitized, so
-        # escape everything Xray wrote (a client-controlled SNI/URL in the
-        # access log could otherwise inject markup into the admin's browser).
+            self._process = 'access'
         self._rest = html.escape(rest, quote=False)
 
     @property
