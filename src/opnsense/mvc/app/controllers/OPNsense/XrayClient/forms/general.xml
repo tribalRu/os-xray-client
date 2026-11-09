@@ -230,7 +230,7 @@
         <id>xrayclient.general.observatory_type</id>
         <label>Observatory Type</label>
         <type>dropdown</type>
-        <help>leastPing and leastLoad balancers need Xray to probe the nodes. «Burst observatory» probes in batches and is the recommended option; «Background observatory» probes continuously. «Disabled» keeps the raw observatory JSON from Advanced JSON Sections (if set). Turning this on takes precedence over that raw field.</help>
+        <help>leastPing and leastLoad balancers need Xray to probe the nodes. «Burst observatory» probes in batches and is the recommended option; «Background observatory» probes continuously. «Disabled» keeps the Raw JSON: observatory field (shown with Show advanced fields), if it is set. Turning this on takes precedence over that raw field.</help>
     </field>
     <field>
         <id>xrayclient.general.observatory_selector</id>
@@ -282,7 +282,7 @@
         <id>xrayclient.general.dns_enabled</id>
         <label>Enable Built-in DNS</label>
         <type>checkbox</type>
-        <help>Route domain resolution through Xray's own DNS server instead of the system resolver. Addresses are looked up from the DNS Servers tab (or, when disabled, from the raw dns JSON in Advanced JSON Sections). Domains still unmatched by any routing rule go direct.</help>
+        <help>Route domain resolution through Xray's own DNS server instead of the system resolver. Addresses are looked up from the DNS Servers tab (or, when disabled, from the Raw JSON: dns field in this section, shown with Show advanced fields). Domains still unmatched by any routing rule go direct.</help>
     </field>
     <field>
         <id>xrayclient.general.dns_query_strategy</id>
