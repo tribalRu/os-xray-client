@@ -28,6 +28,6 @@
         <id>balancer.fallback_tag</id>
         <label>Fallback Tag</label>
         <type>text</type>
-        <help>Outbound used when the selector matches no enabled node or every probe fails. Xray then requires an observatory — if General Settings → Load Balancer Observatory is «Disabled», this field is ignored by Xray and Traffic routing will fail over silently to the default rule only. Set an observatory (burst — recommended) or leave empty in that case. If the generator refuses the configuration (service won't restart), check for an enabled balancer with Fallback Tag set and Observatory disabled.</help>
+        <help>Outbound used when the selector matches no usable node or every probe fails. Leave empty (recommended) to fail closed: traffic then has no route instead of silently leaving through <b>direct</b> without the proxy. Set <b>direct</b> only if you accept that exposure; <b>block</b> drops the traffic explicitly. Xray applies a fallback only when an observatory is enabled in General Settings → Load Balancer Observatory; otherwise this field is ignored.</help>
     </field>
 </form>

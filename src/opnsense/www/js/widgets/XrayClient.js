@@ -7,6 +7,7 @@
  *   /api/xrayclient/service/stats        per-node traffic counters
  *   /api/xrayclient/service/healthcheck  per-node TCP connect latency
  *   /api/xrayclient/service/status       service running/stopped
+ *   /api/xrayclient/service/balancerInfo outbound each balancer selects now
  */
 
 export default class XrayClient extends BaseWidget {
@@ -26,6 +27,7 @@ export default class XrayClient extends BaseWidget {
         this.nodes = [];
         this.stats = {};
         this.latency = {};
+        this.balancers = [];
         this.running = null;
         this.nodesError = false;
     }
@@ -42,10 +44,11 @@ export default class XrayClient extends BaseWidget {
     }
 
     async onWidgetTick() {
-        const [nodesRes, statsRes, svcRes] = await Promise.allSettled([
+        const [nodesRes, statsRes, svcRes, balRes] = await Promise.allSettled([
             this.ajaxCall('/api/xrayclient/settings/searchNode', {rowCount: 999, current: 1}),
             this.ajaxCall('/api/xrayclient/service/stats'),
-            this.ajaxCall('/api/xrayclient/service/status')
+            this.ajaxCall('/api/xrayclient/service/status'),
+            this.ajaxCall('/api/xrayclient/service/balancerInfo')
         ]);
 
         this.nodesError = nodesRes.status !== 'fulfilled' || !nodesRes.value || !Array.isArray(nodesRes.value.rows);
@@ -57,6 +60,14 @@ export default class XrayClient extends BaseWidget {
         }
         if (svcRes.status === 'fulfilled' && svcRes.value && svcRes.value.status) {
             this.running = svcRes.value.status === 'running';
+        }
+
+        // Only balancers Xray could answer for and that already have a pick.
+        this.balancers = [];
+        if (balRes.status === 'fulfilled' && balRes.value && Array.isArray(balRes.value.balancers)) {
+            this.balancers = balRes.value.balancers.filter(
+                b => b && b.status === 'ok' && Array.isArray(b.selecting) && b.selecting.length > 0
+            );
         }
 
         this._render();
@@ -173,6 +184,16 @@ export default class XrayClient extends BaseWidget {
                 &nbsp;<i class="fa fa-arrow-up"></i> ${this._bytes(totalUp)}
             </span>
         </div>`;
+
+        // One line per balancer: which node it routes through right now.
+        const nodeNames = {};
+        this.nodes.forEach(n => { nodeNames['node_' + n.uuid] = n.name; });
+        this.balancers.forEach(b => {
+            const picked = b.selecting.map(tag => this._esc(nodeNames[tag] || tag)).join(', ');
+            html += `<div style="font-size: 11px; margin: 0 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${this._esc(b.tag)}">
+                <i class="fa fa-random" style="opacity: 0.7;"></i> <span style="opacity: 0.75;">${this._esc(b.tag)} &rarr;</span> <b>${picked}</b>
+            </div>`;
+        });
 
         this.nodes.forEach(node => {
             const enabled = node.enabled === '1';

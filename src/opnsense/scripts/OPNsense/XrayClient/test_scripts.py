@@ -177,7 +177,7 @@ except ImportError:  # pragma: no cover - dev machines without Jinja2
     JINJA2_AVAILABLE = False
 
 TEMPLATE_PATH = os.path.normpath(os.path.join(
-    SCRIPT_DIR, '..', '..', '..', '..', 'service', 'templates',
+    SCRIPT_DIR, '..', '..', '..', 'service', 'templates',
     'OPNsense', 'XrayClient', 'config.json.j2'))
 
 TEST_NODE = {
@@ -475,6 +475,13 @@ class TestConfigTemplate(unittest.TestCase):
         self.assertEqual(cfg['dns']['servers'], [])
         self.assertEqual(cfg['dns']['hosts'], {'example.com': '192.0.2.10'})
 
+    def test_dns_hosts_with_servers_and_list_values(self):
+        hosts = '{"a.example": "192.0.2.1", "*.lan": ["192.0.2.2", "192.0.2.3"]}'
+        cfg = render_config({'dns_enabled': '1', 'dns_hosts_json': hosts},
+                            dns_servers=[TEST_DNS_SERVER])
+        self.assertEqual(cfg['dns']['hosts']['*.lan'], ['192.0.2.2', '192.0.2.3'])
+        self.assertEqual(cfg['dns']['servers'][0]['address'], 'https://1.1.1.1/dns-query')
+
     def test_dns_form_wins_over_raw_json(self):
         raw = '{"servers": ["https://9.9.9.9/dns-query"]}'
         cfg = render_config({'dns_enabled': '1', 'dns_json': raw},
@@ -542,6 +549,36 @@ class TestConfigTemplate(unittest.TestCase):
             'strategy': {'type': 'leastPing'},
             'fallbackTag': 'direct',
         }])
+
+    def test_inbound_password_with_quotes_and_backslash(self):
+        pw = 'p"a\\ss\'w'
+        cfg = render_config({'socks_auth': 'password', 'socks_username': 'u',
+                             'socks_password': pw})
+        socks = [i for i in cfg['inbounds'] if i['tag'] == 'socks-in'][0]
+        self.assertEqual(socks['settings']['users'][0]['pass'], pw)
+
+    def test_balancer_selector_skips_non_proxy_nodes(self):
+        vless = dict(TEST_NODE, **{'@uuid': 'aaaaaaaa-0000-0000-0000-000000000001',
+                                   'protocol': 'vless', 'address': 'a.example', 'port': '443'})
+        wg = dict(TEST_NODE, **{'@uuid': 'aaaaaaaa-0000-0000-0000-000000000002',
+                                'protocol': 'wireguard'})
+        hole = dict(TEST_NODE, **{'@uuid': 'aaaaaaaa-0000-0000-0000-000000000003',
+                                  'protocol': 'blackhole'})
+        cfg = render_config({'observatory_type': 'burst'},
+                            nodes=[vless, wg, hole, TEST_NODE],
+                            balancers=[TEST_BALANCER])
+        expected = ['node_aaaaaaaa-0000-0000-0000-000000000001',
+                    'node_aaaaaaaa-0000-0000-0000-000000000002']
+        self.assertEqual(cfg['routing']['balancers'][0]['selector'], expected)
+        self.assertEqual(cfg['burstObservatory']['subjectSelector'], expected)
+
+    def test_balancer_selector_passes_other_prefixes_through(self):
+        vless = dict(TEST_NODE, **{'@uuid': 'bbbbbbbb-0000-0000-0000-000000000001',
+                                   'protocol': 'vless'})
+        bal = dict(TEST_BALANCER, selector='node_,custom_')
+        cfg = render_config(nodes=[vless], balancers=[bal])
+        self.assertEqual(cfg['routing']['balancers'][0]['selector'],
+                         ['node_bbbbbbbb-0000-0000-0000-000000000001', 'custom_'])
 
     def test_balancer_without_observatory_omits_fallback_tag(self):
         # Xray fails "not all dependencies are resolved" when a balancer

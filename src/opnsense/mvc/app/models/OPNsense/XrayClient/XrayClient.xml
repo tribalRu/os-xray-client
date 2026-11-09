@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>2.9.4</version>
+    <version>2.9.5</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -124,8 +124,8 @@
             <socks_password type="TextField">
                 <default></default>
                 <Required>N</Required>
-                <Mask>/^$|^[^"'\\\x00-\x1F\x7F]{1,128}$/</Mask>
-                <ValidationMessage>Password up to 128 chars, no quotes or control characters.</ValidationMessage>
+                <Mask>/^$|^[^\x00-\x1F\x7F]{1,128}$/</Mask>
+                <ValidationMessage>Password up to 128 characters, no control characters.</ValidationMessage>
             </socks_password>
             <socks_listen type="TextField">
                 <default>127.0.0.1</default>
@@ -164,8 +164,8 @@
             <http_password type="TextField">
                 <default></default>
                 <Required>N</Required>
-                <Mask>/^$|^[^"'\\\x00-\x1F\x7F]{1,128}$/</Mask>
-                <ValidationMessage>Password up to 128 chars, no quotes or control characters.</ValidationMessage>
+                <Mask>/^$|^[^\x00-\x1F\x7F]{1,128}$/</Mask>
+                <ValidationMessage>Password up to 128 characters, no control characters.</ValidationMessage>
             </http_password>
             <http_port type="PortField">
                 <default>10809</default>
@@ -1018,8 +1018,8 @@
                 <tag type="TextField">
                     <default>auto</default>
                     <Required>Y</Required>
-                    <Mask>/^(?!direct$|block$|api$)[A-Za-z0-9_.-]{1,64}$/</Mask>
-                    <ValidationMessage>Tag must be 1-64 characters (letters, digits, _ . -); direct, block and api are reserved.</ValidationMessage>
+                    <Mask>/^(?!direct$|block$|api$|node_)[A-Za-z0-9_.-]{1,64}$/</Mask>
+                    <ValidationMessage>Tag must be 1-64 characters (letters, digits, _ . -); direct, block and api are reserved, and node_ is the prefix of node tags.</ValidationMessage>
                 </tag>
                 <selector type="CSVListField">
                     <default>node_</default>
@@ -1039,7 +1039,7 @@
                     </OptionValues>
                 </strategy>
                 <fallback_tag type="TextField">
-                    <default>direct</default>
+                    <default></default>
                     <Required>N</Required>
                     <Mask>/^$|^(?!api$)[A-Za-z0-9_.:-]{1,64}$/</Mask>
                     <ValidationMessage>Fallback tag must be direct, block, a node tag or another balancer tag (1-64 characters).</ValidationMessage>

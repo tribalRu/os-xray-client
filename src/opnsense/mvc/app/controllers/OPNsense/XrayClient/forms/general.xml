@@ -131,7 +131,7 @@
     <field>
         <id>xrayclient.general.socks_password</id>
         <label>SOCKS5 Password</label>
-        <type>text</type>
+        <type>password</type>
         <help>Password for SOCKS5 authentication. Required when authentication is set to password.</help>
     </field>
     <field>
@@ -173,7 +173,7 @@
     <field>
         <id>xrayclient.general.http_password</id>
         <label>HTTP Proxy Password</label>
-        <type>text</type>
+        <type>password</type>
         <help>Password for HTTP proxy authentication. Required when authentication is set to password.</help>
     </field>
     <field>

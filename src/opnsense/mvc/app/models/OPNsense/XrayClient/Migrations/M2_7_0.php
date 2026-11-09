@@ -36,6 +36,12 @@ use OPNsense\XrayClient\XrayClient;
  * deployment must keep serving on the same address. Copy the stored
  * socks_listen into an empty http_listen so nothing changes for users who
  * never set it.
+ *
+ * Releases 2.7.1-2.7.4 were debugging steps for this migration. M2_7_5 holds
+ * the same copy for configs that already stood at 2.7.0-2.7.4 and so never
+ * ran this class. Both must stay: a migration only runs for configs older
+ * than its version. The template also falls back to socks_listen when
+ * http_listen is empty, so a missed run still serves on the old address.
  */
 class M2_7_0 extends BaseModelMigration
 {

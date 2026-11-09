@@ -15,8 +15,8 @@ from _lib import active_balancers, get_general_value
 
 XRAY_BIN = '/usr/local/bin/xray'
 
-# protojson field names are camelCase on the wire.
-JSON_KEYS = ('principleTarget', 'principle_target', 'principle_target')
+# protojson prints camelCase names; older builds used the proto field name.
+JSON_KEYS = ('principleTarget', 'principle_target')
 
 
 def _collect_target(obj):
