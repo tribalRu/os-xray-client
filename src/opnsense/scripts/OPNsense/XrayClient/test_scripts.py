@@ -832,5 +832,52 @@ class _FakeFile:
         pass
 
 
+class TestConfigShellTest(unittest.TestCase):
+    """test_config.sh with a fake xray binary."""
+
+    def run_script(self, banner, rc, config):
+        import json
+        import shutil
+        import stat
+        import subprocess
+        import sys
+        import tempfile
+        script = os.path.join(SCRIPT_DIR, 'test_config.sh')
+        with tempfile.TemporaryDirectory() as tmp:
+            fake = os.path.join(tmp, 'xray')
+            with open(fake, 'w') as fh:
+                fh.write('#!/bin/sh\necho "%s"\necho "Failed to start: something"\nexit %d\n' % (banner, rc))
+            os.chmod(fake, os.stat(fake).st_mode | stat.S_IEXEC)
+            cfg = os.path.join(tmp, 'config.json')
+            with open(cfg, 'w') as fh:
+                json.dump(config, fh)
+            env = dict(os.environ, XRAY_BIN=fake, XRAY_CONFIG=cfg, XRAY_PYTHON=sys.executable)
+            out = subprocess.run(['sh', script], env=env, capture_output=True, text=True).stdout
+            return json.loads(out)
+
+    XDRIVE_CFG = {'outbounds': [{'streamSettings': {'network': 'xdrive'}}]}
+    PLAIN_CFG = {'outbounds': [{'streamSettings': {'network': 'tcp'}}]}
+
+    def test_ok(self):
+        res = self.run_script('Xray 26.11.9 (go1.26)', 0, self.PLAIN_CFG)
+        self.assertEqual(res, {'status': 'ok'})
+
+    def test_old_core_with_xdrive_gets_a_clear_message(self):
+        res = self.run_script('Xray 26.10.29 (go1.26)', 1, self.XDRIVE_CFG)
+        self.assertEqual(res['status'], 'error')
+        self.assertIn('26.11.9 or newer', res['message'])
+        self.assertIn('26.10.29', res['message'])
+        self.assertIn('something', res['message'])
+
+    def test_new_core_error_is_passed_through(self):
+        res = self.run_script('Xray 26.11.9 (go1.26)', 1, self.XDRIVE_CFG)
+        self.assertNotIn('26.11.9 or newer', res['message'])
+        self.assertIn('something', res['message'])
+
+    def test_old_core_without_xdrive_is_passed_through(self):
+        res = self.run_script('Xray 26.10.29 (go1.26)', 1, self.PLAIN_CFG)
+        self.assertNotIn('XDRIVE', res['message'])
+
+
 if __name__ == '__main__':
     unittest.main()
