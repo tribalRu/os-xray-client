@@ -123,6 +123,11 @@ class ServiceController extends ApiMutableServiceControllerBase
             $backend->configdRun('xrayclient stop');
         }
 
+        // Refresh the node_<uuid> -> name map consumed by the unified log
+        // viewer's xraylog handler, matching what was just applied/restarted.
+        // Non-fatal: the log page still works without it (tags stay raw).
+        @shell_exec('/usr/local/bin/php /usr/local/opnsense/scripts/OPNsense/XrayClient/write_outbound_cache.php');
+
         return ['status' => 'ok'];
     }
 
@@ -515,61 +520,6 @@ class ServiceController extends ApiMutableServiceControllerBase
         $response = $backend->configdRun('xrayclient balancer_info');
         $data = json_decode(trim($response), true);
         return is_array($data) ? $data : ['status' => 'error', 'balancers' => []];
-    }
-
-    /**
-     * Structured rows of /var/log/xray/access.log for the Access Log tab.
-     * Reads as root via configd; the file itself is not readable by the web
-     * user. The Access Log tab renders: ts, source, status, destination,
-     * inbound -> outbound detour, email/note (malformed lines are shown raw).
-     *
-     * The raw `node_<uuid>` outbound tags are replaced by the node's own
-     * name from the model (the short form plus the tag for reference), so
-     * "which node did this connection go through" is readable at a glance.
-     */
-    public function accessLogAction()
-    {
-        $lines = (int)$this->request->get('lines', 'int', 300);
-        if ($lines < 10) {
-            $lines = 10;
-        } elseif ($lines > 2000) {
-            $lines = 2000;
-        }
-        if ($this->request->isPost() && $this->request->getPost('action') === 'clear') {
-            $backend = new Backend();
-            $backend->configdpRun('system clear log', ['xray', 'access']);
-            return ['status' => 'cleared', 'enabled' => true, 'rows' => []];
-        }
-
-        $backend = new Backend();
-        $response = $backend->configdpRun('xrayclient access_log', [(string)$lines]);
-        $data = json_decode(trim($response), true);
-        if (!is_array($data)) {
-            return ['status' => 'error', 'enabled' => false, 'rows' => []];
-        }
-
-        // Resolve node_<uuid> -> node name for readable outbound column.
-        $names = [];
-        $model = new XrayClient();
-        foreach ($model->nodes->node->iterateItems() as $node) {
-            $uuid = (string)$node->getAttribute('uuid');
-            if ($uuid === '') {
-                continue;
-            }
-            $name = trim((string)$node->name);
-            $names['node_' . $uuid] = $name !== '' ? $name : substr($uuid, 0, 8);
-        }
-        if (isset($data['rows']) && is_array($data['rows'])) {
-            foreach ($data['rows'] as &$row) {
-                $outbound = isset($row['outbound']) ? (string)$row['outbound'] : '';
-                if ($outbound !== '' && isset($names[$outbound])) {
-                    $row['outbound_tag'] = $outbound;
-                    $row['outbound'] = $names[$outbound];
-                }
-            }
-            unset($row);
-        }
-        return $data;
     }
 
     public function versionAction()

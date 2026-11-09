@@ -22,7 +22,7 @@ cp -R "${SRC_DIR}/etc/"* /usr/local/etc/
 cp -R "${SRC_DIR}/opnsense/"* /usr/local/opnsense/
 
 # Register the Xray log line format in OPNsense's unified log viewer
-# (Diagnostics → Logs), so /ui/diagnostics/logs/xray/{error,access} can
+# (Diagnostics → Logs), so /ui/diagnostics/log/xray/{error,access} can
 # filter by severity and history. Non-fatal on purpose: without this file
 # the logs are still readable, just without severity parsing.
 LOGFORMATS_DIR=/usr/local/opnsense/scripts/syslog/logformats
@@ -81,6 +81,11 @@ else
     configctl template reload OPNsense/XrayClient || echo "WARNING: template reload failed."
     "${RESTART_HELPER}"
 fi
+
+# Refresh the node_<uuid> -> name map consumed by the unified log viewer's
+# xraylog format handler, so the Process column shows node names instead of
+# raw tags. Non-fatal: without it, the log page still works (raw tags).
+/usr/local/bin/php /usr/local/opnsense/scripts/OPNsense/XrayClient/write_outbound_cache.php || true
 
 if [ ! -x "/usr/local/bin/xray" ]; then
     echo "Xray binary not found. Downloading latest stable Xray-core..."

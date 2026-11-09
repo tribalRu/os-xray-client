@@ -17,13 +17,47 @@
     the choice persists in browser storage). The access log detoured
     inbound -> outbound is surfaced as the Process column.
 
+    Outbound node tags (node_<uuid>) in the Process column are rewritten to
+    the configured node name, read from /var/run/xrayclient-outbounds.json
+    (written by write_outbound_cache.php on Apply and on install). The Line
+    column keeps the raw line text, like every other OPNsense log scope.
+
     An unparsable line is left for the next handler (and ends up visible with
     severity=None/timestamp=None, as with any unknown format), so a log line
     Xray did not format itself can never crash the reader.
 """
 import re
+import json
 import datetime
 from . import NewBaseLogFormat
+
+_OUTBOUND_NAMES_FILE = '/var/run/xrayclient-outbounds.json'
+_name_cache = None
+
+
+def _load_outbound_names():
+    global _name_cache
+    if _name_cache is None:
+        try:
+            with open(_OUTBOUND_NAMES_FILE, 'r', encoding='utf-8') as handle:
+                data = json.load(handle)
+            _name_cache = data if isinstance(data, dict) else {}
+        except Exception:
+            _name_cache = {}
+    return _name_cache
+
+
+def resolve_outbound_names(text):
+    if not text:
+        return text
+    names = _load_outbound_names()
+    if not names:
+        return text
+    out = text
+    for tag, name in names.items():
+        if isinstance(name, str) and tag in out:
+            out = out.replace(tag, name)
+    return out
 
 _XRAY_ERROR_RE = re.compile(
     r'^(\d{4})/(\d{2})/(\d{2}) (\d{2}):(\d{2}):(\d{2})\.(\d+)\s+'
@@ -80,6 +114,7 @@ class XrayLogFormat(NewBaseLogFormat):
             else:
                 head, sep, _ = rest.partition(':')
                 self._process = head.strip() if sep else rest.split(' ', 1)[0][:64]
+            self._process = resolve_outbound_names(self._process)
             # The OPNsense bootgrid/tabulator cell renderer escapes raw
             # HTML itself (cf. the process_name column), so Xray's text is
             # inserted safely as-is. Escaping here too would double-encode.
@@ -108,6 +143,7 @@ class XrayLogFormat(NewBaseLogFormat):
             self._process = detour.group(1).strip()[:64]
         else:
             self._process = 'access'
+        self._process = resolve_outbound_names(self._process)
         # Raw text: the OPNsense cell renderer escapes HTML itself.
         self._rest = rest
 
