@@ -21,6 +21,17 @@ install -d -m 0755 /var/log/xray
 cp -R "${SRC_DIR}/etc/"* /usr/local/etc/
 cp -R "${SRC_DIR}/opnsense/"* /usr/local/opnsense/
 
+# Register the Xray log line format in OPNsense's unified log viewer
+# (Diagnostics → Logs), so /ui/diagnostics/logs/xray/{error,access} can
+# filter by severity and history. Non-fatal on purpose: without this file
+# the logs are still readable, just without severity parsing.
+LOGFORMATS_DIR=/usr/local/opnsense/scripts/syslog/logformats
+if [ -d "${LOGFORMATS_DIR}" ]; then
+    cp "${SRC_DIR}/opnsense/scripts/OPNsense/XrayClient/logformats/xraylog.py" "${LOGFORMATS_DIR}/xraylog.py" \
+        && chmod 0644 "${LOGFORMATS_DIR}/xraylog.py" \
+        || echo "WARNING: could not install ${LOGFORMATS_DIR}/xraylog.py (log filter will show rows without severity)."
+fi
+
 # Developer-only unit tests are not needed on the firewall.
 rm -f /usr/local/opnsense/scripts/OPNsense/XrayClient/test_scripts.py
 

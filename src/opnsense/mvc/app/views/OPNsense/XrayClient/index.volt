@@ -1718,19 +1718,9 @@
             });
         });
 
-        function loadLogs() {
-            var type = $('#log_type_select').val();
-            $.get('/api/xrayclient/service/logs', { type: type, lines: 250 }, function (res) {
-                $('#xray_log_content').text(res.log || 'No log entries found.');
-            });
-        }
-        $('a[href="#tab_logs"]').on('shown.bs.tab', loadLogs);
-        $('#btn_refresh_logs, #log_type_select').on('click change', loadLogs);
-        $('#btn_clear_logs').on('click', function () {
-            ajaxCall('/api/xrayclient/service/logs', { action: 'clear' }, function () {
-                loadLogs();
-            });
-        });
+        // The plugin's own tail preview was replaced by links to the
+        // standard OPNsense log viewer (search, severity filter, history,
+        // SSE live tail, CSV export, flush) — see #tab_logs below.
     });
 </script>
 
@@ -2018,15 +2008,24 @@
 
     <div id="tab_logs" class="tab-pane fade in">
         <div class="col-md-12" style="margin-top: 15px; margin-bottom: 15px;">
-            <div class="form-inline" style="margin-bottom: 10px;">
-                <select id="log_type_select" class="selectpicker" data-width="220px">
-                    <option value="error">Error &amp; System Log (error.log)</option>
-                    <option value="access">Access &amp; Routing Log (access.log)</option>
-                </select>
-                <button id="btn_refresh_logs" type="button" class="btn btn-default"><i class="fa fa-refresh"></i> Refresh</button>
-                <button id="btn_clear_logs" type="button" class="btn btn-danger"><i class="fa fa-trash"></i> Clear Logs</button>
-            </div>
-            <pre id="xray_log_content" style="height: 480px; overflow-y: scroll; background: #1e1e1e; color: #d4d4d4; font-family: monospace; font-size: 12px; padding: 12px;"></pre>
+            <p>Logs are <b>not</b> rendered inside the plugin. Use the standard OPNsense log viewer — it is a drop-in equivalent of the Firewall Live View: full-text search, severity filter (range/exact), history (Last day/week/month), live tail over SSE, CSV export and a <b>Flush log</b> button:</p>
+            <p>
+                <a class="btn btn-primary" href="/ui/diagnostics/logs/xray/error" target="_blank" rel="noopener">
+                    <i class="fa fa-exclamation-triangle"></i> Xray Error &amp; System Log (/var/log/xray/error.log)
+                </a>
+                &nbsp;
+                <a class="btn btn-default" href="/ui/diagnostics/logs/xray/access" target="_blank" rel="noopener">
+                    <i class="fa fa-exchange"></i> Xray Access &amp; Routing Log (/var/log/xray/access.log)
+                </a>
+            </p>
+            <p class="text-muted">
+                Rows are parsed by the <code>xraylog</code> format handler, which the plugin copies to
+                <code>/usr/local/opnsense/scripts/syslog/logformats/xraylog.py</code> on install and removes on uninstall:
+                timestamp, severity (Error/Warning/Info/Debug) and the tag (<code>core</code>, <code>app/router</code>, …) become filterable columns.
+                The access log only contains rows while <b>Enable Access Log</b> is on in General Settings.
+                Without the format handler the viewer still works, but severity and history filters have no effect.
+                Use the page's own <i class="fa fa-trash"></i> Flush log button to clear a log — it also removes rotated files.
+            </p>
         </div>
     </div>
 </div>

@@ -17,6 +17,7 @@ rm -rf /usr/local/opnsense/mvc/app/controllers/OPNsense/XrayClient
 rm -rf /usr/local/opnsense/mvc/app/models/OPNsense/XrayClient
 rm -rf /usr/local/opnsense/mvc/app/views/OPNsense/XrayClient
 rm -rf /usr/local/opnsense/scripts/OPNsense/XrayClient
+rm -f /usr/local/opnsense/scripts/syslog/logformats/xraylog.py
 rm -rf /usr/local/opnsense/service/templates/OPNsense/XrayClient
 rm -f /usr/local/opnsense/www/js/widgets/XrayClient.js
 rm -f /usr/local/opnsense/www/js/widgets/Metadata/XrayClient.xml

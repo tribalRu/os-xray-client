@@ -591,27 +591,4 @@ class ServiceController extends ApiMutableServiceControllerBase
         $output = $backend->configdpRun('xrayclient update_plugin', [$repoUrl, $branch]);
         return ['status' => 'ok', 'output' => $output];
     }
-
-    public function logsAction()
-    {
-        $logType = $this->request->get('type', 'string', 'error');
-        if (!in_array($logType, ['error', 'access'], true)) {
-            $logType = 'error';
-        }
-        $lines = (int)$this->request->get('lines', 'int', 200);
-        if ($lines < 1) {
-            $lines = 200;
-        } elseif ($lines > 1000) {
-            $lines = 1000;
-        }
-        if ($this->request->isPost() && $this->request->getPost('action') === 'clear') {
-            $backend = new Backend();
-            $backend->configdRun('xrayclient clear_logs');
-            return ['status' => 'cleared', 'log' => ''];
-        }
-
-        $backend = new Backend();
-        $output = $backend->configdpRun('xrayclient get_logs', [$logType, (string)$lines]);
-        return ['status' => 'ok', 'log' => $output];
-    }
 }
