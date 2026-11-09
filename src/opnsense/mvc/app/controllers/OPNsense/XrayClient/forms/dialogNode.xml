@@ -545,6 +545,116 @@
     <field>
         <type>header</type>
         <static>true</static>
+        <label>XDRIVE Settings</label>
+        <style>net_xdrive</style>
+    </field>
+    <field>
+        <id>node.xdrive_service</id>
+        <label>XDRIVE Storage</label>
+        <type>dropdown</type>
+        <style>net_xdrive</style>
+        <help>XDRIVE is a VLESS-only transport that tunnels through a cloud drive. Always requires VLESS encryption (run "xray vlessenc"), no flow, and Mux.Cool enabled with concurrency &gt;= 0. For Google Drive also set TLS, a real Google IP, SNI www.google.com, ALPN h2 or h3, and fingerprint hellochrome_155 or chrome.</help>
+    </field>
+    <field>
+        <id>node.xdrive_remote_folder</id>
+        <label>Remote Folder / Path</label>
+        <type>text</type>
+        <style>net_xdrive</style>
+        <help>Google Drive folder ID, S3/template prefix, or a local folder path, depending on the storage.</help>
+    </field>
+    <field>
+        <id>node.xdrive_google_client_id</id>
+        <label>Google OAuth Client ID</label>
+        <type>password</type>
+        <style>xdrive_google</style>
+        <help>OAuth client ID of the Google Cloud project that owns the Drive folder.</help>
+    </field>
+    <field>
+        <id>node.xdrive_google_client_secret</id>
+        <label>Google OAuth Client Secret</label>
+        <type>password</type>
+        <style>xdrive_google</style>
+    </field>
+    <field>
+        <id>node.xdrive_google_refresh_token</id>
+        <label>Google OAuth Refresh Token</label>
+        <type>password</type>
+        <style>xdrive_google</style>
+        <help>Refresh token for the Google account; it is exchanged for access tokens at runtime.</help>
+    </field>
+    <field>
+        <id>node.xdrive_s3_endpoint</id>
+        <label>S3 Endpoint URL</label>
+        <type>text</type>
+        <style>xdrive_s3</style>
+        <help>Full URL including scheme, e.g. https://s3.eu-central-1.amazonaws.com or https://minio.example.com:9000.</help>
+    </field>
+    <field>
+        <id>node.xdrive_s3_region</id>
+        <label>S3 Region</label>
+        <type>text</type>
+        <style>xdrive_s3</style>
+        <help>Optional. Defaults to us-east-1 when empty.</help>
+    </field>
+    <field>
+        <id>node.xdrive_s3_bucket</id>
+        <label>S3 Bucket</label>
+        <type>text</type>
+        <style>xdrive_s3</style>
+    </field>
+    <field>
+        <id>node.xdrive_s3_access_key</id>
+        <label>S3 Access Key ID</label>
+        <type>password</type>
+        <style>xdrive_s3</style>
+    </field>
+    <field>
+        <id>node.xdrive_s3_secret_key</id>
+        <label>S3 Secret Access Key</label>
+        <type>password</type>
+        <style>xdrive_s3</style>
+    </field>
+    <field>
+        <id>node.xdrive_s3_session_token</id>
+        <label>S3 Session Token</label>
+        <type>password</type>
+        <style>xdrive_s3</style>
+        <help>Optional. Only for temporary STS credentials.</help>
+    </field>
+    <field>
+        <id>node.xdrive_s3_path_style</id>
+        <label>S3 Path-Style Addressing</label>
+        <type>checkbox</type>
+        <style>xdrive_s3</style>
+        <help>Use endpoint/bucket/key instead of bucket.endpoint/key. Required by MinIO and most self-hosted S3 servers.</help>
+    </field>
+    <field>
+        <id>node.xdrive_template_secrets</id>
+        <label>Template Secrets (JSON array)</label>
+        <type>textbox</type>
+        <height>3</height>
+        <style>xdrive_template</style>
+        <help>JSON array of strings, available in the template as {secret0}, {secret1}, ... Example: ["token0","token1"].</help>
+    </field>
+    <field>
+        <id>node.xdrive_template</id>
+        <label>Template (JSON object)</label>
+        <type>textbox</type>
+        <height>6</height>
+        <style>xdrive_template</style>
+        <help>REST storage description: auth, put, get, list, delete operations. See the XDRIVE template documentation in Xray-core.</help>
+    </field>
+    <field>
+        <id>node.xdrive_extra</id>
+        <label>XDRIVE Extra (JSON object)</label>
+        <type>textbox</type>
+        <height>6</height>
+        <style>net_xdrive</style>
+        <help>Optional tuning merged into xdriveSettings: segmentBytes, flushIntervalMs, pollIntervalMs, maxPollIntervalMs, sessionTtlSeconds, concurrency, eagerWindowMs, holeTimeoutMs, xmux. Example: {"concurrency":16,"xmux":{"maxConnections":4}}.</help>
+    </field>
+    <field>
+        <type>header</type>
+        <static>true</static>
         <label>Domain Resolution &amp; Local Binding</label>
     </field>
     <field>

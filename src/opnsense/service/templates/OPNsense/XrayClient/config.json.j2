@@ -224,6 +224,41 @@
           "host": {{ (node.transport_host or '') | tojson }},
           "path": {{ (node.transport_path or '/') | tojson }}
         }
+{%       elif node.network == 'xdrive' %}
+        ,"xdriveSettings": {
+          "service": {{ (node.xdrive_service or 'google-drive') | tojson }},
+          "remoteFolder": {{ (node.xdrive_remote_folder or '') | tojson }}
+{%-      if node.xdrive_service == 'google-drive' %}
+          ,"secrets": [
+            {{ (node.xdrive_google_client_id or '') | tojson }},
+            {{ (node.xdrive_google_client_secret or '') | tojson }},
+            {{ (node.xdrive_google_refresh_token or '') | tojson }}
+          ]
+{%-      elif node.xdrive_service == 's3' %}
+          ,"secrets": [
+            {{ (node.xdrive_s3_access_key or '') | tojson }},
+            {{ (node.xdrive_s3_secret_key or '') | tojson }}{% if ((node.xdrive_s3_session_token or '') | trim) != '' %},
+            {{ node.xdrive_s3_session_token | tojson }}{% endif %}
+          ],
+          "s3": {
+            "endpoint": {{ (node.xdrive_s3_endpoint or '') | tojson }},
+            "region": {{ (node.xdrive_s3_region or '') | tojson }},
+            "bucket": {{ (node.xdrive_s3_bucket or '') | tojson }},
+            "pathStyle": {{ 'true' if node.xdrive_s3_path_style != '0' else 'false' }}
+          }
+{%-      elif node.xdrive_service == 'template' %}
+{%-        set _ts = (node.xdrive_template_secrets or '') | trim %}
+          ,"secrets": {{ _ts if _ts != '' else '[]' }}
+{%-        set _tpl = (node.xdrive_template or '') | trim %}
+{%-        if _tpl != '' %}
+          ,"template": {{ _tpl }}
+{%-        endif %}
+{%-      endif %}
+{%-      set _xdrive_extra = (node.xdrive_extra or '') | trim %}
+{%-      if _xdrive_extra != '' %}
+          ,{{ header_object(_xdrive_extra) }}
+{%-      endif %}
+        }
 {%       endif %}
 {%     endif %}
 {%       set sockopt = [] %}

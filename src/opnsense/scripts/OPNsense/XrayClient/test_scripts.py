@@ -189,6 +189,30 @@ TEST_NODE = {
     'port': '0',
 }
 
+# A VLESS outbound matching everything Xray requires for XDRIVE: TLS, an
+# encrypted VLESS user, no flow, and Mux.Cool enabled with concurrency >= 0.
+XDRIVE_NODE = dict(TEST_NODE, **{
+    '@uuid': 'dddddddd-0000-0000-0000-000000000001',
+    'name': 'xdrive node',
+    'protocol': 'vless',
+    'address': '142.250.1.1',
+    'port': '443',
+    'user_uuid': '11111111-2222-3333-4444-555555555555',
+    'flow': 'none',
+    'encryption': 'mlkem768x25519plus.native.0rtt.clientkey',
+    'security': 'tls',
+    'sni': 'www.google.com',
+    'fingerprint': 'hellochrome_155',
+    'network': 'xdrive',
+    'mux_enabled': '1',
+    'mux_concurrency': '128',
+    'xdrive_service': 'google-drive',
+    'xdrive_remote_folder': 'folder-id',
+    'xdrive_google_client_id': 'client-id',
+    'xdrive_google_client_secret': 'client-secret',
+    'xdrive_google_refresh_token': 'refresh-token',
+})
+
 TEST_RULE = {
     'enabled': '1',
     'domain': 'geosite:ru',
@@ -692,6 +716,101 @@ class TestConfigTemplate(unittest.TestCase):
         raw = '{"burstObservatory": {"subjectSelector": ["raw_"]}}'
         cfg = render_config({'observatory_json': raw})
         self.assertEqual(cfg['burstObservatory'], {'subjectSelector': ['raw_']})
+
+    def test_xdrive_google_drive(self):
+        cfg = render_config(nodes=[XDRIVE_NODE])
+        stream = cfg['outbounds'][0]['streamSettings']
+        self.assertEqual(stream['network'], 'xdrive')
+        self.assertEqual(stream['security'], 'tls')
+        self.assertEqual(stream['tlsSettings']['fingerprint'], 'hellochrome_155')
+        self.assertEqual(stream['xdriveSettings'], {
+            'service': 'google-drive',
+            'remoteFolder': 'folder-id',
+            'secrets': ['client-id', 'client-secret', 'refresh-token'],
+        })
+        # XDRIVE must be paired with mux; the VLESS user keeps the encryption.
+        self.assertEqual(cfg['outbounds'][0]['mux'],
+                         {'enabled': True, 'concurrency': 128})
+        self.assertEqual(cfg['outbounds'][0]['settings']['vnext'][0]['users'][0]['encryption'],
+                         'mlkem768x25519plus.native.0rtt.clientkey')
+
+    def test_xdrive_h3_alpn_is_exact(self):
+        cfg = render_config(nodes=[dict(XDRIVE_NODE, alpn=['h3'])])
+        stream = cfg['outbounds'][0]['streamSettings']
+        self.assertEqual(stream['tlsSettings']['alpn'], ['h3'])
+
+    def test_xdrive_s3_without_session_token(self):
+        node = dict(XDRIVE_NODE, **{
+            'xdrive_service': 's3',
+            'xdrive_remote_folder': 'prefix',
+            'xdrive_s3_endpoint': 'https://minio.example.com:9000',
+            'xdrive_s3_region': '',
+            'xdrive_s3_bucket': 'bucket',
+            'xdrive_s3_access_key': 'access-key',
+            'xdrive_s3_secret_key': 'secret-key',
+            'xdrive_s3_session_token': '',
+            'xdrive_s3_path_style': '1',
+        })
+        settings = render_config(nodes=[node])['outbounds'][0]['streamSettings']['xdriveSettings']
+        self.assertEqual(settings['secrets'], ['access-key', 'secret-key'])
+        self.assertEqual(settings['s3'], {
+            'endpoint': 'https://minio.example.com:9000',
+            'region': '',
+            'bucket': 'bucket',
+            'pathStyle': True,
+        })
+
+    def test_xdrive_s3_with_session_token_and_virtual_host_style(self):
+        node = dict(XDRIVE_NODE, **{
+            'xdrive_service': 's3',
+            'xdrive_remote_folder': 'prefix',
+            'xdrive_s3_endpoint': 'https://s3.eu-central-1.amazonaws.com',
+            'xdrive_s3_region': 'eu-central-1',
+            'xdrive_s3_bucket': 'bucket',
+            'xdrive_s3_access_key': 'access-key',
+            'xdrive_s3_secret_key': 'secret-key',
+            'xdrive_s3_session_token': 'session-token',
+            'xdrive_s3_path_style': '0',
+        })
+        settings = render_config(nodes=[node])['outbounds'][0]['streamSettings']['xdriveSettings']
+        self.assertEqual(settings['secrets'],
+                         ['access-key', 'secret-key', 'session-token'])
+        self.assertFalse(settings['s3']['pathStyle'])
+
+    def test_xdrive_template_with_extra(self):
+        node = dict(XDRIVE_NODE, **{
+            'xdrive_service': 'template',
+            'xdrive_remote_folder': 'prefix',
+            'xdrive_template_secrets': '["t0", "t1"]',
+            'xdrive_template': '{"auth": {"type": "basic"}, "put": {"method": "PUT"}}',
+            'xdrive_extra': '{"concurrency": 16, "xmux": {"maxConnections": 4}}',
+        })
+        settings = render_config(nodes=[node])['outbounds'][0]['streamSettings']['xdriveSettings']
+        self.assertEqual(settings['secrets'], ['t0', 't1'])
+        self.assertEqual(settings['template'],
+                         {'auth': {'type': 'basic'}, 'put': {'method': 'PUT'}})
+        self.assertEqual(settings['concurrency'], 16)
+        self.assertEqual(settings['xmux'], {'maxConnections': 4})
+
+    def test_xdrive_local_has_no_storage_objects(self):
+        node = dict(XDRIVE_NODE, **{
+            'xdrive_service': 'local',
+            'xdrive_remote_folder': '/var/db/xdrive',
+        })
+        settings = render_config(nodes=[node])['outbounds'][0]['streamSettings']['xdriveSettings']
+        self.assertEqual(settings, {
+            'service': 'local',
+            'remoteFolder': '/var/db/xdrive',
+        })
+
+    def test_xdrive_template_without_secrets_is_an_empty_array(self):
+        node = dict(XDRIVE_NODE, **{
+            'xdrive_service': 'template',
+            'xdrive_remote_folder': 'prefix',
+            'xdrive_template': '{"auth": {"type": "none"}}',
+        })
+        settings = render_config(nodes=[node])['outbounds'][0]['streamSettings']['xdriveSettings']
+        self.assertEqual(settings['secrets'], [])
 
 
 class _FakeFile:

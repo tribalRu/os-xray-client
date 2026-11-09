@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>2.9.6</version>
+    <version>2.9.7</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -454,6 +454,7 @@
                         <grpc>gRPC</grpc>
                         <xhttp>XHTTP (SplitHTTP)</xhttp>
                         <httpupgrade>HTTPUpgrade</httpupgrade>
+                        <xdrive>XDRIVE (Google Drive / S3 / template)</xdrive>
                     </OptionValues>
                 </network>
                 <security type="OptionField">
@@ -475,14 +476,29 @@
                     <default>chrome</default>
                     <Required>N</Required>
                     <OptionValues>
-                        <chrome>chrome</chrome>
+                        <chrome>chrome (Chrome 155+)</chrome>
                         <firefox>firefox</firefox>
                         <safari>safari</safari>
                         <ios>ios</ios>
                         <android>android</android>
                         <edge>edge</edge>
+                        <hello360 value="360">360</hello360>
+                        <helloqq value="qq">qq</helloqq>
                         <random>random</random>
                         <randomized>randomized</randomized>
+                        <randomizednoalpn>randomizednoalpn</randomizednoalpn>
+                        <hellochrome_155>hellochrome_155</hellochrome_155>
+                        <hellochrome_133>hellochrome_133</hellochrome_133>
+                        <hellochrome_131>hellochrome_131</hellochrome_131>
+                        <hellochrome_120>hellochrome_120</hellochrome_120>
+                        <hellofirefox_148>hellofirefox_148</hellofirefox_148>
+                        <hellofirefox_120>hellofirefox_120</hellofirefox_120>
+                        <hellosafari_26_3>hellosafari_26_3</hellosafari_26_3>
+                        <helloios_14>helloios_14</helloios_14>
+                        <helloios_13>helloios_13</helloios_13>
+                        <helloedge_106>helloedge_106</helloedge_106>
+                        <hello360_11_0>hello360_11_0</hello360_11_0>
+                        <helloqq_11_1>helloqq_11_1</helloqq_11_1>
                     </OptionValues>
                 </fingerprint>
                 <alpn type="OptionField">
@@ -632,6 +648,98 @@
                     <Mask>/^$|^[0-9]{1,4}$/</Mask>
                     <ValidationMessage>WebSocket heartbeat period must be a non-negative integer (seconds).</ValidationMessage>
                 </ws_heartbeat_period>
+                <xdrive_service type="OptionField">
+                    <default>google-drive</default>
+                    <Required>N</Required>
+                    <OptionValues>
+                        <google-drive>Google Drive</google-drive>
+                        <s3>S3-compatible storage</s3>
+                        <template>HTTP template (REST storage)</template>
+                        <local>Local folder</local>
+                    </OptionValues>
+                </xdrive_service>
+                <xdrive_remote_folder type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[^\x00-\x1F\x7F]{1,1024}$/</Mask>
+                    <ValidationMessage>XDRIVE remote folder must be up to 1024 printable characters.</ValidationMessage>
+                </xdrive_remote_folder>
+                <xdrive_google_client_id type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[^\x00-\x1F\x7F]{1,4096}$/</Mask>
+                    <ValidationMessage>Google OAuth client ID must be up to 4096 printable characters.</ValidationMessage>
+                </xdrive_google_client_id>
+                <xdrive_google_client_secret type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[^\x00-\x1F\x7F]{1,4096}$/</Mask>
+                    <ValidationMessage>Google OAuth client secret must be up to 4096 printable characters.</ValidationMessage>
+                </xdrive_google_client_secret>
+                <xdrive_google_refresh_token type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[^\x00-\x1F\x7F]{1,4096}$/</Mask>
+                    <ValidationMessage>Google OAuth refresh token must be up to 4096 printable characters.</ValidationMessage>
+                </xdrive_google_refresh_token>
+                <xdrive_s3_endpoint type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^https?:\/\/[^\s]{1,1024}$/</Mask>
+                    <ValidationMessage>S3 endpoint must be an http:// or https:// URL.</ValidationMessage>
+                </xdrive_s3_endpoint>
+                <xdrive_s3_region type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[A-Za-z0-9._-]{1,64}$/</Mask>
+                    <ValidationMessage>S3 region may contain only letters, digits, dot, underscore and hyphen (max 64).</ValidationMessage>
+                </xdrive_s3_region>
+                <xdrive_s3_bucket type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[A-Za-z0-9._-]{1,255}$/</Mask>
+                    <ValidationMessage>S3 bucket may contain only letters, digits, dot, underscore and hyphen (max 255).</ValidationMessage>
+                </xdrive_s3_bucket>
+                <xdrive_s3_access_key type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[^\x00-\x1F\x7F]{1,4096}$/</Mask>
+                    <ValidationMessage>S3 access key ID must be up to 4096 printable characters.</ValidationMessage>
+                </xdrive_s3_access_key>
+                <xdrive_s3_secret_key type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[^\x00-\x1F\x7F]{1,4096}$/</Mask>
+                    <ValidationMessage>S3 secret access key must be up to 4096 printable characters.</ValidationMessage>
+                </xdrive_s3_secret_key>
+                <xdrive_s3_session_token type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[^\x00-\x1F\x7F]{1,4096}$/</Mask>
+                    <ValidationMessage>S3 session token must be up to 4096 printable characters.</ValidationMessage>
+                </xdrive_s3_session_token>
+                <xdrive_s3_path_style type="BooleanField">
+                    <default>1</default>
+                    <Required>N</Required>
+                </xdrive_s3_path_style>
+                <xdrive_template_secrets type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^\s*\[[\s\S]*\]\s*$/</Mask>
+                    <ValidationMessage>Template secrets must be a JSON array, e.g. ["token0","token1"].</ValidationMessage>
+                </xdrive_template_secrets>
+                <xdrive_template type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^\s*\{[\s\S]*\}\s*$/</Mask>
+                    <ValidationMessage>XDRIVE template must be a JSON object, e.g. {"auth":{...},"put":{...}}.</ValidationMessage>
+                </xdrive_template>
+                <xdrive_extra type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^\s*\{[\s\S]*\}\s*$/</Mask>
+                    <ValidationMessage>XDRIVE extra must be a JSON object (segmentBytes, flushIntervalMs, pollIntervalMs, sessionTtlSeconds, concurrency, eagerWindowMs, holeTimeoutMs, xmux, ...).</ValidationMessage>
+                </xdrive_extra>
                 <mux_enabled type="BooleanField">
                     <default>0</default>
                     <Required>Y</Required>

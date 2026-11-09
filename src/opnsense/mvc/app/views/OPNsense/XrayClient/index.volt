@@ -625,6 +625,8 @@
             var hasMux = ['vless', 'vmess', 'trojan', 'shadowsocks'].indexOf(proto) !== -1;
             var effNet = isHysteria ? 'hysteria' : (isMasque ? 'masque' : net);
             var effSec = (isHysteria || isMasque) ? 'tls' : sec;
+            var isXdrive = hasStream && effNet === 'xdrive';
+            var xdrvSvc = $('#node\\.xdrive_service').val() || 'google-drive';
 
             // Field visibility table: selector -> condition
             var view = {
@@ -656,6 +658,10 @@
                 '.net_grpc': hasStream && effNet === 'grpc',
                 '.net_ws': hasStream && effNet === 'ws',
                 '.net_httpupgrade': hasStream && effNet === 'httpupgrade',
+                '.net_xdrive': isXdrive,
+                '.xdrive_google': isXdrive && xdrvSvc === 'google-drive',
+                '.xdrive_s3': isXdrive && xdrvSvc === 's3',
+                '.xdrive_template': isXdrive && xdrvSvc === 'template',
                 '.sec_tls': hasTransport && effSec === 'tls',
                 '.sec_tls_reality': hasTransport && (effSec === 'tls' || effSec === 'reality'),
                 '.sec_reality': hasTransport && effSec === 'reality'
@@ -667,7 +673,7 @@
             }
         }
 
-        $('#node\\.protocol, #node\\.network, #node\\.security, #node\\.encryption').on('change', toggleNodeDialogFields);
+        $('#node\\.protocol, #node\\.network, #node\\.security, #node\\.encryption, #node\\.xdrive_service').on('change', toggleNodeDialogFields);
 
         var nodeLatencyCache = {};
         var nodeTrafficCache = {};
@@ -964,6 +970,21 @@
             setSelectValue($('#node\\.xhttp_mode'), data.xhttp_mode);
             $('#node\\.xhttp_extra').val(prettyJson(data.xhttp_extra));
             $('#node\\.ws_heartbeat_period').val(data.ws_heartbeat_period);
+            setSelectValue($('#node\\.xdrive_service'), data.xdrive_service || 'google-drive');
+            $('#node\\.xdrive_remote_folder').val(data.xdrive_remote_folder);
+            $('#node\\.xdrive_google_client_id').val(data.xdrive_google_client_id);
+            $('#node\\.xdrive_google_client_secret').val(data.xdrive_google_client_secret);
+            $('#node\\.xdrive_google_refresh_token').val(data.xdrive_google_refresh_token);
+            $('#node\\.xdrive_s3_endpoint').val(data.xdrive_s3_endpoint);
+            $('#node\\.xdrive_s3_region').val(data.xdrive_s3_region);
+            $('#node\\.xdrive_s3_bucket').val(data.xdrive_s3_bucket);
+            $('#node\\.xdrive_s3_access_key').val(data.xdrive_s3_access_key);
+            $('#node\\.xdrive_s3_secret_key').val(data.xdrive_s3_secret_key);
+            $('#node\\.xdrive_s3_session_token').val(data.xdrive_s3_session_token);
+            $('#node\\.xdrive_s3_path_style').prop('checked', data.xdrive_s3_path_style != '0');
+            $('#node\\.xdrive_template_secrets').val(prettyJson(data.xdrive_template_secrets));
+            $('#node\\.xdrive_template').val(prettyJson(data.xdrive_template));
+            $('#node\\.xdrive_extra').val(prettyJson(data.xdrive_extra));
             $('#node\\.sockopt_domainStrategy').val(data.sockopt_domainStrategy || 'AsIs');
             $('#node\\.sockopt_dialer_proxy').val(data.sockopt_dialer_proxy);
             $('#node\\.sockopt_interface').val(data.sockopt_interface);
@@ -1340,7 +1361,11 @@
                     transport_host: params.get('host') || '',
                     transport_path: params.get('path') ? decodeURIComponent(params.get('path')) : '',
                     grpc_service_name: params.get('serviceName') || '',
-                    xhttp_mode: (params.get('mode') && netType === 'xhttp') ? params.get('mode') : 'auto'
+                    xhttp_mode: (params.get('mode') && netType === 'xhttp') ? params.get('mode') : 'auto',
+                    // XDRIVE needs Mux.Cool; default it on for imported xdrive links
+                    // so only the storage credentials are left to fill in.
+                    mux_enabled: netType === 'xdrive' ? '1' : '0',
+                    mux_concurrency: netType === 'xdrive' ? '128' : ''
                 };
 
                 $('#DialogImportLink').one('hidden.bs.modal', function () {
