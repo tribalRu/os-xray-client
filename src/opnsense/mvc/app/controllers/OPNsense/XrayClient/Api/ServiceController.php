@@ -522,6 +522,10 @@ class ServiceController extends ApiMutableServiceControllerBase
      * Reads as root via configd; the file itself is not readable by the web
      * user. The Access Log tab renders: ts, source, status, destination,
      * inbound -> outbound detour, email/note (malformed lines are shown raw).
+     *
+     * The raw `node_<uuid>` outbound tags are replaced by the node's own
+     * name from the model (the short form plus the tag for reference), so
+     * "which node did this connection go through" is readable at a glance.
      */
     public function accessLogAction()
     {
@@ -540,7 +544,32 @@ class ServiceController extends ApiMutableServiceControllerBase
         $backend = new Backend();
         $response = $backend->configdpRun('xrayclient access_log', [(string)$lines]);
         $data = json_decode(trim($response), true);
-        return is_array($data) ? $data : ['status' => 'error', 'enabled' => false, 'rows' => []];
+        if (!is_array($data)) {
+            return ['status' => 'error', 'enabled' => false, 'rows' => []];
+        }
+
+        // Resolve node_<uuid> -> node name for readable outbound column.
+        $names = [];
+        $model = new XrayClient();
+        foreach ($model->nodes->node->iterateItems() as $node) {
+            $uuid = (string)$node->getAttribute('uuid');
+            if ($uuid === '') {
+                continue;
+            }
+            $name = trim((string)$node->name);
+            $names['node_' . $uuid] = $name !== '' ? $name : substr($uuid, 0, 8);
+        }
+        if (isset($data['rows']) && is_array($data['rows'])) {
+            foreach ($data['rows'] as &$row) {
+                $outbound = isset($row['outbound']) ? (string)$row['outbound'] : '';
+                if ($outbound !== '' && isset($names[$outbound])) {
+                    $row['outbound_tag'] = $outbound;
+                    $row['outbound'] = $names[$outbound];
+                }
+            }
+            unset($row);
+        }
+        return $data;
     }
 
     public function versionAction()

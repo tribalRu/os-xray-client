@@ -1732,6 +1732,25 @@
             tr.appendChild(td);
         }
 
+        function appendOutboundCell(tr, name, tag) {
+            var td = document.createElement('td');
+            if (tag) {
+                // human-readable node name on the first line; the raw tag
+                // in small grey below for reference.
+                var top = document.createElement('div');
+                top.textContent = name || tag;
+                var sub = document.createElement('div');
+                sub.className = 'small text-muted';
+                sub.textContent = tag;
+                td.appendChild(top);
+                td.appendChild(sub);
+                td.title = tag;
+            } else {
+                td.textContent = name || '';
+            }
+            tr.appendChild(td);
+        }
+
         function renderAccessRows(rows) {
             var tbody = document.getElementById('access_log_rows');
             var empty = document.getElementById('access_log_empty');
@@ -1749,7 +1768,7 @@
                 appendCell(tr, row.status || '', row.status === 'accepted' ? 'text-success' : 'text-danger');
                 appendCell(tr, row.to || '—');
                 appendCell(tr, row.inbound || '');
-                appendCell(tr, row.outbound || '');
+                appendOutboundCell(tr, row.outbound || '', row.outbound_tag);
                 appendCell(tr, row.email || row.note || '');
                 frag.appendChild(tr);
             });
