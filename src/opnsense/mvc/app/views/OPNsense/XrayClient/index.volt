@@ -1718,9 +1718,90 @@
             });
         });
 
-        // The plugin's own tail preview was replaced by the standard
-        // OPNsense log viewer (search, severity filter, history, CSV export,
-        // flush) — see Services → Xray Client → Logs in the main menu.
+        // --- Access Log tab: recent connections parsed into columns. ---
+        // All cell text is set through textContent/createTextNode; nothing
+        // from the log is ever inserted as HTML.
+        var accessRefreshTimer = null;
+
+        function appendCell(tr, text, className) {
+            var td = document.createElement('td');
+            td.textContent = text || '';
+            if (className) {
+                td.className = className;
+            }
+            tr.appendChild(td);
+        }
+
+        function renderAccessRows(rows) {
+            var tbody = document.getElementById('access_log_rows');
+            var empty = document.getElementById('access_log_empty');
+            tbody.textContent = '';
+            empty.style.display = rows.length ? 'none' : 'block';
+            if (!rows.length) {
+                return;
+            }
+            var frag = document.createDocumentFragment();
+            rows.forEach(function (row) {
+                var tr = document.createElement('tr');
+                tr.title = row.raw || '';
+                appendCell(tr, row.ts ? row.ts.replace('T', ' ') : '—');
+                appendCell(tr, row.from || '—');
+                appendCell(tr, row.status || '', row.status === 'accepted' ? 'text-success' : 'text-danger');
+                appendCell(tr, row.to || '—');
+                appendCell(tr, row.inbound || '');
+                appendCell(tr, row.outbound || '');
+                appendCell(tr, row.email || row.note || '');
+                frag.appendChild(tr);
+            });
+            tbody.appendChild(frag);
+        }
+
+        function loadAccessLog() {
+            $.get('/api/xrayclient/service/accessLog', { lines: 500 }, function (res) {
+                var enabled = res && res.enabled !== false;
+                $('#access_log_hint').toggle(!enabled);
+                renderAccessRows((res && res.rows) || []);
+            });
+        }
+
+        $('#btn_access_refresh').on('click', loadAccessLog);
+        $('#chk_access_auto').on('change', function () {
+            if (this.checked) {
+                stopAccessRefresh();
+                startAccessRefresh();
+            } else {
+                stopAccessRefresh();
+            }
+        });
+        $('#btn_access_clear').on('click', function () {
+            ajaxCall('/api/xrayclient/service/accessLog', { action: 'clear' }, function () {
+                loadAccessLog();
+            });
+        });
+
+        function startAccessRefresh() {
+            if (accessRefreshTimer) { return; }
+            accessRefreshTimer = window.setInterval(function () {
+                if ($('#tab_access').hasClass('active') || $('#tab_access').hasClass('in')) {
+                    loadAccessLog();
+                }
+            }, 5000);
+        }
+        function stopAccessRefresh() {
+            if (accessRefreshTimer) {
+                window.clearInterval(accessRefreshTimer);
+                accessRefreshTimer = null;
+            }
+        }
+        $('a[href="#tab_access"]').on('shown.bs.tab', function () {
+            loadAccessLog();
+            if ($('#chk_access_auto').prop('checked')) {
+                startAccessRefresh();
+            }
+        });
+        $('a[href="#tab_access"]').on('hidden.bs.tab', function () {
+            stopAccessRefresh();
+        });
     });
 </script>
 
@@ -1732,6 +1813,7 @@
     <li><a data-toggle="tab" href="#tab_dns"><b>DNS Servers</b></a></li>
     <li id="tab_expert_li" style="display: none;"><a data-toggle="tab" href="#tab_expert"><b>Expert Config</b></a></li>
     <li><a data-toggle="tab" href="#tab_maintenance"><b>Maintenance &amp; Updates</b></a></li>
+    <li><a data-toggle="tab" href="#tab_access"><b>Access Log</b></a></li>
 </ul>
 
 <div class="tab-content content-box">
@@ -2002,6 +2084,42 @@
                 <i class="fa fa-github"></i> <b>Update Plugin from GitHub</b>
             </button>
             <pre id="maintenance_output" style="display:none; margin-top: 15px; max-height: 300px; overflow-y: auto;"></pre>
+        </div>
+    </div>
+
+    <div id="tab_access" class="tab-pane fade">
+        <div class="col-md-12" style="margin-top: 15px; margin-bottom: 15px;">
+            <div id="access_log_hint" class="alert alert-info" style="display:none;">
+                <b>Access Log is disabled</b> — no connections are recorded until you turn it on in
+                General Settings → Logging (<b>Enable Access Log</b>, then Apply &amp; Restart).
+            </div>
+            <div class="form-inline" style="margin-bottom: 10px;">
+                <button id="btn_access_refresh" type="button" class="btn btn-default"><i class="fa fa-refresh"></i> Refresh</button>
+                <label style="margin-left: 12px; font-weight: normal; cursor: pointer; user-select: none;">
+                    <input type="checkbox" id="chk_access_auto" checked> Live (5s)
+                </label>
+                <button id="btn_access_clear" type="button" class="btn btn-danger" style="margin-left: 12px;"><i class="fa fa-trash"></i> Clear log</button>
+                <span class="small text-muted" style="margin-left: 12px; vertical-align: text-bottom;">
+                    <a href="/ui/diagnostics/log/xray/access" target="_blank" rel="noopener">Open in Diagnostics → Logs</a>
+                </span>
+            </div>
+            <div style="max-height: 600px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; background: #161616;">
+                <table class="table table-condensed" style="margin-bottom: 0; color: #d4d4d4; font-size: 12px; white-space: nowrap;">
+                    <thead>
+                        <tr style="color: #ffb72c; position: sticky; top: 0; background: #161616; z-index: 1;">
+                            <th>Time</th>
+                            <th>From</th>
+                            <th>Status</th>
+                            <th>To</th>
+                            <th>Inbound</th>
+                            <th>Outbound</th>
+                            <th>Email / Note</th>
+                        </tr>
+                    </thead>
+                    <tbody id="access_log_rows"></tbody>
+                </table>
+                <div id="access_log_empty" class="text-muted" style="padding: 24px 12px; text-align: center;">No rows yet. Connections appear here only while <b>Enable Access Log</b> is on in General Settings.</div>
+            </div>
         </div>
     </div>
 </div>

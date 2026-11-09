@@ -517,6 +517,32 @@ class ServiceController extends ApiMutableServiceControllerBase
         return is_array($data) ? $data : ['status' => 'error', 'balancers' => []];
     }
 
+    /**
+     * Structured rows of /var/log/xray/access.log for the Access Log tab.
+     * Reads as root via configd; the file itself is not readable by the web
+     * user. The Access Log tab renders: ts, source, status, destination,
+     * inbound -> outbound detour, email/note (malformed lines are shown raw).
+     */
+    public function accessLogAction()
+    {
+        $lines = (int)$this->request->get('lines', 'int', 300);
+        if ($lines < 10) {
+            $lines = 10;
+        } elseif ($lines > 2000) {
+            $lines = 2000;
+        }
+        if ($this->request->isPost() && $this->request->getPost('action') === 'clear') {
+            $backend = new Backend();
+            $backend->configdpRun('system clear log', ['xray', 'access']);
+            return ['status' => 'cleared', 'enabled' => true, 'rows' => []];
+        }
+
+        $backend = new Backend();
+        $response = $backend->configdpRun('xrayclient access_log', [(string)$lines]);
+        $data = json_decode(trim($response), true);
+        return is_array($data) ? $data : ['status' => 'error', 'enabled' => false, 'rows' => []];
+    }
+
     public function versionAction()
     {
         $backend = new Backend();
