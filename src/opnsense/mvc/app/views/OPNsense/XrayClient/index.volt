@@ -1131,15 +1131,12 @@
             });
         });
 
-        // Toggle the &laquo;no DNS servers&raquo; panel based on the grid's
+        // Toggle the &laquo;no DNS servers&raquo; hint based on the grid's
         // current state. Runs on tab show, on grid (re)load, after CRUD.
         function updateDnsEmptyState() {
             var count = $('#grid-dns > tbody > tr').length;
             $('#dns_empty_state').toggle(count === 0);
         }
-        $('#btn_dns_add_preset').on('click', function () {
-            $('#grid-dns').parent().find('.command-add').trigger('click');
-        });
         $('a[href="#tab_dns"]').on('shown.bs.tab', updateDnsEmptyState);
         $('#grid-dns').on('loaded.rs.jquery.bootgrid', updateDnsEmptyState);
 
@@ -2470,9 +2467,8 @@
         <div class="col-md-12" style="margin-top: 10px; margin-bottom: 4px;">
             <span class="text-muted" style="font-size: 13px;">Enable the built-in DNS in <b>General Settings → Built-in DNS server</b>, then list resolvers here. Servers with a domains list answer only those domains; the preset in the dialog fills typical setups. Entries save instantly — <b>Apply &amp; Restart Xray</b>.</span>
         </div>
-        <div id="dns_empty_state" class="alert alert-info" style="display:none; margin-top: 10px;">
-            <p style="margin-top: 0; margin-bottom: 8px;"><b>No DNS servers yet.</b> The built-in DNS needs at least one entry here. Add a resolver from a preset — or write your own — to get started.</p>
-            <button id="btn_dns_add_preset" type="button" class="btn btn-primary btn-sm"><i class="fa fa-plus fa-fw"></i> Add a DNS server from a preset…</button>
+        <div id="dns_empty_state" class="alert alert-info" style="display:none; margin-top: 10px; padding-top: 12px; padding-bottom: 12px;">
+            <b>No DNS servers yet.</b> The built-in DNS needs at least one resolver here. Use the <b>+</b> button above the table — the dialog offers built-in presets (Cloudflare / Google / AdGuard DoH, Yandex, system resolver) or a custom server.
         </div>
         <table id="grid-dns" class="table table-condensed table-hover table-striped" data-editDialog="DialogDnsServer">
             <thead>
