@@ -1404,7 +1404,8 @@
                 var $a = $(this);
                 var id = ($a.attr('id') || '').replace(/^help_for_/, '');
                 var $row = $a.closest('tr, .form-group');
-                if ($row.hasClass('expert_only')) {
+                // .expert_only is added to the input, not to the row.
+                if ($row.find('.expert_only').length > 0) {
                     $a.addClass('help-advanced');
                 } else if (Object.prototype.hasOwnProperty.call(requiredNode, id)) {
                     $a.addClass('help-required');
