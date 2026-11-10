@@ -13,9 +13,9 @@
     </field>
     <field>
         <id>xrayclient.general.expert_mode</id>
-        <label>Advanced Mode</label>
+        <label>Expert Mode</label>
         <type>checkbox</type>
-        <help>Show the advanced knobs everywhere: the Expert Config tab (the exact /usr/local/etc/xray/config.json Xray is running), the raw JSON sections in General, and all advanced fields in the node/rule dialogs. When you open a dialog whose previously hidden fields are filled in, those stay visible until you save; Advanced Mode stays off.</help>
+        <help>Show an extra "Expert Config" tab with the exact /usr/local/etc/xray/config.json Xray is running (or would run). You can view it or edit it manually; saving there switches the plugin to Raw JSON mode, and the config is validated with xray run -test before it is applied.</help>
     </field>
     <field>
         <type>header</type>
