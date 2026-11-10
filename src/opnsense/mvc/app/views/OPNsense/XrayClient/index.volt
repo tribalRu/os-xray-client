@@ -239,8 +239,7 @@
             if (typeof toggleExpertTab === 'function') {
                 toggleExpertTab($('#xrayclient\\.general\\.expert_mode').prop('checked'));
             }
-            toggleObservatoryRows();
-            toggleAuthRows();
+            toggleGeneralRows();
         });
 
         updateServiceControlUI('xrayclient');
@@ -611,51 +610,62 @@
         }
         $('#xrayclient\\.general\\.config_mode').on('change', toggleConfigModeUI);
 
-        // Load Balancer Observatory: show only the fields that apply to the
-        // selected type (burst and background use different Xray keys).
-        function toggleObservatoryRows() {
-            var type = $('#xrayclient\\.general\\.observatory_type').val() || 'none';
-            var rows = {
-                selector: '#xrayclient\\.general\\.observatory_selector',
-                url: '#xrayclient\\.general\\.observatory_url',
-                interval: '#xrayclient\\.general\\.observatory_interval',
-                sampling: '#xrayclient\\.general\\.observatory_sampling',
-                timeout: '#xrayclient\\.general\\.observatory_timeout',
-                method: '#xrayclient\\.general\\.observatory_http_method',
-                concurrency: '#xrayclient\\.general\\.observatory_concurrency'
-            };
-            $.each(rows, function (name, selector) {
-                var show = false;
-                if (type === 'burst') {
-                    show = (name !== 'concurrency');
-                } else if (type === 'background') {
-                    show = (name === 'selector' || name === 'url' ||
-                            name === 'interval' || name === 'concurrency');
-                }
+        // General Settings: rows that depend on a toggle or dropdown are
+        // hidden when they would not take effect. The "Show advanced fields"
+        // collapse is combined through the normal CSS rule for .expert_only
+        // rows; this function only toggles unrelated rows.
+        function toggleGeneralRows() {
+            var ids = function () { return Array.prototype.slice.call(arguments); };
+            function setRow(id, show) {
+                var $el = $('#xrayclient\\.general\\.' + id);
+                if ($el.length === 0) { return; }
                 // OPNsense 26 renders base_form rows as <tr id="row_...">;
                 // older layouts use .form-group, so match both.
-                $(selector).closest('tr, .form-group').toggle(show);
-            });
-        }
-        $('#xrayclient\\.general\\.observatory_type').on('change', toggleObservatoryRows);
+                $el.closest('tr, .form-group').toggle(show);
+            }
+            function setRows(list, show) {
+                list.forEach(function (id) { setRow(id, show); });
+            }
 
-        // Local proxies: credentials are only useful with password auth.
-        // Hide them with noauth; the model also refuses to save filled
-        // credentials unless authentication is set to password.
-        function toggleAuthRows() {
-            var pairs = [
-                ['#xrayclient\\.general\\.socks_auth', '#xrayclient\\.general\\.socks_username', '#xrayclient\\.general\\.socks_password'],
-                ['#xrayclient\\.general\\.http_auth', '#xrayclient\\.general\\.http_username', '#xrayclient\\.general\\.http_password']
-            ];
-            $.each(pairs, function (_, pair) {
-                var show = ($(pair[0]).val() || 'noauth') === 'password';
-                // OPNsense 26 renders base_form rows as <tr id="row_...">;
-                // older layouts use .form-group, so match both.
-                $(pair[1]).closest('tr, .form-group').toggle(show);
-                $(pair[2]).closest('tr, .form-group').toggle(show);
+            var socksOn = !!$('#xrayclient\\.general\\.enable_socks').prop('checked');
+            var httpOn = !!$('#xrayclient\\.general\\.enable_http').prop('checked');
+            var tunOn = !!$('#xrayclient\\.general\\.enable_tun').prop('checked');
+            var sniffOn = !!$('#xrayclient\\.general\\.enable_sniffing').prop('checked');
+            var telemetryOn = !!$('#xrayclient\\.general\\.auto_telemetry').prop('checked');
+            var dnsOn = !!$('#xrayclient\\.general\\.dns_enabled').prop('checked');
+            var socksAuth = ($('#xrayclient\\.general\\.socks_auth').val() || 'noauth') === 'password';
+            var httpAuth = ($('#xrayclient\\.general\\.http_auth').val() || 'noauth') === 'password';
+
+            setRows(ids('socks_auth', 'socks_listen', 'socks_port'), socksOn);
+            setRows(ids('socks_username', 'socks_password'), socksOn && socksAuth);
+
+            setRows(ids('http_listen', 'http_auth', 'http_port'), httpOn);
+            setRows(ids('http_username', 'http_password'), httpOn && httpAuth);
+
+            setRows(ids('tun_iface', 'tun_address', 'tun_mtu', 'tun_ipv6_address', 'tun_auto_outbounds_interface'), tunOn);
+
+            setRows(ids('sniffing_dest_override', 'sniffing_route_only', 'sniffing_domains_excluded'), sniffOn);
+
+            setRows(ids('telemetry_interval'), telemetryOn);
+
+            setRows(ids('dns_query_strategy', 'dns_disable_cache', 'dns_disable_fallback',
+                        'dns_disable_fallback_if_match', 'dns_enable_parallel_query', 'dns_use_system_hosts'), dnsOn);
+
+            // Observatory: burst and background observatories use different
+            // keys, and neither key applies when the observatory is off.
+            var obsType = $('#xrayclient\\.general\\.observatory_type').val() || 'none';
+            ids('selector', 'url', 'interval', 'sampling', 'timeout', 'http_method', 'concurrency').forEach(function (name) {
+                var show = false;
+                if (obsType === 'burst') {
+                    show = (name !== 'concurrency');
+                } else if (obsType === 'background') {
+                    show = (name === 'selector' || name === 'url' ||
+                        name === 'interval' || name === 'concurrency');
+                }
+                setRow('observatory_' + name, show);
             });
         }
-        $('#xrayclient\\.general\\.socks_auth, #xrayclient\\.general\\.http_auth').on('change', toggleAuthRows);
+        $('#xrayclient\\.general\\.enable_socks, #xrayclient\\.general\\.enable_http, #xrayclient\\.general\\.enable_tun, #xrayclient\\.general\\.enable_sniffing, #xrayclient\\.general\\.auto_telemetry, #xrayclient\\.general\\.dns_enabled, #xrayclient\\.general\\.socks_auth, #xrayclient\\.general\\.http_auth, #xrayclient\\.general\\.observatory_type').on('change', toggleGeneralRows);
 
         function toggleGeoDataCustomUI() {
             var preset = $('#xrayclient\\.maintenance\\.geodata_preset').val();
