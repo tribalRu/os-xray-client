@@ -80,6 +80,11 @@ export default class XrayClient extends BaseWidget {
 
     async onWidgetOptionsChanged(options) {
         this.liveConfig = this._resolveLiveConfig(options);
+        if (!this.liveConfig.live) {
+            this.nodeRates = {};
+            this.liveSample = null;
+            this._render();
+        }
         await this._startLive();
     }
 
