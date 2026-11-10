@@ -1078,6 +1078,22 @@
                             return '<span style="cursor: pointer;" class="fa fa-fw fa-toggle-off text-muted command-toggle bootgrid-tooltip" data-value="0" data-row-id="' + row.uuid + '"></span>';
                         }
                     },
+                    "transport": function (column, row) {
+                        var map = {
+                            tcp: ['TCP', 'TCP (RAW)'],
+                            ws: ['WS', 'WebSocket (WS)'],
+                            grpc: ['gRPC', 'gRPC'],
+                            xhttp: ['XHTTP', 'XHTTP (SplitHTTP)'],
+                            httpupgrade: ['HTTPUpg', 'HTTPUpgrade'],
+                            xdrive: ['XDRIVE', 'XDRIVE (Google Drive / S3 / template)']
+                        };
+                        var key = String(row.network || '').toLowerCase();
+                        var entry = map[key];
+                        if (!entry) {
+                            return '' + $('<div/>').text(row.network || '').html();
+                        }
+                        return '<span class="bootgrid-tooltip" title="' + entry[1] + '">' + entry[0] + '</span>';
+                    },
                     "latency": function (column, row) {
                         var info = nodeLatencyCache[row.uuid];
                         if (!info) return '<span class="label label-default">Unchecked</span>';
@@ -2478,6 +2494,7 @@
                     <th data-column-id="enabled" data-width="3.5em" data-type="string" data-formatter="rowtoggle">Active</th>
                     <th data-column-id="name" data-min-width="8em" data-type="string">Server Name</th>
                     <th data-column-id="protocol" data-width="4.5em" data-type="string">Protocol</th>
+                    <th data-column-id="network" data-width="6em" data-formatter="transport">Transport</th>
                     <th data-column-id="address" data-min-width="12em" data-type="string">Address</th>
                     <th data-column-id="port" data-width="3em" data-type="string">Port</th>
                     <th data-column-id="security" data-width="5em" data-type="string">Security</th>
