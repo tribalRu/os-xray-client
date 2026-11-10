@@ -1,4 +1,4 @@
-﻿<form>
+<form>
     <field>
         <id>node.enabled</id>
         <label>Active (Use this Server)</label>
@@ -53,7 +53,6 @@
 
     <field>
         <type>header</type>
-        <static>true</static>
         <label>VLESS Settings</label>
         <style>proto_vless</style>
     </field>
@@ -88,7 +87,6 @@
     </field>
     <field>
         <type>header</type>
-        <static>true</static>
         <label>Shadowsocks Settings</label>
         <style>proto_shadowsocks</style>
     </field>
@@ -100,7 +98,6 @@
     </field>
     <field>
         <type>header</type>
-        <static>true</static>
         <label>VMess Settings</label>
         <style>proto_vmess</style>
     </field>
@@ -120,7 +117,6 @@
 
     <field>
         <type>header</type>
-        <static>true</static>
         <label>WireGuard Settings</label>
         <style>proto_wireguard</style>
     </field>
@@ -205,7 +201,6 @@
 
     <field>
         <type>header</type>
-        <static>true</static>
         <label>Freedom / Direct Settings</label>
         <style>proto_freedom</style>
     </field>
@@ -233,7 +228,6 @@
 
     <field>
         <type>header</type>
-        <static>true</static>
         <label>Blackhole Settings</label>
         <style>proto_blackhole</style>
     </field>
@@ -247,7 +241,6 @@
 
     <field>
         <type>header</type>
-        <static>true</static>
         <label>DNS Outbound Settings</label>
         <style>proto_dns</style>
     </field>
@@ -281,7 +274,6 @@
 
     <field>
         <type>header</type>
-        <static>true</static>
         <label>Loopback Settings</label>
         <style>proto_loopback</style>
     </field>
@@ -295,7 +287,6 @@
 
     <field>
         <type>header</type>
-        <static>true</static>
         <label>Hysteria 2 Settings</label>
         <style>proto_hysteria</style>
     </field>
@@ -316,7 +307,6 @@
 
     <field>
         <type>header</type>
-        <static>true</static>
         <label>MASQUE Settings</label>
         <style>proto_masque</style>
     </field>
@@ -345,7 +335,6 @@
 
     <field>
         <type>header</type>
-        <static>true</static>
         <label>Transport &amp; Stream Security</label>
         <style>proto_transport</style>
     </field>
@@ -459,7 +448,6 @@
     </field>
     <field>
         <type>header</type>
-        <static>true</static>
         <label>Transport Settings</label>
         <style>net_any</style>
     </field>
@@ -552,7 +540,6 @@
     </field>
     <field>
         <type>header</type>
-        <static>true</static>
         <label>XDRIVE Settings</label>
         <style>net_xdrive</style>
     </field>
@@ -662,7 +649,6 @@
     </field>
     <field>
         <type>header</type>
-        <static>true</static>
         <label>Domain Resolution &amp; Local Binding</label>
     </field>
     <field>
@@ -749,7 +735,6 @@
     </field>
     <field>
         <type>header</type>
-        <static>true</static>
         <label>Mux &amp; Custom Overrides</label>
         <style>stream_custom</style>
     </field>

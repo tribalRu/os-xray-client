@@ -1,7 +1,6 @@
 <form>
     <field>
         <type>header</type>
-        <static>true</static>
         <label>Rule</label>
     </field>
     <field>
@@ -23,7 +22,6 @@
     </field>
     <field>
         <type>header</type>
-        <static>true</static>
         <label>Match traffic by</label>
     </field>
     <field>
@@ -62,7 +60,6 @@
     </field>
     <field>
         <type>header</type>
-        <static>true</static>
         <label>Additional conditions (rarely needed)</label>
     </field>
     <field>

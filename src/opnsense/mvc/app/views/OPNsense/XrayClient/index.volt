@@ -67,10 +67,12 @@
     #DialogNode.optional-hidden div.form-group:has(.expert_only) {
         display: none !important;
     }
-    /* Stage 1: collapsible sections in the node and rule dialogs. The whole
-       section's <tbody> folds away; the header row stays visible with a
-       chevron. Any section flagged invalid by the user (validation error)
-       auto-expands via the same mechanism. */
+    /* Collapsible sections in the node and rule dialogs use the native
+       OPNsense markup (chevron at the left, cursor pointer,
+       tbody.collapsible) like the General tab; the <static> flag was
+       removed from those form headers so base_form.volt renders exactly
+       the same structure. Any section flagged invalid (validation error)
+       auto-expands via setSectionCollapsed(). */
     #DialogNode .form-search-section.collapse-section > table > thead tr th,
     #DialogRule .form-search-section.collapse-section > table > thead tr th {
         user-select: none;
@@ -78,27 +80,11 @@
     #DialogNode .form-search-section.collapse-section > table > thead tr th > div,
     #DialogRule .form-search-section.collapse-section > table > thead tr th > div {
         cursor: pointer;
-        padding-right: 30px;
-    }
-    #DialogNode .form-search-section.collapse-section .collapse-icon,
-    #DialogRule .form-search-section.collapse-section .collapse-icon {
-        float: right;
-        margin-top: 2px;
-        padding-right: 2px;
-        color: #ffb72c;
-        transition: transform 0.12s ease;
-    }
-    #DialogNode .form-search-section.collapse-section.collapsed > table > tbody,
-    #DialogRule .form-search-section.collapse-section.collapsed > table > tbody {
-        display: none;
-    }
-    #DialogNode .form-search-section.collapse-section.collapsed .collapse-icon,
-    #DialogRule .form-search-section.collapse-section.collapsed .collapse-icon {
-        transform: rotate(-90deg);
     }
     #DialogNode .form-search-section.collapse-section .collapse-badge,
     #DialogRule .form-search-section.collapse-section .collapse-badge {
         display: none;
+        vertical-align: middle;
     }
     #DialogNode .form-search-section.collapse-section.invalid > table > thead tr th > div,
     #DialogRule .form-search-section.collapse-section.invalid > table > thead tr th > div {
@@ -971,6 +957,50 @@
             return { set: setIcon, get: function () { return state; } };
         }
 
+        // Collapsible sections use the native OPNsense markup and the
+        // built-in delegated click handler (defined in layouts/default.volt:
+        // click on the thead toggles the following tbody.collapsible and
+        // swaps fa-angle-down/fa-angle-right). These helpers mirror that
+        // mechanism so the initial/reapplied state, the "error" badge and
+        // localStorage persistence behave identically to the General tab.
+        function slugSection(text) {
+            return (text || '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').toLowerCase();
+        }
+        function sectionDetails($sec) {
+            var $thead = $sec.children('table').children('thead');
+            var $div = $thead.children('tr').children('th').children('div').first();
+            return {
+                $tbody: $sec.children('table').children('tbody'),
+                $icon: $div.children('i').first(),
+                $b: $div.children('b').first(),
+                label: $div.children('b').length ? $div.children('b').first().text() : 'Section'
+            };
+        }
+        function isSectionCollapsed($sec) {
+            var $tbody = $sec.children('table').children('tbody');
+            var $td = $tbody.children('tr').children('td').first();
+            return $tbody.css('display') === 'none'
+                || ($td.length > 0 && $td.css('display') === 'none');
+        }
+        function setSectionCollapsed($sec, collapsed) {
+            var bits = sectionDetails($sec);
+            bits.$tbody.css('display', '');
+            bits.$tbody.children('tr').children('td').css('display', collapsed ? 'none' : '');
+            bits.$icon.removeClass('fa-angle-down fa-angle-right')
+                .addClass(collapsed ? 'fa-angle-right' : 'fa-angle-down');
+        }
+        // Persist the collapse state of dialog sections after the native
+        // (core) click handler ran. Reads happen after a tick.
+        $(document).on('click', '#frm_DialogNode .collapse-section > table > thead, #frm_DialogRule .collapse-section > table > thead', function () {
+            var $sec = $(this).closest('.collapse-section');
+            var prefix = $sec.closest('#frm_DialogRule').length ? 'osxray_rule_collapse_' : 'osxray_node_collapse_';
+            setTimeout(function () {
+                try {
+                    localStorage.setItem(prefix + slugSection(sectionDetails($sec).label), isSectionCollapsed($sec) ? '1' : '0');
+                } catch (e) {}
+            }, 0);
+        });
+
         $("#grid-nodes").UIBootgrid({
             search: '/api/xrayclient/settings/searchNode',
             get: '/api/xrayclient/settings/getNode/',
@@ -1462,9 +1492,6 @@
                 'node.grpc_multi_mode': true, 'node.grpc_permit_without_stream': true,
                 'node.mux_enabled': true, 'node.sockopt_tcp_fast_open': true
             };
-            function slug(text) {
-                return (text || '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').toLowerCase();
-            }
             $('#frm_DialogNode .showhelp').each(function () {
                 var $a = $(this);
                 var id = ($a.attr('id') || '').replace(/^help_for_/, '');
@@ -1487,22 +1514,13 @@
 
             $('#frm_DialogNode .form-search-section').each(function () {
                 var $sec = $(this);
-                var $th = $sec.children('table').children('thead').children('tr').children('th').children('div').first();
-                if ($th.length === 0) {
+                var bits = sectionDetails($sec);
+                if (!bits.$b.length) {
+                    // The identity section (no header row) stays open.
                     return;
                 }
-                var $label = $th.children('b');
-                var label = $label.length ? $label.text() : 'Section';
                 $sec.addClass('collapse-section');
-                $th.prepend('<span class="collapse-badge">error</span>');
-                $th.prepend('<i class="fa fa-angle-down fa-fw collapse-icon"></i>');
-                $th.on('click', function () {
-                    $sec.toggleClass('collapsed');
-                    try {
-                        localStorage.setItem('osxray_node_collapse_' + slug(label),
-                            $sec.hasClass('collapsed') ? '1' : '0');
-                    } catch (e) {}
-                });
+                bits.$b.after('<span class="collapse-badge">error</span>');
             });
 
             function defaultOpen() {
@@ -1528,19 +1546,18 @@
                     if (!$sec.hasClass('collapse-section')) {
                         return;
                     }
-                    var $b = $sec.find('> table > thead > tr > th > div > b');
-                    var label = $b.length ? $b.text() : 'Section';
+                    var label = sectionDetails($sec).label;
                     var stored = null;
                     try {
-                        stored = localStorage.getItem('osxray_node_collapse_' + slug(label));
+                        stored = localStorage.getItem('osxray_node_collapse_' + slugSection(label));
                     } catch (e) {}
                     if (stored === '1') {
-                        $sec.addClass('collapsed');
+                        setSectionCollapsed($sec, true);
                     } else if (stored === '0') {
-                        $sec.removeClass('collapsed');
+                        setSectionCollapsed($sec, false);
                     } else if ($sec.find('[id="node.enabled"]').length > 0) {
                         // The identity section stays open by default.
-                        $sec.removeClass('collapsed');
+                        setSectionCollapsed($sec, false);
                     } else {
                         var match = false;
                         open.forEach(function (c) {
@@ -1548,7 +1565,7 @@
                                 match = true;
                             }
                         });
-                        $sec.toggleClass('collapsed', !match);
+                        setSectionCollapsed($sec, !match);
                     }
                 });
             }
@@ -1566,7 +1583,8 @@
                         return $sec.find('[id="' + k + '"], [id^="' + k + '_"]').length > 0;
                     });
                     if (hit) {
-                        $sec.removeClass('collapsed').addClass('invalid');
+                        setSectionCollapsed($sec, false);
+                        $sec.addClass('invalid');
                     }
                 });
             }
@@ -1609,38 +1627,24 @@
                 }
             });
 
-            function slug(text) {
-                return (text || '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').toLowerCase();
-            }
             $('#frm_DialogRule .form-search-section').each(function () {
                 var $sec = $(this);
-                var $th = $sec.children('table').children('thead').children('tr').children('th').children('div').first();
-                if ($th.length === 0) { return; }
-                var $label = $th.children('b');
-                var label = $label.length ? $label.text() : 'Section';
+                var bits = sectionDetails($sec);
+                if (!bits.$b.length) { return; }
                 $sec.addClass('collapse-section');
-                $th.prepend('<span class="collapse-badge">error</span>');
-                $th.prepend('<i class="fa fa-angle-down fa-fw collapse-icon"></i>');
-                $th.on('click', function () {
-                    $sec.toggleClass('collapsed');
-                    try {
-                        localStorage.setItem('osxray_rule_collapse_' + slug(label), $sec.hasClass('collapsed') ? '1' : '0');
-                    } catch (e) {}
-                });
+                bits.$b.after('<span class="collapse-badge">error</span>');
             });
             $('#frm_DialogRule .form-search-section').each(function () {
                 var $sec = $(this);
                 if (!$sec.hasClass('collapse-section')) { return; }
-                var $b = $sec.find('> table > thead > tr > th > div > b');
-                var label = $b.length ? $b.text() : 'Section';
-                var key = 'osxray_rule_collapse_' + slug(label);
+                var label = sectionDetails($sec).label;
                 var stored = null;
-                try { stored = localStorage.getItem(key); } catch (e) {}
+                try { stored = localStorage.getItem('osxray_rule_collapse_' + slugSection(label)); } catch (e) {}
                 if (stored !== null && stored !== undefined) {
-                    $sec.toggleClass('collapsed', stored === '1');
+                    setSectionCollapsed($sec, stored === '1');
                 } else {
                     var open = (label === 'Rule' || label === 'Match traffic by');
-                    $sec.toggleClass('collapsed', !open);
+                    setSectionCollapsed($sec, !open);
                 }
             });
             $(document).on('validation-failed', function (_, detail) {
@@ -1654,7 +1658,7 @@
                     var hit = keys.some(function (k) {
                         return $sec.find('[id="' + k + '"], [id^="' + k + '_"]').length > 0;
                     });
-                    if (hit) { $sec.removeClass('collapsed').addClass('invalid'); }
+                    if (hit) { setSectionCollapsed($sec, false); $sec.addClass('invalid'); }
                 });
             });
             $('#frm_DialogRule').on('change', '.collapse-section', function () {
