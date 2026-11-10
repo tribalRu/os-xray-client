@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>2.17.28</version>
+    <version>2.17.29</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -52,7 +52,8 @@
             <tun_iface type="TextField">
                 <default>tun_xray0</default>
                 <Required>Y</Required>
-                <Mask>/^[a-zA-Z0-9_]{3,15}$/</Mask>
+                <Mask>/^tun_[a-zA-Z0-9_]{1,11}$/</Mask>
+                <ValidationMessage>Must start with "tun_" and be 5-15 characters long (letters, digits, underscore).</ValidationMessage>
             </tun_iface>
             <tun_address type="TextField">
                 <default>10.255.0.1/30</default>
@@ -1253,3 +1254,4 @@
         </maintenance>
     </items>
 </model>
+
