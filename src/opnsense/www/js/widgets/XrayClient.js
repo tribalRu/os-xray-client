@@ -39,7 +39,8 @@ export default class XrayClient extends BaseWidget {
         this.liveTimer = null;
         this.liveSample = null;      // { time: ms, stats: {uuid: {uplink, downlink}} }
         this.nodeRates = {};         // uuid -> { down, up } bytes per second
-        this.liveConfig = { live: true, intervalMs: 2000 };
+        this.liveConfig = { live: true, intervalMs: 5000 };
+        this.liveBusy = false;
     }
 
     async onVisibilityChanged(visible) {
@@ -73,7 +74,7 @@ export default class XrayClient extends BaseWidget {
                     {value: '10', label: '10 seconds'},
                     {value: '30', label: '30 seconds'}
                 ],
-                default: '2'
+                default: '5'
             }
         };
     }
@@ -91,7 +92,7 @@ export default class XrayClient extends BaseWidget {
     _resolveLiveConfig(cfg) {
         const live = cfg && cfg.live !== false && cfg.live !== '0';
         const secs = parseInt(cfg && cfg.liveInterval, 10);
-        const intervalMs = (isNaN(secs) ? 2 : Math.min(30, Math.max(1, secs))) * 1000;
+        const intervalMs = (isNaN(secs) ? 5 : Math.min(30, Math.max(1, secs))) * 1000;
         return {live, intervalMs};
     }
 
@@ -100,7 +101,7 @@ export default class XrayClient extends BaseWidget {
             const stored = await this.getWidgetConfig();
             return this._resolveLiveConfig(stored || {});
         } catch (e) {
-            return {live: true, intervalMs: 2000};
+            return {live: true, intervalMs: 5000};
         }
     }
 
@@ -125,9 +126,10 @@ export default class XrayClient extends BaseWidget {
     }
 
     async _liveTick() {
-        if (document.hidden) {
+        if (document.hidden || this.liveBusy) {
             return;
         }
+        this.liveBusy = true;
         try {
             const res = await this.ajaxCall('/api/xrayclient/service/stats');
             if (!res || !res.stats) {
@@ -138,6 +140,8 @@ export default class XrayClient extends BaseWidget {
             this._render();
         } catch (e) {
             // Keep the previous values; next tick retries.
+        } finally {
+            this.liveBusy = false;
         }
     }
 

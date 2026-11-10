@@ -2314,7 +2314,8 @@
         // every 2 s while the tab is visible. ---
         var liveTrafficTimer = null;
         var liveTrafficSample = null;
-        var LIVE_TRAFFIC_INTERVAL = 2000;
+        var LIVE_TRAFFIC_INTERVAL = 5000;
+        var liveTrafficBusy = false;
         var LIVE_TRAFFIC_KEY = 'osxray_live_traffic';
 
         function startLiveTraffic() {
@@ -2341,17 +2342,32 @@
             }
         }
 
+        // Every sample runs `xray api statsquery` on the router, so poll only
+        // while the Outbound Nodes tab is on screen, and never stack requests.
+        function nodesTabVisible() {
+            return $('#tab_nodes').hasClass('active');
+        }
+
         function refreshLiveTraffic() {
-            if (document.hidden) {
+            if (document.hidden || !nodesTabVisible()) {
+                // A long gap would be averaged into a misleading rate.
+                liveTrafficSample = null;
                 return;
             }
+            if (liveTrafficBusy) {
+                return;
+            }
+            liveTrafficBusy = true;
             ajaxCall('/api/xrayclient/service/stats', {}, function (data) {
+                liveTrafficBusy = false;
                 if (!collectTrafficStats(data)) {
                     return;
                 }
                 updateLiveTrafficCells();
                 updateTotalTraffic(data.stats);
             });
+            // ajaxCall has no error callback: release the guard if no answer arrives.
+            setTimeout(function () { liveTrafficBusy = false; }, LIVE_TRAFFIC_INTERVAL * 3);
         }
 
         $('#live_traffic_toggle').on('change', function () {
