@@ -545,6 +545,23 @@ class ServiceController extends ApiMutableServiceControllerBase
         ];
     }
 
+    /**
+     * Branches of the plugin repository, for the branch picker on the
+     * Maintenance tab (default branch first).
+     */
+    public function pluginBranchesAction()
+    {
+        $backend = new Backend();
+        $response = $backend->configdRun('xrayclient plugin_branches');
+        $data = json_decode(trim($response), true);
+        return is_array($data) ? $data : [
+            'status' => 'error',
+            'branches' => [],
+            'default' => 'main',
+            'message' => 'Branch list unavailable.'
+        ];
+    }
+
     public function updateCoreAction()
     {
         if (!$this->request->isPost()) {

@@ -832,6 +832,61 @@ class _FakeFile:
         pass
 
 
+def _pkt(text):
+    raw = text.encode()
+    return ('%04x' % (len(raw) + 4)).encode() + raw
+
+
+class TestPluginBranches(unittest.TestCase):
+    def setUp(self):
+        import plugin_branches
+        self.pb = plugin_branches
+
+    def test_parse_refs_keeps_only_branches(self):
+        data = (
+            _pkt('# service=git-upload-pack\n') + b'0000'
+            + _pkt('a' * 40 + ' HEAD\0multi_ack symref=HEAD:refs/heads/main\n')
+            + _pkt('b' * 40 + ' refs/heads/main\n')
+            + _pkt('c' * 40 + ' refs/heads/ui-rules\n')
+            + _pkt('d' * 40 + ' refs/tags/v1.0\n')
+            + b'0000'
+        )
+        self.assertEqual(self.pb.parse_refs(data), ['main', 'ui-rules'])
+
+    def test_parse_refs_survives_garbage(self):
+        self.assertEqual(self.pb.parse_refs(b''), [])
+        self.assertEqual(self.pb.parse_refs(b'zzzz<html>'), [])
+        self.assertEqual(self.pb.parse_refs(b'00ffshort'), [])
+
+    def test_order_puts_main_first_and_drops_unsafe_names(self):
+        names = ['zeta', 'Alpha', 'main', 'feature/x', 'bad name', 'bad;rm', 'alpha2', 'main']
+        self.assertEqual(self.pb.order(names), ['main', 'Alpha', 'alpha2', 'zeta'])
+
+    def test_order_without_default_branch(self):
+        self.assertEqual(self.pb.order(['b', 'a']), ['a', 'b'])
+
+    def test_unreachable_github_is_reported_in_band(self):
+        import io
+        import contextlib
+        with patch.object(self.pb, '_get', side_effect=OSError('blocked')):
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                self.pb.main()
+        out = json.loads(buf.getvalue())
+        self.assertEqual(out['status'], 'error')
+        self.assertEqual(out['branches'], [])
+
+    def test_falls_back_to_rest_api(self):
+        api = json.dumps([{'name': 'main'}, {'name': 'ui-rules'}]).encode()
+
+        def fake_get(url):
+            if 'info/refs' in url:
+                raise OSError('blocked')
+            return api
+        with patch.object(self.pb, '_get', side_effect=fake_get):
+            self.assertEqual(self.pb.list_branches(), ['main', 'ui-rules'])
+
+
 class TestConfigShellTest(unittest.TestCase):
     """test_config.sh with a fake xray binary."""
 
