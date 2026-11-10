@@ -125,6 +125,7 @@
     .xray-help-legend--footer {
         float: none;
         margin-right: auto;
+        margin-left: 8px;
         border-bottom: none;
         padding: 0;
         min-height: 0;
