@@ -935,6 +935,37 @@
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
 
+        // OPNsense-native "advanced fields" switch: same icon + toggle idiom
+        // and the same place as core's "full help" switch (the left, reserved
+        // span of the form's first row) instead of a separate floating bar.
+        // onToggle receives the new state and performs storage + class updates.
+        function mountNativeAdvancedToggle(formSel, label, initial, onToggle) {
+            var $td = $(formSel).find('.form-search-section').first()
+                .find('> table > tbody > tr').first().children('td');
+            if (!$td.length) {
+                return { set: function () {}, get: function () { return !!initial; } };
+            }
+            var state = !!initial;
+            var $icon = $('<i class="fa fa-fw"></i>');
+            function setIcon(v) {
+                state = !!v;
+                $icon.attr('class', 'fa fa-fw ' + (state ? 'fa-toggle-on text-success' : 'fa-toggle-off text-danger'));
+            }
+            setIcon(state);
+            var $a = $('<a href="#"></a>').on('click', function (e) {
+                e.preventDefault();
+                setIcon(!state);
+                onToggle(state);
+            });
+            $a.append($icon);
+            $td.children('span').first().empty().append(
+                $('<i class="fa fa-eye fa-sm fa-fw text-primary"></i> '),
+                $('<small></small>').text(label).append(' '),
+                $a
+            );
+            return { set: setIcon, get: function () { return state; } };
+        }
+
         $("#grid-nodes").UIBootgrid({
             search: '/api/xrayclient/settings/searchNode',
             get: '/api/xrayclient/settings/getNode/',
@@ -1408,19 +1439,8 @@
                 $('[id="' + id + '"]').addClass('expert_only');
             });
             var saved = localStorage.getItem('osxray_show_advanced') === '1';
-            var $row = $(
-                '<div class="xray-advanced-toggle" style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid rgba(255,255,255,0.08);">' +
-                '<i class="fa fa-eye fa-fw text-muted"></i>' +
-                '<label style="margin:0;cursor:pointer;user-select:none;font-weight:normal;">' +
-                '<input type="checkbox" id="chk_show_advanced" style="margin-right:6px;">Show advanced fields' +
-                '</label>' +
-                '<span class="small text-muted">(optional, rarely needed)</span>' +
-                '</div>'
-            );
-            $('#DialogNode .modal-body').prepend($row);
             $('#DialogNode').toggleClass('optional-hidden', !saved);
-            $('#chk_show_advanced').prop('checked', saved).on('change', function () {
-                var show = $(this).prop('checked');
+            mountNativeAdvancedToggle('#frm_DialogNode', 'advanced fields', saved, function (show) {
                 localStorage.setItem('osxray_show_advanced', show ? '1' : '0');
                 $('#DialogNode').toggleClass('optional-hidden', !show);
             });
@@ -1458,7 +1478,7 @@
                 + '<span><i class="fa fa-info-circle icon-optional"></i>optional</span>'
                 + '<span><i class="fa fa-info-circle icon-advanced"></i>advanced</span>'
                 + '</div>';
-            $('.xray-advanced-toggle').after(legend);
+            $('#DialogNode .modal-body').prepend(legend);
 
             $('#frm_DialogNode .form-search-section').each(function () {
                 var $sec = $(this);
@@ -1663,29 +1683,17 @@
                     || $.trim($(this).text()) === 'Additional conditions (rarely needed)';
             }).addClass('expert_hdr');
             var saved = localStorage.getItem('osxray_show_advanced_rule') === '1';
-            var $row = $(
-                '<div class="xray-advanced-toggle" style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid rgba(255,255,255,0.08);">' +
-                '<i class="fa fa-eye fa-fw text-muted"></i>' +
-                '<label style="margin:0;cursor:pointer;user-select:none;font-weight:normal;">' +
-                '<input type="checkbox" id="chk_show_advanced_rule" style="margin-right:6px;">Show additional conditions' +
-                '</label>' +
-                '<span class="small text-muted">(inbound, source, users, tag, seq)</span>' +
-                '</div>'
-            );
-            // Below the preset box, above the form.
-            $('#DialogRule .modal-body').find('#rule_preset_container').after($row);
+            $('#DialogRule').toggleClass('optional-hidden', !saved);
+            var ruleToggle = mountNativeAdvancedToggle('#frm_DialogRule', 'additional conditions', saved, function (show) {
+                localStorage.setItem('osxray_show_advanced_rule', show ? '1' : '0');
+                $('#DialogRule').toggleClass('optional-hidden', !show);
+            });
             var legendRule = '<div class="xray-help-legend">'
                 + '<span><i class="fa fa-info-circle icon-required"></i>mandatory</span>'
                 + '<span><i class="fa fa-info-circle icon-optional"></i>optional</span>'
                 + '<span><i class="fa fa-info-circle icon-advanced"></i>advanced</span>'
                 + '</div>';
-            $row.after(legendRule);
-            $('#DialogRule').toggleClass('optional-hidden', !saved);
-            $('#chk_show_advanced_rule').prop('checked', saved).on('change', function () {
-                var show = $(this).prop('checked');
-                localStorage.setItem('osxray_show_advanced_rule', show ? '1' : '0');
-                $('#DialogRule').toggleClass('optional-hidden', !show);
-            });
+            $('#DialogRule .modal-body').prepend(legendRule);
             // Editing a rule that already uses a hidden condition must not hide it.
             $('#DialogRule').on('shown.bs.modal', function () {
                 var pref = localStorage.getItem('osxray_show_advanced_rule') === '1';
@@ -1694,7 +1702,7 @@
                     return Array.isArray(v) ? v.length > 0 : $.trim(v || '') !== '';
                 });
                 $('#DialogRule').toggleClass('optional-hidden', !(pref || used));
-                $('#chk_show_advanced_rule').prop('checked', pref || used);
+                ruleToggle.set(pref || used);
             });
         })();
 
@@ -1720,19 +1728,8 @@
             });
             var $tab = $('#tab_general');
             var saved = localStorage.getItem('osxray_show_advanced_general') === '1';
-            var $row = $(
-                '<div class="xray-advanced-toggle" style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid rgba(255,255,255,0.08);">' +
-                '<i class="fa fa-eye fa-fw text-muted"></i>' +
-                '<label style="margin:0;cursor:pointer;user-select:none;font-weight:normal;">' +
-                '<input type="checkbox" id="chk_show_advanced_general" style="margin-right:6px;">Show advanced fields' +
-                '</label>' +
-                '<span class="small text-muted">(optional, rarely needed)</span>' +
-                '</div>'
-            );
-            $tab.children('.content-box').first().prepend($row);
             $tab.toggleClass('optional-hidden', !saved);
-            $('#chk_show_advanced_general').prop('checked', saved).on('change', function () {
-                var show = $(this).prop('checked');
+            mountNativeAdvancedToggle('#frm_general', 'advanced fields', saved, function (show) {
                 localStorage.setItem('osxray_show_advanced_general', show ? '1' : '0');
                 $tab.toggleClass('optional-hidden', !show);
             });
