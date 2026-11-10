@@ -31,6 +31,147 @@ export default class XrayClient extends BaseWidget {
         this.running = null;
         this.nodesError = false;
         this.refreshInFlight = false;
+
+        // Live traffic mode: cheap client-side deltas on top of the
+        // cumulative counters returned by /service/stats. Paused while the
+        // tab is hidden; configurable from the dashboard edit mode.
+        this.configurable = true;
+        this.liveTimer = null;
+        this.liveSample = null;      // { time: ms, stats: {uuid: {uplink, downlink}} }
+        this.nodeRates = {};         // uuid -> { down, up } bytes per second
+        this.liveConfig = { live: true, intervalMs: 2000 };
+    }
+
+    async onVisibilityChanged(visible) {
+        if (visible) {
+            await this._startLive();
+        } else {
+            this._stopLive();
+        }
+    }
+
+    async getWidgetOptions() {
+        const t = this.translations;
+        return {
+            live: {
+                title: t.live,
+                type: 'checkbox',
+                default: true
+            },
+            liveInterval: {
+                title: t.live_interval,
+                type: 'select',
+                options: [
+                    {value: '2', label: '2 seconds'},
+                    {value: '5', label: '5 seconds'},
+                    {value: '10', label: '10 seconds'},
+                    {value: '30', label: '30 seconds'}
+                ],
+                default: '2'
+            }
+        };
+    }
+
+    async onWidgetOptionsChanged(options) {
+        this.liveConfig = this._resolveLiveConfig(options);
+        await this._startLive();
+    }
+
+    _resolveLiveConfig(cfg) {
+        const live = cfg && cfg.live !== false && cfg.live !== '0';
+        const secs = parseInt(cfg && cfg.liveInterval, 10);
+        const intervalMs = (isNaN(secs) ? 2 : Math.min(30, Math.max(1, secs))) * 1000;
+        return {live, intervalMs};
+    }
+
+    async _readLiveConfig() {
+        try {
+            const stored = await this.getWidgetConfig();
+            return this._resolveLiveConfig(stored || {});
+        } catch (e) {
+            return {live: true, intervalMs: 2000};
+        }
+    }
+
+    async _startLive() {
+        this._stopLive();
+        const cfg = await this._readLiveConfig();
+        this.liveConfig = cfg;
+        if (!cfg.live) {
+            return;
+        }
+        if (typeof document !== 'undefined' && document.hidden) {
+            return;
+        }
+        this.liveTimer = setInterval(() => this._liveTick(), cfg.intervalMs);
+    }
+
+    _stopLive() {
+        if (this.liveTimer !== null) {
+            clearInterval(this.liveTimer);
+            this.liveTimer = null;
+        }
+    }
+
+    async _liveTick() {
+        if (document.hidden) {
+            return;
+        }
+        try {
+            const res = await this.ajaxCall('/api/xrayclient/service/stats');
+            if (!res || !res.stats) {
+                return;
+            }
+            this._accumulateRates(res.stats);
+            this.stats = res.stats;
+            this._render();
+        } catch (e) {
+            // Keep the previous values; next tick retries.
+        }
+    }
+
+    _accumulateRates(stats) {
+        const now = Date.now();
+        const prev = this.liveSample;
+        this.liveSample = {time: now, stats};
+        if (!prev) {
+            return;
+        }
+        const dt = (now - prev.time) / 1000;
+        if (dt <= 0.4) {
+            return;
+        }
+        const rates = {};
+        for (const uuid of Object.keys(stats)) {
+            const cur = stats[uuid] || {};
+            const old = prev.stats[uuid];
+            if (!old) {
+                continue;
+            }
+            rates[uuid] = {
+                down: Math.max(0, (parseInt(cur.downlink || 0, 10) - parseInt(old.downlink || 0, 10)) / dt),
+                up: Math.max(0, (parseInt(cur.uplink || 0, 10) - parseInt(old.uplink || 0, 10)) / dt)
+            };
+        }
+        this.nodeRates = rates;
+    }
+
+    _rate(bytesPerSec) {
+        if (!isFinite(bytesPerSec) || bytesPerSec <= 0) {
+            return '0 B/s';
+        }
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        let i = 0, v = bytesPerSec;
+        while (v >= 1024 && i < sizes.length - 1) {
+            v /= 1024;
+            i++;
+        }
+        return (i === 0 ? v.toFixed(0) : v.toFixed(1)) + ' ' + sizes[i] + '/s';
+    }
+
+    onWidgetClose() {
+        this._stopLive();
+        super.onWidgetClose();
     }
 
     getGridOptions() {
@@ -119,6 +260,8 @@ export default class XrayClient extends BaseWidget {
         }
         if (statsRes.status === 'fulfilled' && statsRes.value && statsRes.value.stats) {
             this.stats = statsRes.value.stats;
+            // Seed the live baseline so the first rate arrives after one interval.
+            this.liveSample = {time: Date.now(), stats: statsRes.value.stats};
         }
         if (svcRes.status === 'fulfilled' && svcRes.value && svcRes.value.status) {
             this.running = svcRes.value.status === 'running';
@@ -133,6 +276,11 @@ export default class XrayClient extends BaseWidget {
         }
 
         this._render();
+
+        // Live rates ticking when the tab is visible; slow first sample.
+        if (this.liveTimer === null && this.liveConfig.live) {
+            await this._startLive();
+        }
 
         // Do not block the first paint on the slow probe.
         if (Date.now() - this.latencyUpdatedAt >= this.latencyInterval) {
@@ -219,11 +367,20 @@ export default class XrayClient extends BaseWidget {
         let totalDown = 0;
         let totalUp = 0;
         let best = null;
+        let totalRateDown = 0;
+        let totalRateUp = 0;
+        let rateAvailable = false;
         enabledNodes.forEach(n => {
             const s = this.stats[n.uuid];
             if (s) {
                 totalDown += Number(s.downlink) || 0;
                 totalUp += Number(s.uplink) || 0;
+            }
+            const rate = this.nodeRates[n.uuid];
+            if (rate) {
+                totalRateDown += rate.down;
+                totalRateUp += rate.up;
+                rateAvailable = true;
             }
             const l = this.latency[n.uuid];
             if (l && l.status === 'online' && (best === null || l.ms < best)) {
@@ -239,11 +396,14 @@ export default class XrayClient extends BaseWidget {
         }
 
         // One header line: service state, active count and total traffic.
+        const headerTraffic = rateAvailable
+            ? `<i class="fa fa-arrow-down"></i> ${this._rate(totalRateDown)}&nbsp;&nbsp;<i class="fa fa-arrow-up"></i> ${this._rate(totalRateUp)}`
+            : `<i class="fa fa-arrow-down"></i> ${this._bytes(totalDown)}&nbsp;&nbsp;<i class="fa fa-arrow-up"></i> ${this._bytes(totalUp)}`;
+        const headerTrafficTitle = `${this._esc(t.total_traffic)}: ↓ ${this._bytes(totalDown)} / ↑ ${this._bytes(totalUp)} · ${this._esc(t.best_latency)}: ${best === null ? '-' : parseInt(best, 10) + ' ms'}`;
         let html = `<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 2px 8px; margin: 2px 0 4px; font-size: 12px;">
             <span>${svcLabel} <span style="opacity: 0.8;">${enabledNodes.length}/${this.nodes.length} ${this._esc(t.active)}</span></span>
-            <span style="white-space: nowrap; opacity: 0.8;" title="${this._esc(t.best_latency)}: ${best === null ? '-' : parseInt(best, 10) + ' ms'}">
-                <i class="fa fa-arrow-down"></i> ${this._bytes(totalDown)}
-                &nbsp;<i class="fa fa-arrow-up"></i> ${this._bytes(totalUp)}
+            <span style="white-space: nowrap; opacity: 0.8;" title="${headerTrafficTitle}">
+                ${headerTraffic}
             </span>
         </div>`;
 
@@ -275,6 +435,12 @@ export default class XrayClient extends BaseWidget {
                 .join(' &middot; ');
             const hostPort = this._esc(node.address) + (node.port ? ':' + this._esc(node.port) : '');
 
+            // Rate once a second live sample exists; otherwise cumulative.
+            const rate = this.nodeRates[node.uuid];
+            const trafficRateCell = rate
+                ? `<i class="fa fa-arrow-down"></i> ${this._rate(rate.down)}&nbsp;&nbsp;<i class="fa fa-arrow-up"></i> ${this._rate(rate.up)}`
+                : `<i class="fa fa-arrow-down"></i> ${this._bytes(st.downlink)}&nbsp;&nbsp;<i class="fa fa-arrow-up"></i> ${this._bytes(st.uplink)}`;
+
             let bar = '';
             if (enabled && info && info.status === 'online') {
                 const pct = Math.max(4, Math.min(100, Math.round(info.ms / 600 * 100)));
@@ -294,9 +460,8 @@ export default class XrayClient extends BaseWidget {
                 </div>
                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 1px 0 0 15px; font-size: 11px;">
                     <span style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.75;" title="${hostPort}">${hostPort}</span>
-                    <span style="white-space: nowrap;${noTraffic ? ' opacity: 0.6;' : ''}">
-                        <i class="fa fa-arrow-down"></i> ${this._bytes(st.downlink)}
-                        &nbsp;<i class="fa fa-arrow-up"></i> ${this._bytes(st.uplink)}
+                    <span style="white-space: nowrap;${noTraffic ? ' opacity: 0.6;' : ''}" title="${this._esc(t.total_traffic)}: ↓ ${this._bytes(st.downlink)} / ↑ ${this._bytes(st.uplink)}">
+                        ${trafficRateCell}
                     </span>
                 </div>
                 ${bar}

@@ -152,6 +152,25 @@
     .xray-help-legend .icon-required { color: #ffb72c; }
     .xray-help-legend .icon-optional { color: #5bc0de; }
     .xray-help-legend .icon-advanced { color: #9a9a9a; }
+    /* Pulsing dot shown while the Live traffic mode is active. */
+    .live-traffic-dot {
+        display: none;
+        width: 9px;
+        height: 9px;
+        margin-right: 6px;
+        border-radius: 50%;
+        background: #5cb85c;
+        vertical-align: middle;
+        animation: live-traffic-pulse 1.6s ease-out infinite;
+    }
+    .live-traffic-dot.on {
+        display: inline-block;
+    }
+    @keyframes live-traffic-pulse {
+        0%   { box-shadow: 0 0 0 0 rgba(92, 184, 92, 0.55); }
+        70%  { box-shadow: 0 0 0 6px rgba(92, 184, 92, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(92, 184, 92, 0); }
+    }
     .showhelp.help-required .fa-info-circle { color: #ffb72c !important; }
     .showhelp.help-optional .fa-info-circle { color: #5bc0de !important; }
     .showhelp.help-advanced .fa-info-circle { color: #9a9a9a !important; }
@@ -968,6 +987,7 @@
 
         var nodeLatencyCache = {};
         var nodeTrafficCache = {};
+        var nodeTrafficRates = {};
 
         function formatBytes(bytes) {
             if (!bytes || bytes <= 0) return '0 B';
@@ -975,6 +995,30 @@
             var sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
             var i = Math.floor(Math.log(bytes) / Math.log(k));
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function formatRate(bytesPerSec) {
+            if (!isFinite(bytesPerSec) || bytesPerSec <= 0) return '0 B/s';
+            var k = 1024;
+            var sizes = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
+            var i = 0, v = bytesPerSec;
+            while (v >= k && i < sizes.length - 1) {
+                v /= k;
+                i++;
+            }
+            return (i === 0 ? v.toFixed(0) : v.toFixed(1)) + ' ' + sizes[i];
+        }
+
+        // Traffic cell for the Outbound Nodes grid: live rate once per second
+        // when available, cumulative otherwise. Cumulative always in tooltip.
+        function renderTrafficCell(st, rate) {
+            var down = parseInt((st || {}).downlink || 0, 10);
+            var up = parseInt((st || {}).uplink || 0, 10);
+            var title = '↓ ' + formatBytes(down) + ' / ↑ ' + formatBytes(up) + ' since Xray started';
+            if (rate) {
+                return '<small title="' + title + '"><span class="text-success">↓ ' + formatRate(rate.down) + '</span> / <span class="text-info">↑ ' + formatRate(rate.up) + '</span></small>';
+            }
+            return '<small title="' + title + '"><span class="text-success">↓ ' + formatBytes(down) + '</span> / <span class="text-info">↑ ' + formatBytes(up) + '</span></small>';
         }
 
         // OPNsense-native "advanced fields" switch: same icon + toggle idiom
@@ -1105,9 +1149,8 @@
                         return '<span class="label label-danger">Offline</span>';
                     },
                     "traffic": function (column, row) {
-                        var t = nodeTrafficCache[row.uuid];
-                        if (!t) return '<small class="text-muted">↓ 0 B / ↑ 0 B</small>';
-                        return '<small><span class="text-success">↓ ' + formatBytes(t.downlink) + '</span> / <span class="text-info">↑ ' + formatBytes(t.uplink) + '</span></small>';
+                        var st = nodeTrafficCache[row.uuid] || {downlink: 0, uplink: 0};
+                        return renderTrafficCell(st, nodeTrafficRates[row.uuid]);
                     }
                 }
             }
@@ -2151,14 +2194,128 @@
             });
         }
 
+        function collectTrafficStats(data) {
+            if (!data || !data.stats) {
+                return false;
+            }
+            var now = Date.now();
+            var prev = liveTrafficSample;
+            nodeTrafficCache = data.stats;
+            if (prev && (now - prev.time) > 400) {
+                var dt = (now - prev.time) / 1000;
+                $.each(data.stats, function (uuid, s) {
+                    var p = prev.stats[uuid];
+                    var dDown = p ? Math.max(0, parseInt(s.downlink || 0, 10) - parseInt(p.downlink || 0, 10)) : 0;
+                    var dUp = p ? Math.max(0, parseInt(s.uplink || 0, 10) - parseInt(p.uplink || 0, 10)) : 0;
+                    nodeTrafficRates[uuid] = {down: dDown / dt, up: dUp / dt};
+                });
+            }
+            liveTrafficSample = {time: now, stats: data.stats};
+            return true;
+        }
+
+        function updateLiveTrafficCells() {
+            var rows = document.querySelectorAll('#grid-nodes .tabulator-row');
+            for (var i = 0; i < rows.length; i++) {
+                var uuidCell = rows[i].querySelector('.tabulator-cell[tabulator-field="uuid"]');
+                var trafficCell = rows[i].querySelector('.tabulator-cell[tabulator-field="traffic"]');
+                if (!uuidCell || !trafficCell) {
+                    continue;
+                }
+                var uuid = uuidCell.textContent.trim();
+                var st = nodeTrafficCache[uuid] || {downlink: 0, uplink: 0};
+                trafficCell.innerHTML = renderTrafficCell(st, nodeTrafficRates[uuid]);
+            }
+        }
+
         function refreshNodeTraffic() {
             ajaxCall('/api/xrayclient/service/stats', {}, function (data) {
-                if (data && data.stats) {
-                    nodeTrafficCache = data.stats;
-                    $('#grid-nodes').bootgrid('reload');
-                    updateTotalTraffic(data.stats);
+                if (!collectTrafficStats(data)) {
+                    return;
                 }
+                $('#grid-nodes').bootgrid('reload');
+                updateTotalTraffic(data.stats);
             });
+        }
+
+        // --- Live traffic: rates straight from cumulative counters, polled
+        // every 2 s while the tab is visible. ---
+        var liveTrafficTimer = null;
+        var liveTrafficSample = null;
+        var LIVE_TRAFFIC_INTERVAL = 2000;
+        var LIVE_TRAFFIC_KEY = 'osxray_live_traffic';
+
+        function startLiveTraffic() {
+            if (liveTrafficTimer !== null) {
+                return;
+            }
+            refreshLiveTraffic();
+            liveTrafficTimer = setInterval(refreshLiveTraffic, LIVE_TRAFFIC_INTERVAL);
+            $('#live_traffic_toggle').prop('checked', true);
+            $('#live_traffic_dot').addClass('on');
+        }
+
+        function stopLiveTraffic(keepToggle) {
+            if (liveTrafficTimer !== null) {
+                clearInterval(liveTrafficTimer);
+                liveTrafficTimer = null;
+            }
+            if (keepToggle !== true) {
+                nodeTrafficRates = {};
+                updateLiveTrafficCells();
+                updateTotalTraffic(nodeTrafficCache);
+                $('#live_traffic_toggle').prop('checked', false);
+                $('#live_traffic_dot').removeClass('on');
+            }
+        }
+
+        function refreshLiveTraffic() {
+            if (document.hidden) {
+                return;
+            }
+            ajaxCall('/api/xrayclient/service/stats', {}, function (data) {
+                if (!collectTrafficStats(data)) {
+                    return;
+                }
+                updateLiveTrafficCells();
+                updateTotalTraffic(data.stats);
+            });
+        }
+
+        $('#live_traffic_toggle').on('change', function () {
+            var on = $(this).prop('checked');
+            try {
+                localStorage.setItem(LIVE_TRAFFIC_KEY, on ? '1' : '0');
+            } catch (e) {}
+            if (on) {
+                startLiveTraffic();
+            } else {
+                stopLiveTraffic();
+            }
+        });
+
+        document.addEventListener('visibilitychange', function () {
+            var wanted = true;
+            try {
+                wanted = localStorage.getItem(LIVE_TRAFFIC_KEY) !== '0';
+            } catch (e) {}
+            if (document.visibilityState === 'visible') {
+                if (wanted) {
+                    startLiveTraffic();
+                }
+            } else {
+                stopLiveTraffic(true);
+            }
+        });
+
+        var liveWanted = true;
+        try {
+            liveWanted = localStorage.getItem(LIVE_TRAFFIC_KEY) !== '0';
+        } catch (e) {}
+        if (liveWanted) {
+            startLiveTraffic();
+        } else {
+            $('#live_traffic_toggle').prop('checked', false);
         }
 
         function updateTotalTraffic(stats) {
@@ -2167,12 +2324,25 @@
                 totalDown += parseInt(t.downlink || 0, 10);
                 totalUp += parseInt(t.uplink || 0, 10);
             });
+            var rateDown = 0, rateUp = 0, hasRate = false;
+            $.each(nodeTrafficRates, function (uuid, r) {
+                rateDown += r.down;
+                rateUp += r.up;
+                hasRate = true;
+            });
+            var text;
+            if (hasRate && liveTrafficTimer !== null) {
+                text = 'Total: ↓ ' + formatRate(rateDown) + ' · ' + formatBytes(totalDown)
+                    + ' / ↑ ' + formatRate(rateUp) + ' · ' + formatBytes(totalUp);
+            } else {
+                text = 'Total traffic: ↓ ' + formatBytes(totalDown) + ' / ↑ ' + formatBytes(totalUp);
+            }
             var $t = $('#telemetry_total');
             if ($t.length === 0) {
                 $t = $('<span id="telemetry_total" style="margin-left:12px;"></span>')
-                    .insertAfter('#btn_check_nodes');
+                    .insertAfter('#live_traffic_wrap');
             }
-            $t.text('Total traffic: ↓ ' + formatBytes(totalDown) + ' / ↑ ' + formatBytes(totalUp));
+            $t.text(text);
         }
 
         function startTelemetryAutoRefresh() {
@@ -2486,6 +2656,11 @@
             <button id="btn_check_nodes" type="button" class="btn btn-info">
                 <i class="fa fa-refresh"></i> <b>Check Latency (Ping) &amp; Traffic</b>
             </button>
+            <span id="live_traffic_wrap" style="margin-left: 14px; user-select: none; vertical-align: middle;">
+                <span id="live_traffic_dot" class="live-traffic-dot"></span><label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal; margin: 0;">
+                    <input type="checkbox" id="live_traffic_toggle" style="margin: 0;"> <b>Live</b>
+                </label>
+            </span>
         </div>
         <table id="grid-nodes" class="table table-condensed table-hover table-striped" data-editDialog="DialogNode">
             <thead>
