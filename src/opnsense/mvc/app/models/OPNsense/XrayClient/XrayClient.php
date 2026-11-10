@@ -167,6 +167,52 @@ class XrayClient extends BaseModel
             }
         }
 
+        // Raw JSON fields are spliced into config.json by the template, so a
+        // malformed value would only surface as an `xray run -test` failure.
+        $rawFields = [
+            'extra' => 'object', 'xhttp_extra' => 'object', 'xdrive_extra' => 'object',
+            'finalmask' => 'object', 'custom_stream_json' => 'object', 'http_headers' => 'object',
+            'freedom_final_rules' => 'array', 'dns_rules_json' => 'array',
+        ];
+        foreach ($this->nodes->node->iterateItems() as $node) {
+            if ((string)$node->enabled !== '1') {
+                continue;
+            }
+            foreach ($rawFields as $name => $kind) {
+                $problem = self::rawJsonProblem((string)$node->$name, $kind);
+                if ($problem !== null) {
+                    $messages->appendMessage(new Message($problem, $node->$name->__reference));
+                }
+            }
+        }
+
         return $messages;
+    }
+
+    /**
+     * Describes what is wrong with a raw JSON field, or null when it is empty
+     * or a valid JSON object/array of at most 8192 characters.
+     */
+    public static function rawJsonProblem($raw, $kind)
+    {
+        $raw = trim((string)$raw);
+        if ($raw === '') {
+            return null;
+        }
+        if (strlen($raw) > 8192) {
+            return gettext('Must be at most 8192 characters.');
+        }
+        $data = json_decode($raw, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return sprintf(gettext('Invalid JSON: %s.'), json_last_error_msg());
+        }
+        $isList = is_array($data) && ($data === [] || array_keys($data) === range(0, count($data) - 1));
+        if ($kind === 'array' && !$isList) {
+            return gettext('Must be a JSON array, e.g. [ { ... } ].');
+        }
+        if ($kind === 'object' && (!is_array($data) || ($isList && $data !== []))) {
+            return gettext('Must be a JSON object, e.g. { ... }.');
+        }
+        return null;
     }
 }
