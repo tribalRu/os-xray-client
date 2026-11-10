@@ -1598,26 +1598,72 @@
         // Help icons are classified by whether their field is required /
         // optional / advanced; the legend is shown above the form.
         (function setupDialogSections() {
-            var requiredNode = {
-                'node.enabled': true, 'node.name': true, 'node.protocol': true,
-                'node.encryption': true, 'node.network': true, 'node.security': true,
-                'node.allow_insecure': true, 'node.tls_use_system_ca': true,
-                'node.grpc_multi_mode': true, 'node.grpc_permit_without_stream': true,
-                'node.mux_enabled': true, 'node.sockopt_tcp_fast_open': true
-            };
-            $('#frm_DialogNode .showhelp').each(function () {
-                var $a = $(this);
-                var id = ($a.attr('id') || '').replace(/^help_for_/, '');
-                var $row = $a.closest('tr, .form-group');
-                // .expert_only is added to the input, not to the row.
-                if ($row.find('.expert_only').length > 0) {
-                    $a.addClass('help-advanced');
-                } else if (Object.prototype.hasOwnProperty.call(requiredNode, id)) {
-                    $a.addClass('help-required');
-                } else {
-                    $a.addClass('help-optional');
+            // Which fields must be filled in depends on what is selected:
+            // a field is "mandatory" when the outbound cannot work without a
+            // value the user has to type (no usable default), so an
+            // address/port/UUID is mandatory for a proxy node while a Freedom
+            // node needs none of them. Checkboxes and dropdowns with a
+            // default are never mandatory.
+            function nodeRequiredFields(st) {
+                var proxies = ['vless', 'vmess', 'trojan', 'shadowsocks', 'socks', 'http', 'hysteria', 'masque'];
+                var req = ['node.name', 'node.protocol'];
+                if (proxies.indexOf(st.proto) !== -1) {
+                    req.push('node.address', 'node.port');
                 }
-            });
+                if (['vless', 'vmess', 'trojan', 'shadowsocks'].indexOf(st.proto) !== -1) {
+                    req.push('node.user_uuid', 'node.network', 'node.security');
+                }
+                if (st.proto === 'wireguard') {
+                    req.push('node.wg_secret_key', 'node.wg_public_key', 'node.wg_endpoint', 'node.wg_address');
+                }
+                if (st.proto === 'hysteria') {
+                    req.push('node.hysteria_auth');
+                }
+                if (st.proto === 'loopback') {
+                    req.push('node.loopback_inbound_tag');
+                }
+                var streamish = ['vless', 'vmess', 'trojan', 'shadowsocks', 'socks', 'http'].indexOf(st.proto) !== -1;
+                if (streamish && st.sec === 'reality') {
+                    req.push('node.reality_pubkey');
+                }
+                if (st.proto === 'vless' && st.net === 'xdrive') {
+                    req.push('node.xdrive_remote_folder');
+                    if (st.svc === 'google-drive') {
+                        req.push('node.xdrive_google_client_id', 'node.xdrive_google_client_secret', 'node.xdrive_google_refresh_token');
+                    } else if (st.svc === 's3') {
+                        req.push('node.xdrive_s3_endpoint', 'node.xdrive_s3_bucket', 'node.xdrive_s3_access_key', 'node.xdrive_s3_secret_key');
+                    } else if (st.svc === 'template') {
+                        req.push('node.xdrive_template');
+                    }
+                }
+                return req;
+            }
+            window.osxrayNodeRequiredFields = nodeRequiredFields;
+            function classifyNodeHelpIcons() {
+                var req = nodeRequiredFields({
+                    proto: $('#node\\.protocol').val(),
+                    net: $('#node\\.network').val(),
+                    sec: $('#node\\.security').val(),
+                    svc: $('#node\\.xdrive_service').val() || 'google-drive'
+                });
+                $('#frm_DialogNode .showhelp').each(function () {
+                    var $a = $(this);
+                    var id = ($a.attr('id') || '').replace(/^help_for_/, '');
+                    var $row = $a.closest('tr, .form-group');
+                    $a.removeClass('help-required help-optional help-advanced');
+                    // .expert_only is added to the input, not to the row.
+                    if ($row.find('.expert_only').length > 0) {
+                        $a.addClass('help-advanced');
+                    } else if (req.indexOf(id) !== -1) {
+                        $a.addClass('help-required');
+                    } else {
+                        $a.addClass('help-optional');
+                    }
+                });
+            }
+            classifyNodeHelpIcons();
+            $('#node\\.protocol, #node\\.network, #node\\.security, #node\\.xdrive_service').on('change', classifyNodeHelpIcons);
+            $('#DialogNode').on('shown.bs.modal', classifyNodeHelpIcons);
             var legend = '<div class="xray-help-legend xray-help-legend--footer">'
                 + '<span><i class="fa fa-info-circle icon-required"></i>mandatory</span>'
                 + '<span><i class="fa fa-info-circle icon-optional"></i>optional</span>'
@@ -1744,10 +1790,9 @@
 
         // --- Routing rule dialog: collapse "Additional conditions" by default ---
         (function setupRuleSections() {
-            var requiredRule = {
-                'rule.enabled': true, 'rule.sequence': true, 'rule.description': true,
-                'rule.network_proto': true, 'rule.outbound_tag': true
-            };
+            // Only fields without a usable default are mandatory: a rule needs
+            // a description and a target; the switch, Seq and network have defaults.
+            var requiredRule = { 'rule.description': true, 'rule.outbound_tag': true };
             $('#frm_DialogRule .showhelp').each(function () {
                 var $a = $(this);
                 var id = ($a.attr('id') || '').replace(/^help_for_/, '');
