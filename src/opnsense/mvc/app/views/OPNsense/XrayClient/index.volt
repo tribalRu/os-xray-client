@@ -555,12 +555,24 @@
                 if ($anchor.length === 0) {
                     return;
                 }
-                var $help = $group.find('.help-block').first().clone();
-                $help.append('<br/><i>Raw JSON is inserted into config.json in UI Builder mode (ignored in Raw JSON mode); leave it empty to omit it. The syntax is checked here and <code>xray run -test</code> validates the result on Apply.</i>');
+                // Same markup as every other row of the form: an info icon in the
+                // label cell, and the help text hidden until the icon (or the
+                // "full help" switch) shows it.
+                var helpId = 'help_for_xrayclient.general.' + r[0];
+                var $helpBody = $('<small></small>')
+                    .html($group.find('.help-block').first().html())
+                    .append('<br/><i>Raw JSON is inserted into config.json in UI Builder mode (ignored in Raw JSON mode); leave it empty to omit it. The syntax is checked here and <code>xray run -test</code> validates the result on Apply.</i>');
+                var $helpDiv = $('<div class="hidden"></div>').attr('data-for', helpId).append($helpBody);
+                var $icon = $('<a href="#" class="showhelp"><i class="fa fa-info-circle"></i></a>').attr('id', helpId);
+                $icon.on('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    $helpDiv.toggleClass('hidden');
+                });
                 $ta.addClass('expert_only');
                 var $row = $('<tr class="json_row"></tr>')
-                    .append($('<td></td>').append($('<div class="control-label"></div>').html('<b>' + r[1] + '</b>')))
-                    .append($('<td></td>').append($ta).append($help))
+                    .append($('<td></td>').append($('<div class="control-label"></div>').append($icon).append(' <b>' + r[1] + '</b>')))
+                    .append($('<td></td>').append($ta).append($helpDiv))
                     .append($('<td></td>').append($('<span class="help-block"></span>').attr('id', 'help_block_xrayclient.general.' + r[0])));
                 $anchor.after($row);
                 after[anchorId] = $row;
@@ -1781,7 +1793,7 @@
                 <div class="form-group">
                     <label for="xrayclient.general.balancers_json"><b>Load Balancers — <code>routing.balancers</code> array</b></label>
                     <textarea id="xrayclient.general.balancers_json" class="form-control json_section" rows="6" spellcheck="false" placeholder='[ { "tag": "auto", "selector": ["node_"], "strategy": { "type": "leastPing" }, "fallbackTag": "direct" } ]'></textarea>
-                    <span class="help-block">Each entry needs <code>tag</code>, <code>selector</code> and <code>strategy.type</code> (<code>random</code>, <code>roundRobin</code>, <code>leastPing</code>, <code>leastLoad</code>). <code>selector</code> matches outbound tags by prefix, so <code>"node_"</code> covers every node. <code>leastPing</code> and <code>leastLoad</code> also need an observatory (next field); a rule can use a balancer only by its <code>tag</code>.</span>
+                    <span class="help-block">Each entry needs <code>tag</code>, <code>selector</code> and <code>strategy.type</code> (<code>random</code>, <code>roundRobin</code>, <code>leastPing</code>, <code>leastLoad</code>). <code>selector</code> matches outbound tags by prefix, so <code>"node_"</code> covers every node. <code>leastPing</code> and <code>leastLoad</code> also need an observatory (see Load Balancer Observatory below); a rule can use a balancer only by its <code>tag</code>.</span>
                 </div>
                 <div class="form-group">
                     <label for="xrayclient.general.observatory_json"><b>Observatory — top-level <code>observatory</code> / <code>burstObservatory</code></b></label>

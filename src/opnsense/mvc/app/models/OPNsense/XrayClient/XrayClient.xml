@@ -219,7 +219,7 @@
                 <default>none</default>
                 <Required>Y</Required>
                 <OptionValues>
-                    <none>Disabled (use raw JSON above, if set)</none>
+                    <none>Disabled (use the Raw JSON field below, if set)</none>
                     <burst>Burst observatory (recommended for leastPing)</burst>
                     <background>Background observatory</background>
                 </OptionValues>
