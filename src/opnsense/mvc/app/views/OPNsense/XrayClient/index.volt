@@ -794,7 +794,8 @@
             var hasMux = ['vless', 'vmess', 'trojan', 'shadowsocks'].indexOf(proto) !== -1;
             var effNet = isHysteria ? 'hysteria' : (isMasque ? 'masque' : net);
             var effSec = (isHysteria || isMasque) ? 'tls' : sec;
-            var isXdrive = hasStream && effNet === 'xdrive';
+            // XDRIVE is VLESS-only; the fields must not show for other protocols.
+            var isXdrive = proto === 'vless' && effNet === 'xdrive';
             var xdrvSvc = $('#node\\.xdrive_service').val() || 'google-drive';
 
             // Field visibility table: selector -> condition
