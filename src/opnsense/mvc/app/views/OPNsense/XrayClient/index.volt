@@ -115,11 +115,18 @@
         font-size: 11px;
         color: #b5b5b5;
     }
-    /* Same legend in the modal footer: one line with Cancel/Save, flush left. */
+    /* Same legend in the modal footer: one line with Cancel/Save, flush left,
+       vertically centred on the buttons. */
+    #DialogNode .modal-footer,
+    #DialogRule .modal-footer {
+        display: flex;
+        align-items: center;
+    }
     .xray-help-legend--footer {
-        float: left;
+        float: none;
+        margin-right: auto;
         border-bottom: none;
-        padding: 7px 4px;
+        padding: 0;
         min-height: 0;
     }
     .xray-help-legend i.fa { margin-right: 4px; }
