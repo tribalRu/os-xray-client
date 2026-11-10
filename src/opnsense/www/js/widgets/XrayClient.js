@@ -30,6 +30,7 @@ export default class XrayClient extends BaseWidget {
         this.balancers = [];
         this.running = null;
         this.nodesError = false;
+        this.refreshInFlight = false;
     }
 
     getGridOptions() {
@@ -41,6 +42,55 @@ export default class XrayClient extends BaseWidget {
 
     getMarkup() {
         return $('<div id="xray-widget" style="padding: 0 4px;"></div>');
+    }
+
+    // The widget title navigates to the plugin's Overview page on click;
+    // the refresh handle triggers an immediate tick (plus a latency probe,
+    // regardless of the 5 minute timer).
+    async onMarkupRendered() {
+        const title = document.getElementById(`${this.id}-title`);
+        if (title) {
+            title.style.cursor = 'pointer';
+            title.setAttribute('title', this.translations.open_overview);
+            title.addEventListener('click', () => {
+                window.location.assign('/ui/xrayclient');
+            });
+            const header = title.parentElement;
+            const container = header ? header.querySelector('.widget-command-container') : null;
+            if (container && !container.querySelector('.xray-refresh-handle')) {
+                const handle = document.createElement('div');
+                handle.className = 'xray-refresh-handle';
+                handle.id = `refresh-handle-${this.id}`;
+                handle.title = this.translations.refresh;
+                handle.style.cssText = 'cursor: pointer; padding: 2px 6px; opacity: 0.8; font-size: 12px; align-self: center;';
+                handle.innerHTML = '<i class="fa fa-fw fa-refresh"></i>';
+                handle.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this._manualRefresh();
+                });
+                container.insertBefore(handle, container.firstChild);
+            }
+        }
+    }
+
+    async _manualRefresh() {
+        if (this.refreshInFlight) {
+            return;
+        }
+        this.refreshInFlight = true;
+        const icon = document.querySelector(`#refresh-handle-${this.id} i`);
+        if (icon) {
+            icon.classList.add('fa-spin');
+        }
+        this.latencyUpdatedAt = 0;
+        try {
+            await this.onWidgetTick();
+        } finally {
+            if (icon) {
+                icon.classList.remove('fa-spin');
+            }
+            this.refreshInFlight = false;
+        }
     }
 
     async onWidgetTick() {

@@ -11,6 +11,8 @@
         </endpoints>
         <translations>
             <title>Xray Client</title>
+            <open_overview>Open the Xray Client plugin</open_overview>
+            <refresh>Refresh stats and latency</refresh>
             <running>Running</running>
             <stopped>Stopped</stopped>
             <active>active</active>
