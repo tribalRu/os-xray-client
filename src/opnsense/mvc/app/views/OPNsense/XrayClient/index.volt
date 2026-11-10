@@ -290,7 +290,7 @@
         // Bump the mark whenever author widths (data-width attributes) change.
         (function tabulatorWidthCleanup() {
             try {
-                ['osxray_tabulator_grid_cleanup', 'osxray_tabulator_grid_cleanup_v2', 'osxray_tabulator_grid_cleanup_v3', 'osxray_tabulator_grid_cleanup_v4', 'osxray_tabulator_grid_cleanup_v5', 'osxray_tabulator_grid_cleanup_v6'].forEach(function (flag) {
+                ['osxray_tabulator_grid_cleanup', 'osxray_tabulator_grid_cleanup_v2', 'osxray_tabulator_grid_cleanup_v3', 'osxray_tabulator_grid_cleanup_v4', 'osxray_tabulator_grid_cleanup_v5', 'osxray_tabulator_grid_cleanup_v6', 'osxray_tabulator_grid_cleanup_v7'].forEach(function (flag) {
                     if (localStorage.getItem(flag)) {
                         return;
                     }
@@ -2390,7 +2390,7 @@
                     <th data-column-id="protocol" data-width="4.5em" data-type="string">Protocol</th>
                     <th data-column-id="address" data-min-width="12em" data-type="string">Address</th>
                     <th data-column-id="port" data-width="3em" data-type="string">Port</th>
-                    <th data-column-id="security" data-width="6em" data-type="string">Security</th>
+                    <th data-column-id="security" data-width="5em" data-type="string">Security</th>
                     <th data-column-id="latency" data-width="6em" data-formatter="latency" data-sortable="false">Latency</th>
                     <th data-column-id="traffic" data-width="10em" data-formatter="traffic" data-sortable="false">Traffic &#8595;/&#8593;</th>
                     <th data-column-id="commands" data-width="8em" data-formatter="commands" data-sortable="false">Actions</th>
