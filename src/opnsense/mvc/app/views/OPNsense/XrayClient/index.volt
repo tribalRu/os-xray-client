@@ -67,6 +67,13 @@
     #DialogNode.optional-hidden div.form-group:has(.expert_only) {
         display: none !important;
     }
+    #frm_DialogNode .json-invalid,
+    #DialogNode .json-invalid {
+        outline: 2px solid #d9534f !important;
+        outline-offset: 1px;
+        border-color: #d9534f !important;
+        border-radius: 4px;
+    }
     /* Centre the row content vertically: labels sit in the middle of the
        row, not glued to the top (Bootstrap defaults td to vertical-align:
        top, which leaves labels hovering in the upper part of the input). */
@@ -2211,17 +2218,77 @@
             return '';
         }
 
-        function showJsonSectionError(message) {
+        function showJsonSectionError(message, title) {
             if (typeof BootstrapDialog !== 'undefined') {
                 BootstrapDialog.show({
                     type: BootstrapDialog.TYPE_WARNING,
-                    title: 'Invalid JSON section',
+                    title: title || 'Invalid JSON section',
                     message: $('<div/>').text(message)
                 });
             } else {
                 alert(message);
             }
         }
+
+        // Raw JSON fields in the node dialog: the config template splices
+        // them into config.json unvalidated, so catch syntax/shape errors
+        // here before the dialog is serialized and saved.
+        function nodeRawJsonError() {
+            var checks = [
+                ['#node\\.extra', 'Extra (VLESS)', 'object'],
+                ['#node\\.xhttp_extra', 'XHTTP Extra', 'object'],
+                ['#node\\.xdrive_extra', 'XDRIVE Extra', 'object'],
+                ['#node\\.finalmask', 'Final Mask', 'object'],
+                ['#node\\.custom_stream_json', 'Custom Stream JSON', 'object'],
+                ['#node\\.http_headers', 'HTTP Headers', 'object'],
+                ['#node\\.freedom_final_rules', 'Final Rules', 'array'],
+                ['#node\\.dns_rules_json', 'DNS Rules', 'array']
+            ];
+            for (var i = 0; i < checks.length; i++) {
+                var raw = $.trim($(checks[i][0]).val() || '');
+                if (raw === '') {
+                    continue;
+                }
+                var parsed;
+                try {
+                    parsed = JSON.parse(raw);
+                } catch (e) {
+                    return { label: checks[i][1], message: 'invalid JSON — ' + e.message, selector: checks[i][0] };
+                }
+                var isArray = Object.prototype.toString.call(parsed) === '[object Array]';
+                if (checks[i][2] === 'array' && !isArray) {
+                    return { label: checks[i][1], message: 'must be a JSON array, e.g. [ { ... } ].', selector: checks[i][0] };
+                }
+                if (checks[i][2] === 'object' && (isArray || parsed === null || typeof parsed !== 'object')) {
+                    return { label: checks[i][1], message: 'must be a JSON object, e.g. { ... }.', selector: checks[i][0] };
+                }
+            }
+            return null;
+        }
+
+        // Capture phase: runs before the bootgrid save handler; a bad raw
+        // JSON field aborts the save and highlights the offending input.
+        (function installNodeRawJsonGuard() {
+            var btn = document.getElementById('btn_DialogNode_save');
+            if (!btn) {
+                return;
+            }
+            btn.addEventListener('click', function (event) {
+                var err = nodeRawJsonError();
+                if (!err) {
+                    return;
+                }
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                $('.json-invalid').removeClass('json-invalid');
+                var $field = $(err.selector);
+                $field.addClass('json-invalid').trigger('focus');
+                showJsonSectionError(err.label + ': ' + err.message, 'Invalid JSON field');
+            }, true);
+            $(document).on('input', '.json-invalid', function () {
+                $(this).removeClass('json-invalid');
+            });
+        })();
 
         $('.btn_save_apply').on('click', function () {
             var jsonError = jsonSectionError();
