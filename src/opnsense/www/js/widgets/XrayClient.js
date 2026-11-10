@@ -56,19 +56,31 @@ export default class XrayClient extends BaseWidget {
                 window.location.assign('/ui/xrayclient');
             });
             const header = title.parentElement;
-            const container = header ? header.querySelector('.widget-command-container') : null;
-            if (container && !container.querySelector('.xray-refresh-handle')) {
-                const handle = document.createElement('div');
+            // The system corner is taken by OPNsense's own link icon, so the
+            // refresh handle goes inline with the title text instead: right
+            // after the bold label, same line, with a small gap.
+            if (header && !title.querySelector('.xray-refresh-handle')) {
+                const bold = title.querySelector('b') || title;
+                const handle = document.createElement('span');
                 handle.className = 'xray-refresh-handle';
                 handle.id = `refresh-handle-${this.id}`;
                 handle.title = this.translations.refresh;
-                handle.style.cssText = 'cursor: pointer; padding: 2px 6px; opacity: 0.8; font-size: 12px; align-self: center;';
+                handle.style.cssText = 'cursor: pointer; margin-left: 10px; opacity: 0.75; font-size: 12px; font-weight: normal; vertical-align: middle;';
                 handle.innerHTML = '<i class="fa fa-fw fa-refresh"></i>';
-                handle.addEventListener('click', (e) => {
+                handle.setAttribute('role', 'button');
+                handle.setAttribute('tabindex', '0');
+                const trigger = (e) => {
                     e.preventDefault();
+                    e.stopPropagation();
                     this._manualRefresh();
+                };
+                handle.addEventListener('click', trigger);
+                handle.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        trigger(e);
+                    }
                 });
-                container.insertBefore(handle, container.firstChild);
+                bold.after(handle);
             }
         }
     }
