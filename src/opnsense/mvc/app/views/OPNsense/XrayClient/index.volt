@@ -940,8 +940,13 @@
         // span of the form's first row) instead of a separate floating bar.
         // onToggle receives the new state and performs storage + class updates.
         function mountNativeAdvancedToggle(formSel, label, initial, onToggle) {
-            var $td = $(formSel).find('.form-search-section').first()
-                .find('> table > tbody > tr').first().children('td');
+            // The full-help icon exists in every OPNsense form's first row
+            // (dialogs wrap it in .form-search-section, the general page
+            // does not), so locate the row via the icon itself.
+            var $helpIcon = $(formSel).find('[id^="show_all_help"]').first();
+            var $td = $helpIcon.length
+                ? $helpIcon.closest('tr').children('td')
+                : $(formSel).find('.form-search-section').first().find('> table > tbody > tr').first().children('td');
             if (!$td.length) {
                 return { set: function () {}, get: function () { return !!initial; } };
             }
