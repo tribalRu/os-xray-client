@@ -67,6 +67,67 @@
     #DialogNode.optional-hidden div.form-group:has(.expert_only) {
         display: none !important;
     }
+    /* Stage 1: collapsible sections in the node dialog. The whole section's
+       <tbody> folds away; the header row stays visible with a chevron.
+       Any section flagged invalid by the user (validation error) auto-expands
+       via the same mechanism. */
+    #DialogNode .form-search-section.collapse-section > table > thead tr th {
+        user-select: none;
+    }
+    #DialogNode .form-search-section.collapse-section > table > thead tr th > div {
+        cursor: pointer;
+        padding-right: 30px;
+    }
+    #DialogNode .form-search-section.collapse-section .collapse-icon {
+        float: right;
+        margin-top: 2px;
+        padding-right: 2px;
+        color: #ffb72c;
+        transition: transform 0.12s ease;
+    }
+    #DialogNode .form-search-section.collapse-section.collapsed > table > tbody {
+        display: none;
+    }
+    #DialogNode .form-search-section.collapse-section.collapsed .collapse-icon {
+        transform: rotate(-90deg);
+    }
+    #DialogNode .form-search-section.collapse-section .collapse-badge {
+        display: none;
+    }
+    #DialogNode .form-search-section.collapse-section.invalid > table > thead tr th > div {
+        outline: 2px solid #d9534f;
+        outline-offset: 2px;
+        border-radius: 3px;
+    }
+    #DialogNode .form-search-section.collapse-section.invalid .collapse-badge {
+        display: inline-block;
+        margin-left: 8px;
+        font-size: 11px;
+        color: #ff9999;
+        background: rgba(217, 83, 79, 0.18);
+        padding: 1px 6px;
+        border-radius: 10px;
+        vertical-align: middle;
+    }
+    /* Stage 1 legend for help icons: required (orange), optional (blue),
+       advanced (grey). */
+    .xray-help-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        padding: 6px 12px;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+        font-size: 11px;
+        color: #b5b5b5;
+    }
+    .xray-help-legend i.fa { margin-right: 4px; }
+    .xray-help-legend .icon-required { color: #ffb72c; }
+    .xray-help-legend .icon-optional { color: #5bc0de; }
+    .xray-help-legend .icon-advanced { color: #9a9a9a; }
+    .showhelp.help-required .fa-info-circle { color: #ffb72c !important; }
+    .showhelp.help-optional .fa-info-circle { color: #5bc0de !important; }
+    .showhelp.help-advanced .fa-info-circle { color: #9a9a9a !important; }
     /* Routing rule dialog: the rarely used match conditions (inbound, source,
        users, tag) follow the same toggle, including their section header. */
     #DialogRule.optional-hidden tr:has(.expert_only),
@@ -1323,6 +1384,144 @@
                 localStorage.setItem('osxray_show_advanced', show ? '1' : '0');
                 $('#DialogNode').toggleClass('optional-hidden', !show);
             });
+        })();
+
+        // --- Help icon legend + collapsible sections in the node dialog ---
+        // Help icons are classified by whether their field is required /
+        // optional / advanced; the legend is shown above the form.
+        (function setupDialogSections() {
+            var requiredNode = {
+                'node.enabled': true, 'node.name': true, 'node.protocol': true,
+                'node.encryption': true, 'node.network': true, 'node.security': true,
+                'node.allow_insecure': true, 'node.tls_use_system_ca': true,
+                'node.grpc_multi_mode': true, 'node.grpc_permit_without_stream': true,
+                'node.mux_enabled': true, 'node.sockopt_tcp_fast_open': true
+            };
+            function slug(text) {
+                return (text || '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').toLowerCase();
+            }
+            $('#frm_DialogNode .showhelp').each(function () {
+                var $a = $(this);
+                var id = ($a.attr('id') || '').replace(/^help_for_/, '');
+                var $row = $a.closest('tr, .form-group');
+                if ($row.hasClass('expert_only')) {
+                    $a.addClass('help-advanced');
+                } else if (Object.prototype.hasOwnProperty.call(requiredNode, id)) {
+                    $a.addClass('help-required');
+                } else {
+                    $a.addClass('help-optional');
+                }
+            });
+            var legend = '<div class="xray-help-legend">'
+                + '<span><i class="fa fa-info-circle icon-required"></i>mandatory</span>'
+                + '<span><i class="fa fa-info-circle icon-optional"></i>optional</span>'
+                + '<span><i class="fa fa-info-circle icon-advanced"></i>advanced</span>'
+                + '</div>';
+            $('.xray-advanced-toggle').after(legend);
+
+            $('#frm_DialogNode .form-search-section').each(function () {
+                var $sec = $(this);
+                var $th = $sec.children('table').children('thead').children('tr').children('th').children('div').first();
+                if ($th.length === 0) {
+                    return;
+                }
+                var $label = $th.children('b');
+                var label = $label.length ? $label.text() : 'Section';
+                $sec.addClass('collapse-section');
+                $th.prepend('<span class="collapse-badge">error</span>');
+                $th.prepend('<i class="fa fa-angle-down fa-fw collapse-icon"></i>');
+                $th.on('click', function () {
+                    $sec.toggleClass('collapsed');
+                    try {
+                        localStorage.setItem('osxray_node_collapse_' + slug(label),
+                            $sec.hasClass('collapsed') ? '1' : '0');
+                    } catch (e) {}
+                });
+            });
+
+            function defaultOpen() {
+                var proto = $('#node\\.protocol').val();
+                var net = $('#node\\.network').val();
+                var stream = ['vless', 'vmess', 'trojan', 'shadowsocks', 'socks', 'http'].indexOf(proto) !== -1;
+                var list = ['proto_' + proto];
+                if (stream) {
+                    list.push('proto_transport', 'net_' + net);
+                }
+                if (proto === 'vless' && net === 'xdrive') {
+                    list.push('net_xdrive');
+                }
+                if (proto === 'hysteria' || proto === 'masque') {
+                    list.push('proto_' + proto);
+                }
+                return list;
+            }
+            function applyNodeSectionState() {
+                var open = defaultOpen();
+                $('#frm_DialogNode .form-search-section').each(function () {
+                    var $sec = $(this);
+                    if (!$sec.hasClass('collapse-section')) {
+                        return;
+                    }
+                    var $b = $sec.find('> table > thead > tr > th > div > b');
+                    var label = $b.length ? $b.text() : 'Section';
+                    var stored = null;
+                    try {
+                        stored = localStorage.getItem('osxray_node_collapse_' + slug(label));
+                    } catch (e) {}
+                    if (stored === '1') {
+                        $sec.addClass('collapsed');
+                    } else if (stored === '0') {
+                        $sec.removeClass('collapsed');
+                    } else if ($sec.find('[id="node.enabled"]').length > 0) {
+                        // The identity section stays open by default.
+                        $sec.removeClass('collapsed');
+                    } else {
+                        var match = false;
+                        open.forEach(function (c) {
+                            if ($sec.hasClass(c)) {
+                                match = true;
+                            }
+                        });
+                        $sec.toggleClass('collapsed', !match);
+                    }
+                });
+            }
+
+            function applyNodeSectionsFromValidation(detail) {
+                var secs = $('#frm_DialogNode .form-search-section');
+                secs.removeClass('invalid');
+                if (!detail || !detail.data || !detail.data.validations) {
+                    return;
+                }
+                var keys = Object.keys(detail.data.validations);
+                secs.each(function () {
+                    var $sec = $(this);
+                    var hit = keys.some(function (k) {
+                        return $sec.find('[id="' + k + '"], [id^="' + k + '_"]').length > 0;
+                    });
+                    if (hit) {
+                        $sec.removeClass('collapsed').addClass('invalid');
+                    }
+                });
+            }
+
+            // Combo change must reapply defaults to sections without a stored state.
+            $('#node\\.protocol, #node\\.network, #node\\.security, #node\\.encryption, #node\\.xdrive_service')
+                .on('change', function () {
+                    $('#frm_DialogNode .form-search-section').removeClass('invalid');
+                    applyNodeSectionState();
+                });
+
+            $(document).on('validation-failed', function (_, detail) {
+                if (!detail || detail.formid !== 'frm_DialogNode') {
+                    return;
+                }
+                applyNodeSectionsFromValidation(detail);
+            });
+
+            // Initial application + expose for re-application.
+            window.applyNodeSectionState = applyNodeSectionState;
+            applyNodeSectionState();
         })();
 
         // --- Routing rule dialog: hide rarely used conditions by default ---
