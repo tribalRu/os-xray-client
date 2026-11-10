@@ -321,8 +321,19 @@
                     return;
                 }
                 var p = presets[key];
+                // Keep the preset's usual position unless another rule already
+                // uses it; then append after the last rule instead.
+                var seq = p.sequence, used = [];
+                try {
+                    used = $('#grid-rules').bootgrid('getCurrentRows').map(function (r) { return parseInt(r.sequence, 10); });
+                } catch (e) {
+                    used = [];
+                }
+                if (used.indexOf(seq) !== -1) {
+                    seq = Math.min(9999, Math.max.apply(null, used) + 10);
+                }
                 $('#rule\\.enabled').prop('checked', true);
-                $('#rule\\.sequence').val(p.sequence);
+                $('#rule\\.sequence').val(seq);
                 $('#rule\\.description').val(p.description);
                 setTokens('domain', p.domain);
                 setTokens('ip', p.ip);
@@ -853,6 +864,23 @@
                             parts.push('<span class="text-muted">net:</span> ' + esc(row.network_proto));
                         }
                         return parts.length ? parts.join(' &nbsp;·&nbsp; ') : '<span class="text-muted">any traffic</span>';
+                    },
+                    // Flags a sequence number shared with another rule: the
+                    // order between them is then decided by config order only.
+                    "ruleseq": function (column, row) {
+                        var dup = false;
+                        try {
+                            $('#grid-rules').bootgrid('getCurrentRows').forEach(function (r) {
+                                if (r.uuid !== row.uuid && String(r.sequence) === String(row.sequence)) {
+                                    dup = true;
+                                }
+                            });
+                        } catch (e) {
+                            // grid API unavailable: no warning, the number still shows
+                        }
+                        return dup
+                            ? '<span class="text-warning" title="Another rule has the same sequence number; their relative order is not guaranteed. Use the arrows to renumber.">' + row.sequence + ' <i class="fa fa-exclamation-triangle"></i></span>'
+                            : String(row.sequence);
                     }
                 }
             }
@@ -1943,7 +1971,7 @@
                 <tr>
                     <th data-column-id="uuid" data-type="string" data-identifier="true" data-visible="false">ID</th>
                     <th data-column-id="enabled" data-width="6em" data-type="string" data-formatter="rowtoggle">Enabled</th>
-                    <th data-column-id="sequence" data-width="6em" data-type="numeric">Seq</th>
+                    <th data-column-id="sequence" data-width="6em" data-type="numeric" data-formatter="ruleseq">Seq</th>
                     <th data-column-id="description" data-type="string">Description</th>
                     <th data-column-id="domain" data-type="string" data-formatter="rulematch" data-sortable="false">Match</th>
                     <th data-column-id="outbound_tag" data-width="10em" data-type="string">Action (Outbound)</th>
