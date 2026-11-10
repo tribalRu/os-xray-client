@@ -375,9 +375,9 @@
                 block_ads: { sequence: 90, description: 'Block Ads (geosite:category-ads-all)', domain: ['geosite:category-ads-all'], ip: [], outbound_tag: 'block' }
             };
             var $preset = $(
-                '<div id="rule_preset_container" style="padding: 12px 15px 0 15px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 10px; margin-bottom: 5px;">' +
-                    '<label for="rule_preset" style="width: 100%; margin-bottom: 4px;"><b>Start from a built-in preset</b></label>' +
-                    '<select id="rule_preset" class="form-control">' +
+                '<div id="rule_preset_container" style="display:flex;align-items:center;gap:10px;padding:12px 15px;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:5px;">' +
+                    '<label for="rule_preset" style="margin:0;white-space:nowrap;"><b>Built-in preset</b></label>' +
+                    '<select id="rule_preset" class="form-control" style="flex:1 1 auto;">' +
                         '<option value="">— Custom (empty form) —</option>' +
                         '<option value="lan_private">Bypass LAN / private subnets (geoip:private → direct)</option>' +
                         '<option value="ru_domains">Bypass Russian domains (geosite:ru + .ru/.рф → direct)</option>' +
@@ -472,9 +472,9 @@
                 }
             };
             var $preset = $(
-                '<div id="dns_preset_container" style="padding: 12px 15px 0 15px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 10px; margin-bottom: 5px;">' +
-                    '<label for="dns_preset" style="width: 100%; margin-bottom: 4px;"><b>Start from a built-in preset</b></label>' +
-                    '<select id="dns_preset" class="form-control">' +
+                '<div id="dns_preset_container" style="display:flex;align-items:center;gap:10px;padding:12px 15px;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:5px;">' +
+                    '<label for="dns_preset" style="margin:0;white-space:nowrap;"><b>Built-in preset</b></label>' +
+                    '<select id="dns_preset" class="form-control" style="flex:1 1 auto;">' +
                         '<option value="">— Custom (empty form) —</option>' +
                         '<option value="doh_cloudflare">Cloudflare DoH (all domains)</option>' +
                         '<option value="doh_google">Google DoH (all domains)</option>' +
