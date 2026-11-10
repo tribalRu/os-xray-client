@@ -827,6 +827,32 @@
                         } else {
                             return '<span style="cursor: pointer;" class="fa fa-fw fa-square-o command-toggle bootgrid-tooltip" data-value="0" data-row-id="' + row.uuid + '"></span>';
                         }
+                    },
+                    // One cell summarising every condition of the rule, so
+                    // rules matched by port, inbound or source are not blank.
+                    "rulematch": function (column, row) {
+                        function esc(v) {
+                            return $('<div/>').text(v).html();
+                        }
+                        function list(v) {
+                            return String(v || '').split(',').map(function (x) { return $.trim(x); }).filter(Boolean);
+                        }
+                        var parts = [];
+                        [['domain', 'domain'], ['ip', 'ip'], ['port', 'port'], ['protocol', 'sniff'],
+                         ['inbound_tag', 'inbound'], ['source', 'src'], ['source_port', 'src port'], ['user', 'user']
+                        ].forEach(function (f) {
+                            var items = list(row[f[0]]);
+                            if (!items.length) {
+                                return;
+                            }
+                            var shown = items.slice(0, 2).map(esc).join(', ');
+                            var more = items.length > 2 ? ' <span class="text-muted">+' + (items.length - 2) + '</span>' : '';
+                            parts.push('<span class="text-muted">' + f[1] + ':</span> ' + shown + more);
+                        });
+                        if (row.network_proto && row.network_proto !== 'tcp_udp') {
+                            parts.push('<span class="text-muted">net:</span> ' + esc(row.network_proto));
+                        }
+                        return parts.length ? parts.join(' &nbsp;·&nbsp; ') : '<span class="text-muted">any traffic</span>';
                     }
                 }
             }
@@ -1919,8 +1945,7 @@
                     <th data-column-id="enabled" data-width="6em" data-type="string" data-formatter="rowtoggle">Enabled</th>
                     <th data-column-id="sequence" data-width="6em" data-type="numeric">Seq</th>
                     <th data-column-id="description" data-type="string">Description</th>
-                    <th data-column-id="domain" data-type="string">Domain / GeoSite</th>
-                    <th data-column-id="ip" data-type="string">IP / GeoIP</th>
+                    <th data-column-id="domain" data-type="string" data-formatter="rulematch" data-sortable="false">Match</th>
                     <th data-column-id="outbound_tag" data-width="10em" data-type="string">Action (Outbound)</th>
                     <th data-column-id="commands" data-width="12em" data-formatter="commands" data-sortable="false">Actions</th>
                 </tr>
