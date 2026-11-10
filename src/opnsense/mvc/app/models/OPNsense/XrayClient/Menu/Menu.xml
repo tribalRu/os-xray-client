@@ -1,9 +1,9 @@
 <menu>
-    <Services>
+    <VPN>
         <XrayClient VisibleName="Xray Client" cssClass="fa fa-shield fa-fw">
             <Overview VisibleName="Overview" order="10" url="/ui/xrayclient"/>
             <ErrorLog VisibleName="Error Log" order="20" url="/ui/diagnostics/log/xray/error"/>
             <AccessLog VisibleName="Access Log" order="30" url="/ui/diagnostics/log/xray/access"/>
         </XrayClient>
-    </Services>
+    </VPN>
 </menu>
