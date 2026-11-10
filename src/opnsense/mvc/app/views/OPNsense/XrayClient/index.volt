@@ -115,6 +115,13 @@
         font-size: 11px;
         color: #b5b5b5;
     }
+    /* Same legend in the modal footer: one line with Cancel/Save, flush left. */
+    .xray-help-legend--footer {
+        float: left;
+        border-bottom: none;
+        padding: 7px 4px;
+        min-height: 0;
+    }
     .xray-help-legend i.fa { margin-right: 4px; }
     .xray-help-legend .icon-required { color: #ffb72c; }
     .xray-help-legend .icon-optional { color: #5bc0de; }
@@ -1528,12 +1535,12 @@
                     $a.addClass('help-optional');
                 }
             });
-            var legend = '<div class="xray-help-legend">'
+            var legend = '<div class="xray-help-legend xray-help-legend--footer">'
                 + '<span><i class="fa fa-info-circle icon-required"></i>mandatory</span>'
                 + '<span><i class="fa fa-info-circle icon-optional"></i>optional</span>'
                 + '<span><i class="fa fa-info-circle icon-advanced"></i>advanced</span>'
                 + '</div>';
-            $('#DialogNode .modal-body').prepend(legend);
+            $('#DialogNode .modal-footer').prepend(legend);
 
             $('#frm_DialogNode .form-search-section').each(function () {
                 var $sec = $(this);
@@ -1720,12 +1727,12 @@
                 localStorage.setItem('osxray_show_advanced_rule', show ? '1' : '0');
                 $('#DialogRule').toggleClass('optional-hidden', !show);
             });
-            var legendRule = '<div class="xray-help-legend">'
+            var legendRule = '<div class="xray-help-legend xray-help-legend--footer">'
                 + '<span><i class="fa fa-info-circle icon-required"></i>mandatory</span>'
                 + '<span><i class="fa fa-info-circle icon-optional"></i>optional</span>'
                 + '<span><i class="fa fa-info-circle icon-advanced"></i>advanced</span>'
                 + '</div>';
-            $('#DialogRule .modal-body').prepend(legendRule);
+            $('#DialogRule .modal-footer').prepend(legendRule);
             // Editing a rule that already uses a hidden condition must not hide it.
             $('#DialogRule').on('shown.bs.modal', function () {
                 var pref = localStorage.getItem('osxray_show_advanced_rule') === '1';
