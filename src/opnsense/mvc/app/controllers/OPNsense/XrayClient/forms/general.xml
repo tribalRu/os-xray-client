@@ -31,7 +31,7 @@
         <id>xrayclient.general.access_log</id>
         <label>Enable Access Log</label>
         <type>checkbox</type>
-        <help>Write every proxied connection to /var/log/xray/access.log. Off by default: with the TUN inbound all network traffic is logged and the file grows without rotation. Enable only while debugging, and clear it from Services → Xray Client → Access Log afterwards.</help>
+        <help>Write every proxied connection to /var/log/xray/access.log. Off by default: with the TUN inbound all network traffic is logged and the file grows without rotation. Enable only while debugging, and clear it from VPN → Xray Client → Access Log afterwards.</help>
     </field>
     <field>
         <id>xrayclient.general.dns_log</id>

@@ -339,20 +339,18 @@
         // win over the layout on every later load — or a previous release's
         // author widths keep winning after the markup changed. Drop the
         // persisted column definitions for our grids once per cleanup-mark.
-        // Bump the mark whenever author widths (data-width attributes) change.
+        // Bump CLEANUP_VERSION whenever author widths (data-width attributes) change.
         (function tabulatorWidthCleanup() {
             try {
-                ['osxray_tabulator_grid_cleanup', 'osxray_tabulator_grid_cleanup_v2', 'osxray_tabulator_grid_cleanup_v3', 'osxray_tabulator_grid_cleanup_v4', 'osxray_tabulator_grid_cleanup_v5', 'osxray_tabulator_grid_cleanup_v6', 'osxray_tabulator_grid_cleanup_v7'].forEach(function (flag) {
-                    if (localStorage.getItem(flag)) {
-                        return;
-                    }
+                var CLEANUP_VERSION = '7';
+                if (localStorage.getItem('osxray_tabulator_cleanup') !== CLEANUP_VERSION) {
                     Object.keys(localStorage).filter(function (k) {
                         return /^tabulator-.*#grid-(nodes|rules|balancers|dns)-columns$/.test(k);
                     }).forEach(function (k) {
                         localStorage.removeItem(k);
                     });
-                    localStorage.setItem(flag, '1');
-                });
+                    localStorage.setItem('osxray_tabulator_cleanup', CLEANUP_VERSION);
+                }
             } catch (e) {}
         })();
 
@@ -1213,7 +1211,7 @@
                             parts.push('net: ' + esc(row.network_proto));
                         }
                         var extra = [
-                            ['in_tag', 'inbound'],
+                            ['inbound_tag', 'inbound'],
                             ['source', 'src'],
                             ['source_port', 'src port'],
                             ['user', 'user']
@@ -1778,21 +1776,6 @@
             });
             $('#frm_DialogRule').on('change', '.collapse-section', function () {
                 $('#frm_DialogRule .form-search-section').removeClass('invalid');
-            });
-            // New rule: default Seq = max(existing) + 10.
-            var ruleAddClicked = false;
-            $('#grid-rules').on('click', '.command-add', function () { ruleAddClicked = true; });
-            $('#DialogRule').on('shown.bs.modal', function () {
-                if (!ruleAddClicked) { return; }
-                ruleAddClicked = false;
-                var maxSeq = 0;
-                try {
-                    $('#grid-rules').bootgrid('getCurrentRows').forEach(function (r) {
-                        var n = parseInt(r.sequence, 10);
-                        if (!isNaN(n) && n > maxSeq) { maxSeq = n; }
-                    });
-                } catch (e) {}
-                $('#rule\\.sequence').val(maxSeq >= 10 ? maxSeq + 10 : 10);
             });
         })();
 
@@ -2931,8 +2914,3 @@
         </div>
     </div>
 </div>
-
-
-
-
-
