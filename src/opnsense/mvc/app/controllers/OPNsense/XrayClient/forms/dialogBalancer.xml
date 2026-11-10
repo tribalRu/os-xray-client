@@ -3,6 +3,7 @@
         <id>balancer.enabled</id>
         <label>Enabled</label>
         <type>checkbox</type>
+        <help>A disabled balancer is kept in the list but is not written to config.json.</help>
     </field>
     <field>
         <id>balancer.tag</id>

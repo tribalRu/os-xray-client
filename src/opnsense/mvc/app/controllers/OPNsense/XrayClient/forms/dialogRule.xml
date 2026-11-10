@@ -7,6 +7,7 @@
         <id>rule.enabled</id>
         <label>Enabled</label>
         <type>checkbox</type>
+        <help>A disabled rule is kept in the list but is not written to config.json.</help>
     </field>
     <field>
         <id>rule.description</id>
@@ -50,6 +51,7 @@
         <id>rule.network_proto</id>
         <label>Network Protocol</label>
         <type>dropdown</type>
+        <help>Match only TCP, only UDP, or both.</help>
     </field>
     <field>
         <id>rule.protocol</id>

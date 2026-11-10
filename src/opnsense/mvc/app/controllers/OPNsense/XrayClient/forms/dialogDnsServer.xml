@@ -3,6 +3,7 @@
         <id>server.enabled</id>
         <label>Enabled</label>
         <type>checkbox</type>
+        <help>A disabled DNS server is kept in the list but is not written to config.json.</help>
     </field>
     <field>
         <id>server.address</id>
