@@ -16,12 +16,6 @@
         <help>Example: Bypass RU domains and IPs</help>
     </field>
     <field>
-        <id>rule.sequence</id>
-        <label>Priority Sequence</label>
-        <type>text</type>
-        <help>Rules are evaluated from lowest number to highest (e.g. 10, 20, 30).</help>
-    </field>
-    <field>
         <id>rule.outbound_tag</id>
         <label>Target Outbound Action</label>
         <type>dropdown</type>
@@ -70,6 +64,13 @@
         <type>header</type>
         <static>true</static>
         <label>Additional conditions (rarely needed)</label>
+    </field>
+    <field>
+        <id>rule.sequence</id>
+        <label>Priority Seq (advanced)</label>
+        <type>text</type>
+        <style>expert_only</style>
+        <help>Rules are evaluated from lowest number to highest (e.g. 10, 20, 30). New rules default to max seen + 10; use the ↑/↓ arrows in the grid instead of tuning by hand.</help>
     </field>
     <field>
         <id>rule.inbound_tag</id>

@@ -67,39 +67,47 @@
     #DialogNode.optional-hidden div.form-group:has(.expert_only) {
         display: none !important;
     }
-    /* Stage 1: collapsible sections in the node dialog. The whole section's
-       <tbody> folds away; the header row stays visible with a chevron.
-       Any section flagged invalid by the user (validation error) auto-expands
-       via the same mechanism. */
-    #DialogNode .form-search-section.collapse-section > table > thead tr th {
+    /* Stage 1: collapsible sections in the node and rule dialogs. The whole
+       section's <tbody> folds away; the header row stays visible with a
+       chevron. Any section flagged invalid by the user (validation error)
+       auto-expands via the same mechanism. */
+    #DialogNode .form-search-section.collapse-section > table > thead tr th,
+    #DialogRule .form-search-section.collapse-section > table > thead tr th {
         user-select: none;
     }
-    #DialogNode .form-search-section.collapse-section > table > thead tr th > div {
+    #DialogNode .form-search-section.collapse-section > table > thead tr th > div,
+    #DialogRule .form-search-section.collapse-section > table > thead tr th > div {
         cursor: pointer;
         padding-right: 30px;
     }
-    #DialogNode .form-search-section.collapse-section .collapse-icon {
+    #DialogNode .form-search-section.collapse-section .collapse-icon,
+    #DialogRule .form-search-section.collapse-section .collapse-icon {
         float: right;
         margin-top: 2px;
         padding-right: 2px;
         color: #ffb72c;
         transition: transform 0.12s ease;
     }
-    #DialogNode .form-search-section.collapse-section.collapsed > table > tbody {
+    #DialogNode .form-search-section.collapse-section.collapsed > table > tbody,
+    #DialogRule .form-search-section.collapse-section.collapsed > table > tbody {
         display: none;
     }
-    #DialogNode .form-search-section.collapse-section.collapsed .collapse-icon {
+    #DialogNode .form-search-section.collapse-section.collapsed .collapse-icon,
+    #DialogRule .form-search-section.collapse-section.collapsed .collapse-icon {
         transform: rotate(-90deg);
     }
-    #DialogNode .form-search-section.collapse-section .collapse-badge {
+    #DialogNode .form-search-section.collapse-section .collapse-badge,
+    #DialogRule .form-search-section.collapse-section .collapse-badge {
         display: none;
     }
-    #DialogNode .form-search-section.collapse-section.invalid > table > thead tr th > div {
+    #DialogNode .form-search-section.collapse-section.invalid > table > thead tr th > div,
+    #DialogRule .form-search-section.collapse-section.invalid > table > thead tr th > div {
         outline: 2px solid #d9534f;
         outline-offset: 2px;
         border-radius: 3px;
     }
-    #DialogNode .form-search-section.collapse-section.invalid .collapse-badge {
+    #DialogNode .form-search-section.collapse-section.invalid .collapse-badge,
+    #DialogRule .form-search-section.collapse-section.invalid .collapse-badge {
         display: inline-block;
         margin-left: 8px;
         font-size: 11px;
@@ -943,9 +951,9 @@
                     },
                     "rowtoggle": function (column, row) {
                         if (parseInt(row[column.id], 2) === 1) {
-                            return '<span style="cursor: pointer;" class="fa fa-fw fa-check-square-o command-toggle bootgrid-tooltip" data-value="1" data-row-id="' + row.uuid + '"></span>';
+                            return '<span style="cursor: pointer;" class="fa fa-fw fa-toggle-on text-success command-toggle bootgrid-tooltip" data-value="1" data-row-id="' + row.uuid + '"></span>';
                         } else {
-                            return '<span style="cursor: pointer;" class="fa fa-fw fa-square-o command-toggle bootgrid-tooltip" data-value="0" data-row-id="' + row.uuid + '"></span>';
+                            return '<span style="cursor: pointer;" class="fa fa-fw fa-toggle-off text-muted command-toggle bootgrid-tooltip" data-value="0" data-row-id="' + row.uuid + '"></span>';
                         }
                     },
                     "latency": function (column, row) {
@@ -985,13 +993,13 @@
                     },
                     "rowtoggle": function (column, row) {
                         if (parseInt(row[column.id], 2) === 1) {
-                            return '<span style="cursor: pointer;" class="fa fa-fw fa-check-square-o command-toggle bootgrid-tooltip" data-value="1" data-row-id="' + row.uuid + '"></span>';
+                            return '<span style="cursor: pointer;" class="fa fa-fw fa-toggle-on text-success command-toggle bootgrid-tooltip" data-value="1" data-row-id="' + row.uuid + '"></span>';
                         } else {
-                            return '<span style="cursor: pointer;" class="fa fa-fw fa-square-o command-toggle bootgrid-tooltip" data-value="0" data-row-id="' + row.uuid + '"></span>';
+                            return '<span style="cursor: pointer;" class="fa fa-fw fa-toggle-off text-muted command-toggle bootgrid-tooltip" data-value="0" data-row-id="' + row.uuid + '"></span>';
                         }
                     },
-                    // One cell summarising every condition of the rule, so
-                    // rules matched by port, inbound or source are not blank.
+                    // Condensed counts of every condition, e.g.
+                    // "domains: 2 · geoip: 1 · port: 443".
                     "rulematch": function (column, row) {
                         function esc(v) {
                             return $('<div/>').text(v).html();
@@ -1000,21 +1008,42 @@
                             return String(v || '').split(',').map(function (x) { return $.trim(x); }).filter(Boolean);
                         }
                         var parts = [];
-                        [['domain', 'domain'], ['ip', 'ip'], ['port', 'port'], ['protocol', 'sniff'],
-                         ['inbound_tag', 'inbound'], ['source', 'src'], ['source_port', 'src port'], ['user', 'user']
-                        ].forEach(function (f) {
-                            var items = list(row[f[0]]);
-                            if (!items.length) {
-                                return;
-                            }
-                            var shown = items.slice(0, 2).map(esc).join(', ');
-                            var more = items.length > 2 ? ' <span class="text-muted">+' + (items.length - 2) + '</span>' : '';
-                            parts.push('<span class="text-muted">' + f[1] + ':</span> ' + shown + more);
-                        });
-                        if (row.network_proto && row.network_proto !== 'tcp_udp') {
-                            parts.push('<span class="text-muted">net:</span> ' + esc(row.network_proto));
+                        var domains = list(row.domain);
+                        if (domains.length) {
+                            parts.push('domains: ' + domains.length);
                         }
-                        return parts.length ? parts.join(' &nbsp;·&nbsp; ') : '<span class="text-muted">any traffic</span>';
+                        var ips = list(row.ip);
+                        var geoip = ips.filter(function (x) { return x.indexOf('geoip:') === 0; }).length;
+                        if (geoip) {
+                            parts.push('geoip: ' + geoip);
+                        }
+                        var plain = ips.length - geoip;
+                        if (plain) {
+                            parts.push('ips: ' + plain);
+                        }
+                        if ($.trim(row.port || '')) {
+                            parts.push('port: ' + esc(row.port));
+                        }
+                        var sniff = list(row.protocol);
+                        if (sniff.length) {
+                            parts.push('sniff: ' + sniff.map(esc).join('/'));
+                        }
+                        if (row.network_proto && row.network_proto !== 'tcp_udp') {
+                            parts.push('net: ' + esc(row.network_proto));
+                        }
+                        var extra = [
+                            ['in_tag', 'inbound'],
+                            ['source', 'src'],
+                            ['source_port', 'src port'],
+                            ['user', 'user']
+                        ];
+                        extra.forEach(function (f) {
+                            var items = list(row[f[0]]);
+                            if (items.length) {
+                                parts.push(f[1] + ': ' + items.length);
+                            }
+                        });
+                        return parts.length ? parts.join(' · ') : '<span class="text-muted">any traffic</span>';
                     },
                     // Flags a sequence number shared with another rule: the
                     // order between them is then decided by config order only.
@@ -1053,9 +1082,9 @@
                     },
                     "rowtoggle": function (column, row) {
                         if (parseInt(row[column.id], 2) === 1) {
-                            return '<span style="cursor: pointer;" class="fa fa-fw fa-check-square-o command-toggle bootgrid-tooltip" data-value="1" data-row-id="' + row.uuid + '"></span>';
+                            return '<span style="cursor: pointer;" class="fa fa-fw fa-toggle-on text-success command-toggle bootgrid-tooltip" data-value="1" data-row-id="' + row.uuid + '"></span>';
                         } else {
-                            return '<span style="cursor: pointer;" class="fa fa-fw fa-square-o command-toggle bootgrid-tooltip" data-value="0" data-row-id="' + row.uuid + '"></span>';
+                            return '<span style="cursor: pointer;" class="fa fa-fw fa-toggle-off text-muted command-toggle bootgrid-tooltip" data-value="0" data-row-id="' + row.uuid + '"></span>';
                         }
                     }
                 }
@@ -1118,9 +1147,9 @@
                     },
                     "rowtoggle": function (column, row) {
                         if (parseInt(row[column.id], 2) === 1) {
-                            return '<span style="cursor: pointer;" class="fa fa-fw fa-check-square-o command-toggle bootgrid-tooltip" data-value="1" data-row-id="' + row.uuid + '"></span>';
+                            return '<span style="cursor: pointer;" class="fa fa-fw fa-toggle-on text-success command-toggle bootgrid-tooltip" data-value="1" data-row-id="' + row.uuid + '"></span>';
                         } else {
-                            return '<span style="cursor: pointer;" class="fa fa-fw fa-square-o command-toggle bootgrid-tooltip" data-value="0" data-row-id="' + row.uuid + '"></span>';
+                            return '<span style="cursor: pointer;" class="fa fa-fw fa-toggle-off text-muted command-toggle bootgrid-tooltip" data-value="0" data-row-id="' + row.uuid + '"></span>';
                         }
                     }
                 }
@@ -1525,9 +1554,79 @@
             applyNodeSectionState();
         })();
 
+        // --- Routing rule dialog: collapse "Additional conditions" by default ---
+        (function setupRuleSections() {
+            function slug(text) {
+                return (text || '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').toLowerCase();
+            }
+            $('#frm_DialogRule .form-search-section').each(function () {
+                var $sec = $(this);
+                var $th = $sec.children('table').children('thead').children('tr').children('th').children('div').first();
+                if ($th.length === 0) { return; }
+                var $label = $th.children('b');
+                var label = $label.length ? $label.text() : 'Section';
+                $sec.addClass('collapse-section');
+                $th.prepend('<span class="collapse-badge">error</span>');
+                $th.prepend('<i class="fa fa-angle-down fa-fw collapse-icon"></i>');
+                $th.on('click', function () {
+                    $sec.toggleClass('collapsed');
+                    try {
+                        localStorage.setItem('osxray_rule_collapse_' + slug(label), $sec.hasClass('collapsed') ? '1' : '0');
+                    } catch (e) {}
+                });
+            });
+            $('#frm_DialogRule .form-search-section').each(function () {
+                var $sec = $(this);
+                if (!$sec.hasClass('collapse-section')) { return; }
+                var $b = $sec.find('> table > thead > tr > th > div > b');
+                var label = $b.length ? $b.text() : 'Section';
+                var key = 'osxray_rule_collapse_' + slug(label);
+                var stored = null;
+                try { stored = localStorage.getItem(key); } catch (e) {}
+                if (stored !== null && stored !== undefined) {
+                    $sec.toggleClass('collapsed', stored === '1');
+                } else {
+                    var open = (label === 'Rule' || label === 'Match traffic by');
+                    $sec.toggleClass('collapsed', !open);
+                }
+            });
+            $(document).on('validation-failed', function (_, detail) {
+                if (!detail || detail.formid !== 'frm_DialogRule') { return; }
+                var secs = $('#frm_DialogRule .form-search-section');
+                secs.removeClass('invalid');
+                if (!detail.data || !detail.data.validations) { return; }
+                var keys = Object.keys(detail.data.validations);
+                secs.each(function () {
+                    var $sec = $(this);
+                    var hit = keys.some(function (k) {
+                        return $sec.find('[id="' + k + '"], [id^="' + k + '_"]').length > 0;
+                    });
+                    if (hit) { $sec.removeClass('collapsed').addClass('invalid'); }
+                });
+            });
+            $('#frm_DialogRule').on('change', '.collapse-section', function () {
+                $('#frm_DialogRule .form-search-section').removeClass('invalid');
+            });
+            // New rule: default Seq = max(existing) + 10.
+            var ruleAddClicked = false;
+            $('#grid-rules').on('click', '.command-add', function () { ruleAddClicked = true; });
+            $('#DialogRule').on('shown.bs.modal', function () {
+                if (!ruleAddClicked) { return; }
+                ruleAddClicked = false;
+                var maxSeq = 0;
+                try {
+                    $('#grid-rules').bootgrid('getCurrentRows').forEach(function (r) {
+                        var n = parseInt(r.sequence, 10);
+                        if (!isNaN(n) && n > maxSeq) { maxSeq = n; }
+                    });
+                } catch (e) {}
+                $('#rule\\.sequence').val(maxSeq >= 10 ? maxSeq + 10 : 10);
+            });
+        })();
+
         // --- Routing rule dialog: hide rarely used conditions by default ---
         (function injectRuleAdvancedToggle() {
-            ['rule.inbound_tag', 'rule.source', 'rule.source_port', 'rule.user', 'rule.rule_tag'].forEach(function (id) {
+            ['rule.inbound_tag', 'rule.source', 'rule.source_port', 'rule.user', 'rule.rule_tag', 'rule.sequence'].forEach(function (id) {
                 $('[id="' + id + '"]').addClass('expert_only');
             });
             // The section header row has no input of its own; find it by text.
@@ -2481,3 +2580,6 @@
         </div>
     </div>
 </div>
+
+
+
