@@ -1588,7 +1588,7 @@
             });
             var saved = localStorage.getItem('osxray_show_advanced') === '1';
             $('#DialogNode').toggleClass('optional-hidden', !saved);
-            mountNativeAdvancedToggle('#frm_DialogNode', 'advanced fields', saved, function (show) {
+            window.osxrayNodeAdvanced = mountNativeAdvancedToggle('#frm_DialogNode', 'advanced fields', saved, function (show) {
                 localStorage.setItem('osxray_show_advanced', show ? '1' : '0');
                 $('#DialogNode').toggleClass('optional-hidden', !show);
             });
@@ -1701,6 +1701,27 @@
                     }
                 });
             }
+
+            // The OPNsense save call answers {result:'failed', validations:{...}}
+            // but does not announce it as an event, so translate it here:
+            // sections holding a failed field then expand themselves instead
+            // of leaving the error inside a collapsed block.
+            $(document).ajaxComplete(function (_e, xhr, settings) {
+                var m = /\/api\/xrayclient\/settings\/(?:set|add)(Node|Rule)\b/.exec((settings && settings.url) || '');
+                if (!m) {
+                    return;
+                }
+                var data = xhr.responseJSON;
+                if (!data) {
+                    try { data = JSON.parse(xhr.responseText); } catch (err) { data = null; }
+                }
+                if (data && data.result === 'failed' && data.validations) {
+                    $(document).trigger('validation-failed', [{
+                        formid: m[1] === 'Node' ? 'frm_DialogNode' : 'frm_DialogRule',
+                        data: data
+                    }]);
+                }
+            });
 
             // Combo change must reapply defaults to sections without a stored state.
             $('#node\\.protocol, #node\\.network, #node\\.security, #node\\.encryption, #node\\.xdrive_service')
@@ -2366,7 +2387,15 @@
                 ['#xrayclient\\.general\\.dns_hosts_json', 'Static Hosts', 'object']
             ];
             for (var i = 0; i < checks.length; i++) {
-                var raw = $.trim($(checks[i][0]).val() || '');
+                var $field = $(checks[i][0]);
+                // A row hidden because it does not apply to the chosen
+                // protocol/transport (inline display:none) is not saved
+                // meaningfully; its leftover text must not block the save.
+                var $row = $field.closest('tr, .form-group');
+                if ($row.length && $row[0].style.display === 'none') {
+                    continue;
+                }
+                var raw = $.trim($field.val() || '');
                 if (raw === '') {
                     continue;
                 }
@@ -2414,7 +2443,15 @@
                 ['#node\\.dns_rules_json', 'DNS Rules', 'array']
             ];
             for (var i = 0; i < checks.length; i++) {
-                var raw = $.trim($(checks[i][0]).val() || '');
+                var $field = $(checks[i][0]);
+                // A row hidden because it does not apply to the chosen
+                // protocol/transport (inline display:none) is not saved
+                // meaningfully; its leftover text must not block the save.
+                var $row = $field.closest('tr, .form-group');
+                if ($row.length && $row[0].style.display === 'none') {
+                    continue;
+                }
+                var raw = $.trim($field.val() || '');
                 if (raw === '') {
                     continue;
                 }
@@ -2451,6 +2488,18 @@
                 event.stopImmediatePropagation();
                 $('.json-invalid').removeClass('json-invalid');
                 var $field = $(err.selector);
+                // The offending field may sit in a collapsed section or behind
+                // the advanced switch: open both so the error is visible.
+                var $sec = $field.closest('.collapse-section');
+                if ($sec.length) {
+                    setSectionCollapsed($sec, false);
+                }
+                if ($('#DialogNode').hasClass('optional-hidden') && $field.hasClass('expert_only')) {
+                    $('#DialogNode').removeClass('optional-hidden');
+                    if (window.osxrayNodeAdvanced) {
+                        window.osxrayNodeAdvanced.set(true);
+                    }
+                }
                 $field.addClass('json-invalid').trigger('focus');
                 showJsonSectionError(err.label + ': ' + err.message, 'Invalid JSON field');
             }, true);
