@@ -2420,8 +2420,8 @@
             </tfoot>
         </table>
         <div class="col-md-12" style="padding-bottom: 15px;">
-        <div class="col-md-12" style="padding-top: 2px;">
-            <span class="text-muted" style="font-size: 15px;">Entries here are saved immediately on every add/edit/delete/toggle. <b>Apply &amp; Restart Xray</b> rebuilds config.json and restarts Xray.</span>
+        <div style="margin: 14px 0 8px 0;">
+            <span class="text-muted" style="font-size: 15px; line-height: 1.5;">Entries here are saved immediately on every add/edit/delete/toggle. <b>Apply &amp; Restart Xray</b> rebuilds config.json and restarts Xray.</span>
         </div>
             <hr/>
             <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves General + Maintenance settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
@@ -2455,8 +2455,8 @@
             </tfoot>
         </table>
         <div class="col-md-12" style="padding-bottom: 15px;">
-        <div class="col-md-12" style="padding-top: 2px;">
-            <span class="text-muted" style="font-size: 15px;">Rules are applied top-to-bottom (&#8593;/&#8595; to reorder). Entries save instantly &mdash; click <b>Apply &amp; Restart Xray</b>.</span>
+        <div style="margin: 14px 0 8px 0;">
+            <span class="text-muted" style="font-size: 15px; line-height: 1.5;">Rules are applied top-to-bottom (&#8593;/&#8595; to reorder). Entries save instantly &mdash; click <b>Apply &amp; Restart Xray</b>.</span>
         </div>
             <hr/>
             <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves General + Maintenance settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
@@ -2497,8 +2497,8 @@
         </div>
         <div class="col-md-12" id="balancer_info_output" style="display: none; margin-bottom: 6px;"></div>
         <div class="col-md-12" style="padding-bottom: 15px;">
-        <div class="col-md-12" style="padding-top: 2px;">
-            <span class="text-muted" style="font-size: 15px;">A balancer groups nodes by tag prefix and picks one for every connection. Rules choose it from the &laquo;Balancers&raquo; group in Target Outbound. leastPing / leastLoad need an observatory (General Settings &rarr; Load Balancer Observatory). Entries save instantly &mdash; click <b>Apply &amp; Restart Xray</b>.</span>
+        <div style="margin: 14px 0 8px 0;">
+            <span class="text-muted" style="font-size: 15px; line-height: 1.5;">A balancer groups nodes by tag prefix and picks one for every connection. Rules choose it from the &laquo;Balancers&raquo; group in Target Outbound. leastPing / leastLoad need an observatory (General Settings &rarr; Load Balancer Observatory). Entries save instantly &mdash; click <b>Apply &amp; Restart Xray</b>.</span>
         </div>
             <hr/>
             <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves General + Maintenance settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
@@ -2535,8 +2535,8 @@
             </tfoot>
         </table>
         <div class="col-md-12" style="padding-bottom: 15px;">
-        <div class="col-md-12" style="padding-top: 2px;">
-            <span class="text-muted" style="font-size: 15px;">Enable the built-in DNS in <b>General Settings &rarr; Built-in DNS server</b>, then list resolvers here. Servers with a domains list answer only those domains; the preset in the dialog fills typical setups. Entries save instantly &mdash; <b>Apply &amp; Restart Xray</b>.</span>
+        <div style="margin: 14px 0 8px 0;">
+            <span class="text-muted" style="font-size: 15px; line-height: 1.5;">Enable the built-in DNS in <b>General Settings &rarr; Built-in DNS server</b>, then list resolvers here. Servers with a domains list answer only those domains; the preset in the dialog fills typical setups. Entries save instantly &mdash; <b>Apply &amp; Restart Xray</b>.</span>
         </div>
             <hr/>
             <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves General + Maintenance settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
@@ -2661,6 +2661,7 @@
         </div>
     </div>
 </div>
+
 
 
 
