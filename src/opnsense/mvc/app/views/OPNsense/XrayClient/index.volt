@@ -305,9 +305,7 @@
             toggleGeoDataCustomUI();
             setupPluginBranchPicker();
             startTelemetryAutoRefresh();
-            if (typeof toggleExpertTab === 'function') {
-                toggleExpertTab($('#xrayclient\\.general\\.expert_mode').prop('checked'));
-            }
+            applyAdvancedModeVisibility($('#xrayclient\\.general\\.expert_mode').prop('checked'));
             toggleGeneralRows();
         });
 
@@ -500,9 +498,19 @@
             });
         })();
 
-        // Expert Config tab: view the effective /usr/local/etc/xray/config.json
-        // or edit it manually. Saving routes through saveRawConfigAction
-        // (validate -> backup -> xray run -test -> atomic write -> restart).
+        // Advanced Mode: one setting drives the whole interface. Shows the
+        // Expert Config tab, the raw JSON sections in General, and every
+        // .expert_only row in the plugin (advanced fields in all dialogs).
+        // The per-dialog "Show additional conditions" checkbox was removed.
+        // Collapsible sections keep their independent chevron behaviour.
+        window.applyAdvancedModeVisibility = function applyAdvancedModeVisibility(show) {
+            show = show !== undefined ? !!show : !!$('#xrayclient\\.general\\.expert_mode').prop('checked');
+            window.toggleExpertTab(show);
+            $('#DialogNode').toggleClass('optional-hidden', !show);
+            $('#DialogRule').toggleClass('optional-hidden', !show);
+            $('#tab_general').toggleClass('optional-hidden', !show);
+        };
+
         window.toggleExpertTab = function toggleExpertTab(show) {
             $('#tab_expert_li').toggle(!!show);
             if (!show && $('a[href="#tab_expert"]').parent().hasClass('active')) {
@@ -511,7 +519,7 @@
         };
 
         $('#xrayclient\\.general\\.expert_mode').on('change', function () {
-            toggleExpertTab($(this).prop('checked'));
+            applyAdvancedModeVisibility($(this).prop('checked'));
         });
 
         var expertConfigLoaded = false;
@@ -1410,22 +1418,26 @@
             expertIds.forEach(function (id) {
                 $('[id="' + id + '"]').addClass('expert_only');
             });
-            var saved = localStorage.getItem('osxray_show_advanced') === '1';
-            var $row = $(
-                '<div class="xray-advanced-toggle" style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid rgba(255,255,255,0.08);">' +
-                '<i class="fa fa-eye fa-fw text-muted"></i>' +
-                '<label style="margin:0;cursor:pointer;user-select:none;font-weight:normal;">' +
-                '<input type="checkbox" id="chk_show_advanced" style="margin-right:6px;">Show advanced fields' +
-                '</label>' +
-                '<span class="small text-muted">(optional, rarely needed)</span>' +
-                '</div>'
-            );
-            $('#DialogNode .modal-body').prepend($row);
-            $('#DialogNode').toggleClass('optional-hidden', !saved);
-            $('#chk_show_advanced').prop('checked', saved).on('change', function () {
-                var show = $(this).prop('checked');
-                localStorage.setItem('osxray_show_advanced', show ? '1' : '0');
-                $('#DialogNode').toggleClass('optional-hidden', !show);
+            // Apply on open: hide extended fields when Advanced Mode is off,
+            // but keep them visible when the user previously filled them in.
+            $('#DialogNode').on('shown.bs.modal', function () {
+                if ($('#xrayclient\\.general\\.expert_mode').prop('checked')) {
+                    $('#DialogNode').removeClass('optional-hidden');
+                    return;
+                }
+                var used = false;
+                $('#DialogNode .expert_only').each(function () {
+                    var $el = $(this);
+                    if ((this.type || '').toLowerCase() === 'checkbox') {
+                        if ($el.prop('checked')) {
+                            used = true;
+                        }
+                    } else if (Array.isArray($el.val()) ? ($el.val() || []).length > 0 : $.trim($el.val() || '') !== '') {
+                        used = true;
+                    }
+                    return !used;
+                });
+                $('#DialogNode').toggleClass('optional-hidden', !used);
             });
         })();
 
@@ -1461,7 +1473,7 @@
                 + '<span><i class="fa fa-info-circle icon-optional"></i>optional</span>'
                 + '<span><i class="fa fa-info-circle icon-advanced"></i>advanced</span>'
                 + '</div>';
-            $('.xray-advanced-toggle').after(legend);
+            $('#DialogNode .modal-body').prepend(legend);
 
             $('#frm_DialogNode .form-search-section').each(function () {
                 var $sec = $(this);
@@ -1656,6 +1668,7 @@
         })();
 
         // --- Routing rule dialog: hide rarely used conditions by default ---
+        // Advanced Mode (in General Settings) shows them everywhere.
         (function injectRuleAdvancedToggle() {
             ['rule.inbound_tag', 'rule.source', 'rule.source_port', 'rule.user', 'rule.rule_tag', 'rule.sequence'].forEach(function (id) {
                 $('[id="' + id + '"]').addClass('expert_only');
@@ -1665,47 +1678,31 @@
                 return $.trim($(this).find('th, h2, h3, h4, .header').first().text()) === 'Additional conditions (rarely needed)'
                     || $.trim($(this).text()) === 'Additional conditions (rarely needed)';
             }).addClass('expert_hdr');
-            var saved = localStorage.getItem('osxray_show_advanced_rule') === '1';
-            var $row = $(
-                '<div class="xray-advanced-toggle" style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid rgba(255,255,255,0.08);">' +
-                '<i class="fa fa-eye fa-fw text-muted"></i>' +
-                '<label style="margin:0;cursor:pointer;user-select:none;font-weight:normal;">' +
-                '<input type="checkbox" id="chk_show_advanced_rule" style="margin-right:6px;">Show additional conditions' +
-                '</label>' +
-                '<span class="small text-muted">(inbound, source, users, tag, seq)</span>' +
-                '</div>'
-            );
-            // Below the preset box, above the form.
-            $('#DialogRule .modal-body').find('#rule_preset_container').after($row);
+            // Legend shown above the form (its icons are coloured by the same
+            // mandatory/optional/advanced rule the node dialog uses).
             var legendRule = '<div class="xray-help-legend">'
                 + '<span><i class="fa fa-info-circle icon-required"></i>mandatory</span>'
                 + '<span><i class="fa fa-info-circle icon-optional"></i>optional</span>'
                 + '<span><i class="fa fa-info-circle icon-advanced"></i>advanced</span>'
                 + '</div>';
-            $row.after(legendRule);
-            $('#DialogRule').toggleClass('optional-hidden', !saved);
-            $('#chk_show_advanced_rule').prop('checked', saved).on('change', function () {
-                var show = $(this).prop('checked');
-                localStorage.setItem('osxray_show_advanced_rule', show ? '1' : '0');
-                $('#DialogRule').toggleClass('optional-hidden', !show);
-            });
-            // Editing a rule that already uses a hidden condition must not hide it.
+            $('#DialogRule .modal-body').prepend(legendRule);
+            // Editing a rule that already uses a hidden condition must not
+            // hide it (even with Advanced Mode off).
             $('#DialogRule').on('shown.bs.modal', function () {
-                var pref = localStorage.getItem('osxray_show_advanced_rule') === '1';
-                var used = ['inbound_tag', 'source', 'source_port', 'user', 'rule_tag'].some(function (k) {
+                if ($('#xrayclient\\.general\\.expert_mode').prop('checked')) {
+                    $('#DialogRule').removeClass('optional-hidden');
+                    return;
+                }
+                var used = ['inbound_tag', 'source', 'source_port', 'user', 'rule_tag', 'sequence'].some(function (k) {
                     var v = $('[id="rule.' + k + '"]').val();
                     return Array.isArray(v) ? v.length > 0 : $.trim(v || '') !== '';
                 });
-                $('#DialogRule').toggleClass('optional-hidden', !(pref || used));
-                $('#chk_show_advanced_rule').prop('checked', pref || used);
+                $('#DialogRule').toggleClass('optional-hidden', !used);
             });
         })();
 
-        // --- Optional General Settings toggle ---
-        // Same hide/show idea as the node dialog: fields that rarely change
-        // (extra logging, advanced TUN/sniffing/observatory/DNS knobs) get the
-        // expert_only class and disappear unless the user opts in. The choice
-        // persists per browser, independently from the dialog's checkbox.
+        // --- Optional General Settings fields ---
+        // Advanced Mode (in General Settings) toggles them everywhere.
         (function injectGeneralAdvancedToggle() {
             var generalExpertIds = [
                 'xrayclient.general.access_log', 'xrayclient.general.dns_log', 'xrayclient.general.mask_address',
@@ -1720,24 +1717,6 @@
             ];
             generalExpertIds.forEach(function (id) {
                 $('[id="' + id + '"]').addClass('expert_only');
-            });
-            var $tab = $('#tab_general');
-            var saved = localStorage.getItem('osxray_show_advanced_general') === '1';
-            var $row = $(
-                '<div class="xray-advanced-toggle" style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid rgba(255,255,255,0.08);">' +
-                '<i class="fa fa-eye fa-fw text-muted"></i>' +
-                '<label style="margin:0;cursor:pointer;user-select:none;font-weight:normal;">' +
-                '<input type="checkbox" id="chk_show_advanced_general" style="margin-right:6px;">Show advanced fields' +
-                '</label>' +
-                '<span class="small text-muted">(optional, rarely needed)</span>' +
-                '</div>'
-            );
-            $tab.children('.content-box').first().prepend($row);
-            $tab.toggleClass('optional-hidden', !saved);
-            $('#chk_show_advanced_general').prop('checked', saved).on('change', function () {
-                var show = $(this).prop('checked');
-                localStorage.setItem('osxray_show_advanced_general', show ? '1' : '0');
-                $tab.toggleClass('optional-hidden', !show);
             });
         })();
 
