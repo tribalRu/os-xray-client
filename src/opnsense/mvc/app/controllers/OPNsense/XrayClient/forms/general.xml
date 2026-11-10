@@ -18,6 +18,10 @@
         <help>Show an extra "Expert Config" tab with the exact /usr/local/etc/xray/config.json Xray is running (or would run). You can view it or edit it manually; saving there switches the plugin to Raw JSON mode, and the config is validated with xray run -test before it is applied.</help>
     </field>
     <field>
+        <type>header</type>
+        <label>Logging</label>
+    </field>
+    <field>
         <id>xrayclient.general.loglevel</id>
         <label>Log Level</label>
         <type>dropdown</type>
@@ -27,7 +31,7 @@
         <id>xrayclient.general.access_log</id>
         <label>Enable Access Log</label>
         <type>checkbox</type>
-        <help>Write every proxied connection to /var/log/xray/access.log. Off by default: with the TUN inbound all network traffic is logged and the file grows without rotation. Enable only while debugging, and clear it in the Logs tab afterwards.</help>
+        <help>Write every proxied connection to /var/log/xray/access.log. Off by default: with the TUN inbound all network traffic is logged and the file grows without rotation. Enable only while debugging, and clear it from Services → Xray Client → Access Log afterwards.</help>
     </field>
     <field>
         <id>xrayclient.general.dns_log</id>
@@ -43,7 +47,7 @@
     </field>
     <field>
         <type>header</type>
-        <label>TUN Interface Settings (Variant A)</label>
+        <label>TUN Interface</label>
     </field>
     <field>
         <id>xrayclient.general.enable_tun</id>
@@ -82,6 +86,10 @@
         <help>Empty = off (default). «auto» or an interface name (e.g. vmx1) binds every outbound socket, so Xray's own traffic can never loop back through the TUN. WINDOWS + LINUX + MACOS work out of the box; on FREEBSD Xray needs a second routing table: add net.fibs=2 to /boot/loader.conf and REBOOT the firewall first — with net.fibs=1 Xray will refuse to start and Apply will be rejected.</help>
     </field>
     <field>
+        <type>header</type>
+        <label>Domain Sniffing</label>
+    </field>
+    <field>
         <id>xrayclient.general.enable_sniffing</id>
         <label>Enable Domain Sniffing (TLS/HTTP/QUIC)</label>
         <type>checkbox</type>
@@ -108,7 +116,7 @@
     </field>
     <field>
         <type>header</type>
-        <label>Local Proxy Ports (Variant C)</label>
+        <label>Local Proxies (SOCKS5 / HTTP)</label>
     </field>
     <field>
         <id>xrayclient.general.enable_socks</id>
@@ -183,12 +191,6 @@
         <help>Port for HTTP proxy inbound (default: 10809).</help>
     </field>
     <field>
-        <id>xrayclient.general.stats_port</id>
-        <label>Internal gRPC Stats API Port</label>
-        <type>text</type>
-        <help>Local loopback port used by the plugin to query live traffic counters from Xray (default: 10085).</help>
-    </field>
-    <field>
         <type>header</type>
         <label>Routing Policy</label>
     </field>
@@ -200,7 +202,13 @@
     </field>
     <field>
         <type>header</type>
-        <label>Automatic Latency &amp; Traffic Telemetry</label>
+        <label>Telemetry &amp; Statistics</label>
+    </field>
+    <field>
+        <id>xrayclient.general.stats_port</id>
+        <label>Internal gRPC Stats API Port</label>
+        <type>text</type>
+        <help>Local loopback port used by the plugin to query live traffic counters from Xray (default: 10085).</help>
     </field>
     <field>
         <id>xrayclient.general.auto_telemetry</id>
@@ -222,7 +230,7 @@
         <id>xrayclient.general.observatory_type</id>
         <label>Observatory Type</label>
         <type>dropdown</type>
-        <help>leastPing and leastLoad balancers need Xray to probe the nodes. «Burst observatory» probes in batches and is the recommended option; «Background observatory» probes continuously. «Disabled» keeps the raw observatory JSON from Advanced JSON Sections (if set). Turning this on takes precedence over that raw field.</help>
+        <help>leastPing and leastLoad balancers need Xray to probe the nodes. «Burst observatory» probes in batches and is the recommended option; «Background observatory» probes continuously. «Disabled» keeps the Raw JSON: observatory field (shown with Show advanced fields), if it is set. Turning this on takes precedence over that raw field.</help>
     </field>
     <field>
         <id>xrayclient.general.observatory_selector</id>
@@ -274,7 +282,7 @@
         <id>xrayclient.general.dns_enabled</id>
         <label>Enable Built-in DNS</label>
         <type>checkbox</type>
-        <help>Route domain resolution through Xray's own DNS server instead of the system resolver. Addresses are looked up from the DNS Servers tab (or, when disabled, from the raw dns JSON in Advanced JSON Sections). Domains still unmatched by any routing rule go direct.</help>
+        <help>Route domain resolution through Xray's own DNS server instead of the system resolver. Addresses are looked up from the DNS Servers tab (or, when disabled, from the Raw JSON: dns field in this section, shown with Show advanced fields). Domains still unmatched by any routing rule go direct.</help>
     </field>
     <field>
         <id>xrayclient.general.dns_query_strategy</id>
@@ -312,5 +320,4 @@
         <type>checkbox</type>
         <help>Feed /etc/hosts into the built-in DNS as static hosts.</help>
     </field>
-    <!-- Static Hosts is a raw JSON object; it is edited in the Advanced JSON container next to "Built-in DNS", because the base_form has no JSON-textarea type. -->
 </form>

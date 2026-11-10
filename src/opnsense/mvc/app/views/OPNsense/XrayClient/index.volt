@@ -67,12 +67,10 @@
     #DialogNode.optional-hidden div.form-group:has(.expert_only) {
         display: none !important;
     }
-    /* Same collapse for Optional knobs on the General Settings tab.
-       #json_sections_container is the raw-JSON fallback block: it is
-       optional by definition, so it is hidden too. */
+    /* Same collapse for Optional knobs on the General Settings tab. The raw
+       JSON rows carry .expert_only on their textarea, so they follow it. */
     #tab_general.optional-hidden tr:has(.expert_only),
-    #tab_general.optional-hidden div.form-group:has(.expert_only),
-    #tab_general.optional-hidden #json_sections_container {
+    #tab_general.optional-hidden div.form-group:has(.expert_only) {
         display: none !important;
     }
     /* The OPNsense base_dialog partial renders a third, 35%-wide column
@@ -99,11 +97,11 @@
     #tab_expert pre,
     #tab_expert textarea,
     #raw_json_container textarea,
-    #json_sections_container textarea {
+    #frm_general textarea.json_section {
         width: 100% !important;
         max-width: none !important;
     }
-    #json_sections_container textarea {
+    #frm_general textarea.json_section {
         font-family: monospace;
         font-size: 12px;
     }
@@ -531,18 +529,53 @@
         // Raw JSON would never be saved to config.xml.
         $('#frm_general').append($('#raw_json_container'));
 
-        // Same for the advanced JSON sections: they are plain textareas that
-        // carry the model field ids, so saveFormToEndpoint() picks them up.
-        $('#frm_general').append($('#json_sections_container'));
+        // The raw JSON sections are plain textareas that carry the model field
+        // ids. Each one is moved into a table row at the end of the form
+        // section it belongs to (DNS, Observatory, Routing Policy), so it reads
+        // like every other field and, being .expert_only, only shows with
+        // "Show advanced fields". They stay inside #frm_general, so
+        // saveFormToEndpoint() keeps picking them up.
+        (function placeJsonSections() {
+            var rows = [
+                // [textarea id, label, row to insert after]
+                ['dns_json', 'Raw JSON: <code>dns</code>', 'dns_use_system_hosts'],
+                ['dns_hosts_json', 'Raw JSON: <code>dns.hosts</code>', 'dns_use_system_hosts'],
+                ['observatory_json', 'Raw JSON: observatory', 'observatory_concurrency'],
+                ['balancers_json', 'Raw JSON: <code>routing.balancers</code>', 'routing_domain_strategy']
+            ];
+            var after = {};
+            rows.forEach(function (r) {
+                var $group = $('#xrayclient\\.general\\.' + r[0]).closest('.form-group');
+                var $ta = $group.find('textarea').first();
+                if ($ta.length === 0) {
+                    return;
+                }
+                var anchorId = 'xrayclient.general.' + r[2];
+                var $anchor = after[anchorId] || $('[id="' + anchorId + '"]').closest('tr');
+                if ($anchor.length === 0) {
+                    return;
+                }
+                var $help = $group.find('.help-block').first().clone();
+                $help.append('<br/><i>Raw JSON is inserted into config.json in UI Builder mode (ignored in Raw JSON mode); leave it empty to omit it. The syntax is checked here and <code>xray run -test</code> validates the result on Apply.</i>');
+                $ta.addClass('expert_only');
+                var $row = $('<tr class="json_row"></tr>')
+                    .append($('<td></td>').append($('<div class="control-label"></div>').html('<b>' + r[1] + '</b>')))
+                    .append($('<td></td>').append($ta).append($help))
+                    .append($('<td></td>').append($('<span class="help-block"></span>').attr('id', 'help_block_xrayclient.general.' + r[0])));
+                $anchor.after($row);
+                after[anchorId] = $row;
+            });
+            $('#json_sections_container').remove();
+        })();
 
         function toggleConfigModeUI() {
             var mode = $('#xrayclient\\.general\\.config_mode').val();
             if (mode === 'raw') {
                 $('#raw_json_container').show();
-                $('#json_sections_container').hide();
+                $('#frm_general tr.json_row').hide();
             } else {
                 $('#raw_json_container').hide();
-                $('#json_sections_container').show();
+                $('#frm_general tr.json_row').show();
             }
         }
         $('#xrayclient\\.general\\.config_mode').on('change', toggleConfigModeUI);
@@ -1555,7 +1588,7 @@
             });
         });
 
-        // Advanced JSON sections: catch syntax and shape errors in the browser
+        // Raw JSON rows: catch syntax and shape errors in the browser
         // so the user gets a readable message instead of a configd template
         // error or an `xray run -test` failure on Apply.
         function jsonSectionError() {
@@ -1739,14 +1772,7 @@
                 <label for="xrayclient.general.raw_json"><b>Raw Xray JSON Configuration (/usr/local/etc/xray/config.json):</b></label>
                 <textarea id="xrayclient.general.raw_json" class="form-control" rows="16" style="font-family: monospace; font-size: 12px;" placeholder="{ &quot;inbounds&quot;: [...], &quot;outbounds&quot;: [...] }"></textarea>
             </div>
-            <div id="json_sections_container" style="padding: 0 15px 15px 15px;">
-                <hr/>
-                <h4 style="margin-top: 0;">Advanced JSON Sections</h4>
-                <p class="text-muted">
-                    Raw sections inserted into the generated <code>config.json</code> (UI Builder mode only; ignored in Raw JSON mode).
-                    Leave a field empty to omit its section. Syntax is checked here, and <code>xray run -test</code> validates the
-                    result on <b>Apply &amp; Restart Xray</b>.
-                </p>
+            <div id="json_sections_container" style="display:none;">
                 <div class="form-group">
                     <label for="xrayclient.general.dns_json"><b>Built-in DNS — top-level <code>dns</code> object</b></label>
                     <textarea id="xrayclient.general.dns_json" class="form-control json_section" rows="6" spellcheck="false" placeholder='{ "servers": ["https://1.1.1.1/dns-query", "1.1.1.1"], "queryStrategy": "UseIP" }'></textarea>
