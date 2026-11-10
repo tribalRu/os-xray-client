@@ -34,4 +34,14 @@
         <style>geodata_custom</style>
         <help>Full https:// URL to download geosite.dat (used only when preset is set to Custom).</help>
     </field>
+    <field>
+        <type>header</type>
+        <label>Plugin Update</label>
+    </field>
+    <field>
+        <id>xrayclient.maintenance.plugin_branch</id>
+        <label>Plugin Branch</label>
+        <type>text</type>
+        <help>Branch of tribalRu/os-xray-client that "Update Plugin from GitHub" installs. Keep main for normal use; pick another branch only to try changes that have not been merged yet. The list is read from GitHub when this tab opens.</help>
+    </field>
 </form>

@@ -545,6 +545,23 @@ class ServiceController extends ApiMutableServiceControllerBase
         ];
     }
 
+    /**
+     * Branches of the plugin repository, for the branch picker on the
+     * Maintenance tab (default branch first).
+     */
+    public function pluginBranchesAction()
+    {
+        $backend = new Backend();
+        $response = $backend->configdRun('xrayclient plugin_branches');
+        $data = json_decode(trim($response), true);
+        return is_array($data) ? $data : [
+            'status' => 'error',
+            'branches' => [],
+            'default' => 'main',
+            'message' => 'Branch list unavailable.'
+        ];
+    }
+
     public function updateCoreAction()
     {
         if (!$this->request->isPost()) {
@@ -581,7 +598,8 @@ class ServiceController extends ApiMutableServiceControllerBase
             return ['status' => 'error'];
         }
         $repoUrl = 'https://github.com/tribalRu/os-xray-client';
-        $branch = 'main';
+        $mdl = new XrayClient();
+        $branch = (string)$mdl->maintenance->plugin_branch ?: 'main';
 
         // Only allow GitHub https URLs and safe branch names; the updater
         // executes install.sh from the fetched archive.

@@ -67,6 +67,13 @@
     #DialogNode.optional-hidden div.form-group:has(.expert_only) {
         display: none !important;
     }
+    /* Routing rule dialog: the rarely used match conditions (inbound, source,
+       users, tag) follow the same toggle, including their section header. */
+    #DialogRule.optional-hidden tr:has(.expert_only),
+    #DialogRule.optional-hidden tr.expert_hdr,
+    #DialogRule.optional-hidden div.form-group:has(.expert_only) {
+        display: none !important;
+    }
     /* Same collapse for Optional knobs on the General Settings tab. The raw
        JSON rows carry .expert_only on their textarea, so they follow it. */
     #tab_general.optional-hidden tr:has(.expert_only),
@@ -227,6 +234,7 @@
             $('.selectpicker').selectpicker('refresh');
             toggleConfigModeUI();
             toggleGeoDataCustomUI();
+            setupPluginBranchPicker();
             startTelemetryAutoRefresh();
             if (typeof toggleExpertTab === 'function') {
                 toggleExpertTab($('#xrayclient\\.general\\.expert_mode').prop('checked'));
@@ -314,8 +322,19 @@
                     return;
                 }
                 var p = presets[key];
+                // Keep the preset's usual position unless another rule already
+                // uses it; then append after the last rule instead.
+                var seq = p.sequence, used = [];
+                try {
+                    used = $('#grid-rules').bootgrid('getCurrentRows').map(function (r) { return parseInt(r.sequence, 10); });
+                } catch (e) {
+                    used = [];
+                }
+                if (used.indexOf(seq) !== -1) {
+                    seq = Math.min(9999, Math.max.apply(null, used) + 10);
+                }
                 $('#rule\\.enabled').prop('checked', true);
-                $('#rule\\.sequence').val(p.sequence);
+                $('#rule\\.sequence').val(seq);
                 $('#rule\\.description').val(p.description);
                 setTokens('domain', p.domain);
                 setTokens('ip', p.ip);
@@ -649,6 +668,84 @@
         }
         $('#xrayclient\\.maintenance\\.geodata_preset').on('change', toggleGeoDataCustomUI);
 
+        // Plugin branch picker. The model field is plain text (any branch
+        // name); it is hidden and replaced by a list read from GitHub, so
+        // the saved value is still whatever the select holds.
+        var pluginBranchLoaded = null;
+        function setupPluginBranchPicker() {
+            var $input = $('[id="xrayclient.maintenance.plugin_branch"]');
+            if (!$input.length || $('#plugin_branch_picker').length) {
+                return;
+            }
+            $input.hide().after(
+                '<select id="plugin_branch_picker" class="selectpicker" data-live-search="true" data-width="auto" data-size="10"></select>' +
+                ' <span id="plugin_branch_note" class="small"></span>'
+            );
+            $('#plugin_branch_picker').on('change', function () {
+                $input.val($(this).val());
+                renderPluginBranchState();
+            });
+            $input.on('input change', renderPluginBranchState);
+            renderPluginBranches(null);
+            refreshPluginBranches();
+        }
+
+        function renderPluginBranchState() {
+            var branch = $('[id="xrayclient.maintenance.plugin_branch"]').val() || 'main';
+            var $note = $('#plugin_branch_note');
+            if (branch !== 'main') {
+                $note.removeClass('text-muted').addClass('text-warning')
+                    .text('Unmerged test branch: its code is installed as root. Switch back to main for normal use.');
+            } else if (pluginBranchLoaded === false) {
+                $note.removeClass('text-warning').addClass('text-muted').text('Branch list unavailable (GitHub unreachable).');
+            } else {
+                $note.text('');
+            }
+            $('#btn_update_plugin b').text(branch === 'main' ? 'Update Plugin from GitHub' : 'Install Plugin from branch ' + branch);
+        }
+
+        function renderPluginBranches(branches) {
+            var $input = $('[id="xrayclient.maintenance.plugin_branch"]');
+            var $sel = $('#plugin_branch_picker');
+            var current = $input.val() || 'main';
+            var list = (branches || []).slice();
+            if (list.indexOf(current) === -1) {
+                list.push(current);
+            }
+            if (list.indexOf('main') === -1) {
+                list.unshift('main');
+            }
+            $sel.empty();
+            list.forEach(function (name) {
+                var label = name === 'main' ? 'main (stable)' : name;
+                if (branches && branches.length && branches.indexOf(name) === -1) {
+                    label += ' (not on GitHub)';
+                }
+                $('<option/>').val(name).text(label).appendTo($sel);
+            });
+            $sel.val(current).selectpicker('refresh');
+            renderPluginBranchState();
+        }
+
+        function refreshPluginBranches() {
+            ajaxCall('/api/xrayclient/service/pluginBranches', {}, function (data) {
+                var $input = $('[id="xrayclient.maintenance.plugin_branch"]');
+                var $picker = $('#plugin_branch_picker').closest('.bootstrap-select');
+                if (data && data.status === 'ok' && $.isArray(data.branches)) {
+                    pluginBranchLoaded = true;
+                    renderPluginBranches(data.branches);
+                    $input.hide();
+                    $picker.show();
+                } else {
+                    // No list: fall back to typing the branch name by hand.
+                    pluginBranchLoaded = false;
+                    renderPluginBranches(null);
+                    $picker.hide();
+                    $input.show();
+                }
+            });
+        }
+
         function toggleNodeDialogFields() {
             var proto = $('#node\\.protocol').val();
             var net = $('#node\\.network').val();
@@ -820,6 +917,49 @@
                         } else {
                             return '<span style="cursor: pointer;" class="fa fa-fw fa-square-o command-toggle bootgrid-tooltip" data-value="0" data-row-id="' + row.uuid + '"></span>';
                         }
+                    },
+                    // One cell summarising every condition of the rule, so
+                    // rules matched by port, inbound or source are not blank.
+                    "rulematch": function (column, row) {
+                        function esc(v) {
+                            return $('<div/>').text(v).html();
+                        }
+                        function list(v) {
+                            return String(v || '').split(',').map(function (x) { return $.trim(x); }).filter(Boolean);
+                        }
+                        var parts = [];
+                        [['domain', 'domain'], ['ip', 'ip'], ['port', 'port'], ['protocol', 'sniff'],
+                         ['inbound_tag', 'inbound'], ['source', 'src'], ['source_port', 'src port'], ['user', 'user']
+                        ].forEach(function (f) {
+                            var items = list(row[f[0]]);
+                            if (!items.length) {
+                                return;
+                            }
+                            var shown = items.slice(0, 2).map(esc).join(', ');
+                            var more = items.length > 2 ? ' <span class="text-muted">+' + (items.length - 2) + '</span>' : '';
+                            parts.push('<span class="text-muted">' + f[1] + ':</span> ' + shown + more);
+                        });
+                        if (row.network_proto && row.network_proto !== 'tcp_udp') {
+                            parts.push('<span class="text-muted">net:</span> ' + esc(row.network_proto));
+                        }
+                        return parts.length ? parts.join(' &nbsp;·&nbsp; ') : '<span class="text-muted">any traffic</span>';
+                    },
+                    // Flags a sequence number shared with another rule: the
+                    // order between them is then decided by config order only.
+                    "ruleseq": function (column, row) {
+                        var dup = false;
+                        try {
+                            $('#grid-rules').bootgrid('getCurrentRows').forEach(function (r) {
+                                if (r.uuid !== row.uuid && String(r.sequence) === String(row.sequence)) {
+                                    dup = true;
+                                }
+                            });
+                        } catch (e) {
+                            // grid API unavailable: no warning, the number still shows
+                        }
+                        return dup
+                            ? '<span class="text-warning" title="Another rule has the same sequence number; their relative order is not guaranteed. Use the arrows to renumber.">' + row.sequence + ' <i class="fa fa-exclamation-triangle"></i></span>'
+                            : String(row.sequence);
                     }
                 }
             }
@@ -1171,6 +1311,46 @@
                 var show = $(this).prop('checked');
                 localStorage.setItem('osxray_show_advanced', show ? '1' : '0');
                 $('#DialogNode').toggleClass('optional-hidden', !show);
+            });
+        })();
+
+        // --- Routing rule dialog: hide rarely used conditions by default ---
+        (function injectRuleAdvancedToggle() {
+            ['rule.inbound_tag', 'rule.source', 'rule.source_port', 'rule.user', 'rule.rule_tag'].forEach(function (id) {
+                $('[id="' + id + '"]').addClass('expert_only');
+            });
+            // The section header row has no input of its own; find it by text.
+            $('#DialogRule tr').filter(function () {
+                return $.trim($(this).find('th, h2, h3, h4, .header').first().text()) === 'Additional conditions (rarely needed)'
+                    || $.trim($(this).text()) === 'Additional conditions (rarely needed)';
+            }).addClass('expert_hdr');
+            var saved = localStorage.getItem('osxray_show_advanced_rule') === '1';
+            var $row = $(
+                '<div class="xray-advanced-toggle" style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid rgba(255,255,255,0.08);">' +
+                '<i class="fa fa-eye fa-fw text-muted"></i>' +
+                '<label style="margin:0;cursor:pointer;user-select:none;font-weight:normal;">' +
+                '<input type="checkbox" id="chk_show_advanced_rule" style="margin-right:6px;">Show additional conditions' +
+                '</label>' +
+                '<span class="small text-muted">(inbound, source, users, tag)</span>' +
+                '</div>'
+            );
+            // Below the preset box, above the form.
+            $('#DialogRule .modal-body').find('#rule_preset_container').after($row);
+            $('#DialogRule').toggleClass('optional-hidden', !saved);
+            $('#chk_show_advanced_rule').prop('checked', saved).on('change', function () {
+                var show = $(this).prop('checked');
+                localStorage.setItem('osxray_show_advanced_rule', show ? '1' : '0');
+                $('#DialogRule').toggleClass('optional-hidden', !show);
+            });
+            // Editing a rule that already uses a hidden condition must not hide it.
+            $('#DialogRule').on('shown.bs.modal', function () {
+                var pref = localStorage.getItem('osxray_show_advanced_rule') === '1';
+                var used = ['inbound_tag', 'source', 'source_port', 'user', 'rule_tag'].some(function (k) {
+                    var v = $('[id="rule.' + k + '"]').val();
+                    return Array.isArray(v) ? v.length > 0 : $.trim(v || '') !== '';
+                });
+                $('#DialogRule').toggleClass('optional-hidden', !(pref || used));
+                $('#chk_show_advanced_rule').prop('checked', pref || used);
             });
         })();
 
@@ -1729,6 +1909,7 @@
         }
 
         $('#btn_check_updates').on('click', checkForUpdates);
+        $('a[href="#tab_maintenance"]').on('shown.bs.tab', refreshPluginBranches);
         $('a[href="#tab_maintenance"]').on('shown.bs.tab', loadVersionInfo);
         $('a[href="#tab_maintenance"]').on('shown.bs.tab', checkForUpdates);
 
@@ -1754,7 +1935,7 @@
         });
 
         $('#btn_update_plugin').on('click', function () {
-            $('#maintenance_output').text('Pulling latest os-xray-client plugin code from GitHub...').show();
+            $('#maintenance_output').text('Pulling os-xray-client plugin code (branch ' + ($('[id="xrayclient.maintenance.plugin_branch"]').val() || 'main') + ') from GitHub...').show();
             saveFormToEndpoint("/api/xrayclient/settings/set", 'frm_maintenance', function () {
                 ajaxCall('/api/xrayclient/service/updatePlugin', {}, function (res) {
                     $('#maintenance_output').text(res.output || 'Plugin updated. Reloading page in 3 seconds...');
@@ -1870,10 +2051,9 @@
                 <tr>
                     <th data-column-id="uuid" data-type="string" data-identifier="true" data-visible="false">ID</th>
                     <th data-column-id="enabled" data-width="6em" data-type="string" data-formatter="rowtoggle">Enabled</th>
-                    <th data-column-id="sequence" data-width="6em" data-type="numeric">Seq</th>
+                    <th data-column-id="sequence" data-width="6em" data-type="numeric" data-formatter="ruleseq">Seq</th>
                     <th data-column-id="description" data-type="string">Description</th>
-                    <th data-column-id="domain" data-type="string">Domain / GeoSite</th>
-                    <th data-column-id="ip" data-type="string">IP / GeoIP</th>
+                    <th data-column-id="domain" data-type="string" data-formatter="rulematch" data-sortable="false">Match</th>
                     <th data-column-id="outbound_tag" data-width="10em" data-type="string">Action (Outbound)</th>
                     <th data-column-id="commands" data-width="12em" data-formatter="commands" data-sortable="false">Actions</th>
                 </tr>

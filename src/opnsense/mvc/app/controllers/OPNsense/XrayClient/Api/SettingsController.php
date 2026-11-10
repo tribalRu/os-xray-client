@@ -114,14 +114,27 @@ class SettingsController extends ApiMutableModelControllerBase
     {
         return $this->searchBase(
             'rules.rule',
-            ['enabled', 'sequence', 'description', 'domain', 'ip', 'port', 'outbound_tag'],
+            [
+                'enabled', 'sequence', 'description', 'domain', 'ip', 'port', 'network_proto', 'protocol',
+                'inbound_tag', 'source', 'source_port', 'user', 'rule_tag', 'outbound_tag'
+            ],
             'sequence'
         );
     }
 
     public function getRuleAction($uuid = null)
     {
-        return $this->getBase('rule', 'rules.rule', $uuid);
+        $result = $this->getBase('rule', 'rules.rule', $uuid);
+        if (empty($uuid) && isset($result['rule'])) {
+            // A new rule goes to the end of the list instead of colliding with
+            // the default sequence of an existing one.
+            $max = 0;
+            foreach ($this->getModel()->rules->rule->iterateItems() as $rule) {
+                $max = max($max, (int)((string)$rule->sequence));
+            }
+            $result['rule']['sequence'] = (string)min(9999, $max + 10);
+        }
+        return $result;
     }
 
     public function addRuleAction()
