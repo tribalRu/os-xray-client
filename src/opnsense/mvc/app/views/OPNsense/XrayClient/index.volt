@@ -62,10 +62,21 @@
         font-family: monospace;
         font-size: 12px;
     }
-    /* "Show advanced fields" OFF: hide rows containing .expert_only inputs. */
+    /* “Show advanced fields” OFF: hide rows containing .expert_only inputs. */
     #DialogNode.optional-hidden tr:has(.expert_only),
     #DialogNode.optional-hidden div.form-group:has(.expert_only) {
         display: none !important;
+    }
+    /* Centre the row content vertically: labels sit in the middle of the
+       row, not glued to the top (Bootstrap defaults td to vertical-align:
+       top, which leaves labels hovering in the upper part of the input). */
+    #frm_general td,
+    #frm_maintenance td,
+    #frm_DialogNode td,
+    #frm_DialogRule td,
+    #frm_DialogBalancer td,
+    #frm_DialogDnsServer td {
+        vertical-align: middle !important;
     }
     /* Collapsible sections in the node and rule dialogs use the native
        OPNsense markup (chevron at the left, cursor pointer,
