@@ -14,6 +14,8 @@
             <open_overview>Open the Xray Client plugin</open_overview>
             <refresh>Refresh stats and latency</refresh>
             <live>Live traffic</live>
+            <live_on>On</live_on>
+            <live_off>Off</live_off>
             <live_interval>Live refresh interval</live_interval>
             <total_traffic>Total traffic</total_traffic>
             <running>Running</running>

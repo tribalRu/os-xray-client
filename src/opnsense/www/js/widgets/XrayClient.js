@@ -55,8 +55,14 @@ export default class XrayClient extends BaseWidget {
         return {
             live: {
                 title: t.live,
-                type: 'checkbox',
-                default: true
+                type: 'select',
+                // The 26.7 widget options form only supports
+                // select/select_multiple/text/textarea — no checkbox.
+                options: [
+                    {value: '1', label: t.live_on},
+                    {value: '0', label: t.live_off}
+                ],
+                default: '1'
             },
             liveInterval: {
                 title: t.live_interval,
