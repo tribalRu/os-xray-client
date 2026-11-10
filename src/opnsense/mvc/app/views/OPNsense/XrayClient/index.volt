@@ -2382,14 +2382,14 @@
             <thead>
                 <tr>
                     <th data-column-id="uuid" data-type="string" data-identifier="true" data-visible="false">ID</th>
-                    <th data-column-id="enabled" data-width="6em" data-type="string" data-formatter="rowtoggle">Active</th>
-                    <th data-column-id="name" data-type="string">Server Name</th>
-                    <th data-column-id="protocol" data-width="8em" data-type="string">Protocol</th>
-                    <th data-column-id="address" data-type="string">Address</th>
-                    <th data-column-id="port" data-width="6em" data-type="string">Port</th>
-                    <th data-column-id="security" data-width="8em" data-type="string">Security</th>
-                    <th data-column-id="latency" data-width="9em" data-formatter="latency" data-sortable="false">Latency</th>
-                    <th data-column-id="traffic" data-width="14em" data-formatter="traffic" data-sortable="false">Traffic (DL / UL)</th>
+                    <th data-column-id="enabled" data-width="4em" data-type="string" data-formatter="rowtoggle">Active</th>
+                    <th data-column-id="name" data-min-width="8em" data-type="string">Server Name</th>
+                    <th data-column-id="protocol" data-width="5em" data-type="string">Protocol</th>
+                    <th data-column-id="address" data-min-width="12em" data-type="string">Address</th>
+                    <th data-column-id="port" data-width="4em" data-type="string">Port</th>
+                    <th data-column-id="security" data-width="6em" data-type="string">Security</th>
+                    <th data-column-id="latency" data-width="8em" data-formatter="latency" data-sortable="false">Latency</th>
+                    <th data-column-id="traffic" data-width="12em" data-formatter="traffic" data-sortable="false">Traffic (DL / UL)</th>
                     <th data-column-id="commands" data-width="8em" data-formatter="commands" data-sortable="false">Actions</th>
                 </tr>
             </thead>
