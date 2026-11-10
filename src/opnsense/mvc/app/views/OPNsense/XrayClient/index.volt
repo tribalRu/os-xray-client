@@ -979,6 +979,29 @@
                     setBlock(sel, view[sel]);
                 }
             }
+
+            // XDRIVE exists only for VLESS (the server refuses it otherwise),
+            // so do not offer it for other protocols; a node switched away
+            // from VLESS falls back to plain TCP.
+            var $netSel = $('#node\\.network');
+            var $xdriveOpt = $netSel.find('option[value="xdrive"]');
+            if ($xdriveOpt.length) {
+                var allowXdrive = (proto === 'vless');
+                if ($xdriveOpt.prop('disabled') === allowXdrive) {
+                    $xdriveOpt.prop('disabled', !allowXdrive);
+                    if ($.fn.selectpicker) {
+                        $netSel.selectpicker('refresh');
+                    }
+                }
+                // native value: jQuery .val() skips a disabled selected option
+                if (!allowXdrive && $netSel[0].value === 'xdrive') {
+                    $netSel.val('tcp');
+                    if ($.fn.selectpicker) {
+                        $netSel.selectpicker('refresh');
+                    }
+                    $netSel.trigger('change');
+                }
+            }
         }
 
         $('#node\\.protocol, #node\\.network, #node\\.security, #node\\.encryption, #node\\.xdrive_service').on('change', toggleNodeDialogFields);
