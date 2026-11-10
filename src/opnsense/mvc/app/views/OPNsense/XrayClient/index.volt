@@ -290,7 +290,7 @@
         // Bump the mark whenever author widths (data-width attributes) change.
         (function tabulatorWidthCleanup() {
             try {
-                ['osxray_tabulator_grid_cleanup', 'osxray_tabulator_grid_cleanup_v2', 'osxray_tabulator_grid_cleanup_v3'].forEach(function (flag) {
+                ['osxray_tabulator_grid_cleanup', 'osxray_tabulator_grid_cleanup_v2', 'osxray_tabulator_grid_cleanup_v3', 'osxray_tabulator_grid_cleanup_v4'].forEach(function (flag) {
                     if (localStorage.getItem(flag)) {
                         return;
                     }
@@ -2385,11 +2385,11 @@
             <thead>
                 <tr>
                     <th data-column-id="uuid" data-type="string" data-identifier="true" data-visible="false">ID</th>
-                    <th data-column-id="enabled" data-width="4em" data-type="string" data-formatter="rowtoggle">Active</th>
+                    <th data-column-id="enabled" data-width="3.5em" data-type="string" data-formatter="rowtoggle">Active</th>
                     <th data-column-id="name" data-min-width="8em" data-type="string">Server Name</th>
-                    <th data-column-id="protocol" data-width="5em" data-type="string">Protocol</th>
+                    <th data-column-id="protocol" data-width="4.5em" data-type="string">Protocol</th>
                     <th data-column-id="address" data-min-width="12em" data-type="string">Address</th>
-                    <th data-column-id="port" data-width="4em" data-type="string">Port</th>
+                    <th data-column-id="port" data-width="3em" data-type="string">Port</th>
                     <th data-column-id="security" data-width="6em" data-type="string">Security</th>
                     <th data-column-id="latency" data-width="8em" data-formatter="latency" data-sortable="false">Latency</th>
                     <th data-column-id="traffic" data-width="12em" data-formatter="traffic" data-sortable="false">Traffic (DL / UL)</th>
