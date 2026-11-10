@@ -281,6 +281,26 @@
 
 <script>
     $(document).ready(function () {
+        // One-time cleanup: the OPNsense 26 Tabulator wrapper persists column
+        // widths to localStorage. Grids are built while their tab is hidden
+        // (0-width), fitColumns then stores minimums and the persisted widths
+        // win over the layout on every later load — the grids render squeezed
+        // with truncated cells. Drop the persisted column definitions for our
+        // grids once; the wrapper re-persists only author-defined widths.
+        (function tabulatorWidthCleanup() {
+            try {
+                if (localStorage.getItem('osxray_tabulator_grid_cleanup')) {
+                    return;
+                }
+                Object.keys(localStorage).filter(function (k) {
+                    return /^tabulator-.*#grid-(nodes|rules|balancers|dns)-columns$/.test(k);
+                }).forEach(function (k) {
+                    localStorage.removeItem(k);
+                });
+                localStorage.setItem('osxray_tabulator_grid_cleanup', '1');
+            } catch (e) {}
+        })();
+
         mapDataToFormUI({
             'frm_general': "/api/xrayclient/settings/get",
             'frm_maintenance': "/api/xrayclient/settings/get"
