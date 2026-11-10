@@ -598,7 +598,8 @@ class ServiceController extends ApiMutableServiceControllerBase
             return ['status' => 'error'];
         }
         $repoUrl = 'https://github.com/tribalRu/os-xray-client';
-        $branch = 'main';
+        $mdl = new XrayClient();
+        $branch = (string)$mdl->maintenance->plugin_branch ?: 'main';
 
         // Only allow GitHub https URLs and safe branch names; the updater
         // executes install.sh from the fetched archive.

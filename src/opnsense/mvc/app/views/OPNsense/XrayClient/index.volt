@@ -234,6 +234,7 @@
             $('.selectpicker').selectpicker('refresh');
             toggleConfigModeUI();
             toggleGeoDataCustomUI();
+            setupPluginBranchPicker();
             startTelemetryAutoRefresh();
             if (typeof toggleExpertTab === 'function') {
                 toggleExpertTab($('#xrayclient\\.general\\.expert_mode').prop('checked'));
@@ -666,6 +667,84 @@
             }
         }
         $('#xrayclient\\.maintenance\\.geodata_preset').on('change', toggleGeoDataCustomUI);
+
+        // Plugin branch picker. The model field is plain text (any branch
+        // name); it is hidden and replaced by a list read from GitHub, so
+        // the saved value is still whatever the select holds.
+        var pluginBranchLoaded = null;
+        function setupPluginBranchPicker() {
+            var $input = $('[id="xrayclient.maintenance.plugin_branch"]');
+            if (!$input.length || $('#plugin_branch_picker').length) {
+                return;
+            }
+            $input.hide().after(
+                '<select id="plugin_branch_picker" class="selectpicker" data-live-search="true" data-width="auto" data-size="10"></select>' +
+                ' <span id="plugin_branch_note" class="small"></span>'
+            );
+            $('#plugin_branch_picker').on('change', function () {
+                $input.val($(this).val());
+                renderPluginBranchState();
+            });
+            $input.on('input change', renderPluginBranchState);
+            renderPluginBranches(null);
+            refreshPluginBranches();
+        }
+
+        function renderPluginBranchState() {
+            var branch = $('[id="xrayclient.maintenance.plugin_branch"]').val() || 'main';
+            var $note = $('#plugin_branch_note');
+            if (branch !== 'main') {
+                $note.removeClass('text-muted').addClass('text-warning')
+                    .text('Unmerged test branch: its code is installed as root. Switch back to main for normal use.');
+            } else if (pluginBranchLoaded === false) {
+                $note.removeClass('text-warning').addClass('text-muted').text('Branch list unavailable (GitHub unreachable).');
+            } else {
+                $note.text('');
+            }
+            $('#btn_update_plugin b').text(branch === 'main' ? 'Update Plugin from GitHub' : 'Install Plugin from branch ' + branch);
+        }
+
+        function renderPluginBranches(branches) {
+            var $input = $('[id="xrayclient.maintenance.plugin_branch"]');
+            var $sel = $('#plugin_branch_picker');
+            var current = $input.val() || 'main';
+            var list = (branches || []).slice();
+            if (list.indexOf(current) === -1) {
+                list.push(current);
+            }
+            if (list.indexOf('main') === -1) {
+                list.unshift('main');
+            }
+            $sel.empty();
+            list.forEach(function (name) {
+                var label = name === 'main' ? 'main (stable)' : name;
+                if (branches && branches.length && branches.indexOf(name) === -1) {
+                    label += ' (not on GitHub)';
+                }
+                $('<option/>').val(name).text(label).appendTo($sel);
+            });
+            $sel.val(current).selectpicker('refresh');
+            renderPluginBranchState();
+        }
+
+        function refreshPluginBranches() {
+            ajaxCall('/api/xrayclient/service/pluginBranches', {}, function (data) {
+                var $input = $('[id="xrayclient.maintenance.plugin_branch"]');
+                var $picker = $('#plugin_branch_picker').closest('.bootstrap-select');
+                if (data && data.status === 'ok' && $.isArray(data.branches)) {
+                    pluginBranchLoaded = true;
+                    renderPluginBranches(data.branches);
+                    $input.hide();
+                    $picker.show();
+                } else {
+                    // No list: fall back to typing the branch name by hand.
+                    pluginBranchLoaded = false;
+                    renderPluginBranches(null);
+                    $picker.hide();
+                    $input.show();
+                }
+            });
+        }
 
         function toggleNodeDialogFields() {
             var proto = $('#node\\.protocol').val();
@@ -1830,6 +1909,7 @@
         }
 
         $('#btn_check_updates').on('click', checkForUpdates);
+        $('a[href="#tab_maintenance"]').on('shown.bs.tab', refreshPluginBranches);
         $('a[href="#tab_maintenance"]').on('shown.bs.tab', loadVersionInfo);
         $('a[href="#tab_maintenance"]').on('shown.bs.tab', checkForUpdates);
 
@@ -1855,7 +1935,7 @@
         });
 
         $('#btn_update_plugin').on('click', function () {
-            $('#maintenance_output').text('Pulling latest os-xray-client plugin code from GitHub...').show();
+            $('#maintenance_output').text('Pulling os-xray-client plugin code (branch ' + ($('[id="xrayclient.maintenance.plugin_branch"]').val() || 'main') + ') from GitHub...').show();
             saveFormToEndpoint("/api/xrayclient/settings/set", 'frm_maintenance', function () {
                 ajaxCall('/api/xrayclient/service/updatePlugin', {}, function (res) {
                     $('#maintenance_output').text(res.output || 'Plugin updated. Reloading page in 3 seconds...');

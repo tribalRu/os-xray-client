@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>2.14.0</version>
+    <version>2.14.1</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -1222,6 +1222,12 @@
                     <latest>Latest / Pre-release (Bleeding Edge)</latest>
                 </OptionValues>
             </core_branch>
+            <plugin_branch type="TextField">
+                <default>main</default>
+                <Required>Y</Required>
+                <Mask>/^[A-Za-z0-9_.-]{1,100}$/</Mask>
+                <ValidationMessage>Branch name may contain only letters, digits, dot, dash and underscore.</ValidationMessage>
+            </plugin_branch>
             <geodata_preset type="OptionField">
                 <default>runetfreedom</default>
                 <Required>Y</Required>
