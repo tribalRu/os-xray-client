@@ -1556,6 +1556,23 @@
 
         // --- Routing rule dialog: collapse "Additional conditions" by default ---
         (function setupRuleSections() {
+            var requiredRule = {
+                'rule.enabled': true, 'rule.sequence': true, 'rule.description': true,
+                'rule.network_proto': true, 'rule.outbound_tag': true
+            };
+            $('#frm_DialogRule .showhelp').each(function () {
+                var $a = $(this);
+                var id = ($a.attr('id') || '').replace(/^help_for_/, '');
+                var $row = $a.closest('tr, .form-group');
+                if ($row.find('.expert_only').length > 0) {
+                    $a.addClass('help-advanced');
+                } else if (Object.prototype.hasOwnProperty.call(requiredRule, id)) {
+                    $a.addClass('help-required');
+                } else {
+                    $a.addClass('help-optional');
+                }
+            });
+
             function slug(text) {
                 return (text || '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').toLowerCase();
             }
@@ -1641,11 +1658,17 @@
                 '<label style="margin:0;cursor:pointer;user-select:none;font-weight:normal;">' +
                 '<input type="checkbox" id="chk_show_advanced_rule" style="margin-right:6px;">Show additional conditions' +
                 '</label>' +
-                '<span class="small text-muted">(inbound, source, users, tag)</span>' +
+                '<span class="small text-muted">(inbound, source, users, tag, seq)</span>' +
                 '</div>'
             );
             // Below the preset box, above the form.
             $('#DialogRule .modal-body').find('#rule_preset_container').after($row);
+            var legendRule = '<div class="xray-help-legend">'
+                + '<span><i class="fa fa-info-circle icon-required"></i>mandatory</span>'
+                + '<span><i class="fa fa-info-circle icon-optional"></i>optional</span>'
+                + '<span><i class="fa fa-info-circle icon-advanced"></i>advanced</span>'
+                + '</div>';
+            $row.after(legendRule);
             $('#DialogRule').toggleClass('optional-hidden', !saved);
             $('#chk_show_advanced_rule').prop('checked', saved).on('change', function () {
                 var show = $(this).prop('checked');
