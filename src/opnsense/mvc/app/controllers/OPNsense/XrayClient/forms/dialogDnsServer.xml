@@ -14,7 +14,7 @@
         <id>server.port</id>
         <label>Port</label>
         <type>text</type>
-        <help>Leave empty for the scheme default (DoH 443, plain DNS 53, tcp 53). Only set when your server uses a custom port.</help>
+        <help>Leave empty for the scheme default (DoH: 443, tcp://: 53, Do53 (UDP): 53). Only set when your server uses a custom port.</help>
     </field>
     <field>
         <id>server.domains</id>
