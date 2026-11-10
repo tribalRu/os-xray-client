@@ -67,6 +67,13 @@
     #DialogNode.optional-hidden div.form-group:has(.expert_only) {
         display: none !important;
     }
+    /* Routing rule dialog: the rarely used match conditions (inbound, source,
+       users, tag) follow the same toggle, including their section header. */
+    #DialogRule.optional-hidden tr:has(.expert_only),
+    #DialogRule.optional-hidden tr.expert_hdr,
+    #DialogRule.optional-hidden div.form-group:has(.expert_only) {
+        display: none !important;
+    }
     /* Same collapse for Optional knobs on the General Settings tab. The raw
        JSON rows carry .expert_only on their textarea, so they follow it. */
     #tab_general.optional-hidden tr:has(.expert_only),
@@ -1171,6 +1178,46 @@
                 var show = $(this).prop('checked');
                 localStorage.setItem('osxray_show_advanced', show ? '1' : '0');
                 $('#DialogNode').toggleClass('optional-hidden', !show);
+            });
+        })();
+
+        // --- Routing rule dialog: hide rarely used conditions by default ---
+        (function injectRuleAdvancedToggle() {
+            ['rule.inbound_tag', 'rule.source', 'rule.source_port', 'rule.user', 'rule.rule_tag'].forEach(function (id) {
+                $('[id="' + id + '"]').addClass('expert_only');
+            });
+            // The section header row has no input of its own; find it by text.
+            $('#DialogRule tr').filter(function () {
+                return $.trim($(this).find('th, h2, h3, h4, .header').first().text()) === 'Additional conditions (rarely needed)'
+                    || $.trim($(this).text()) === 'Additional conditions (rarely needed)';
+            }).addClass('expert_hdr');
+            var saved = localStorage.getItem('osxray_show_advanced_rule') === '1';
+            var $row = $(
+                '<div class="xray-advanced-toggle" style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid rgba(255,255,255,0.08);">' +
+                '<i class="fa fa-eye fa-fw text-muted"></i>' +
+                '<label style="margin:0;cursor:pointer;user-select:none;font-weight:normal;">' +
+                '<input type="checkbox" id="chk_show_advanced_rule" style="margin-right:6px;">Show additional conditions' +
+                '</label>' +
+                '<span class="small text-muted">(inbound, source, users, tag)</span>' +
+                '</div>'
+            );
+            // Below the preset box, above the form.
+            $('#DialogRule .modal-body').find('#rule_preset_container').after($row);
+            $('#DialogRule').toggleClass('optional-hidden', !saved);
+            $('#chk_show_advanced_rule').prop('checked', saved).on('change', function () {
+                var show = $(this).prop('checked');
+                localStorage.setItem('osxray_show_advanced_rule', show ? '1' : '0');
+                $('#DialogRule').toggleClass('optional-hidden', !show);
+            });
+            // Editing a rule that already uses a hidden condition must not hide it.
+            $('#DialogRule').on('shown.bs.modal', function () {
+                var pref = localStorage.getItem('osxray_show_advanced_rule') === '1';
+                var used = ['inbound_tag', 'source', 'source_port', 'user', 'rule_tag'].some(function (k) {
+                    var v = $('[id="rule.' + k + '"]').val();
+                    return Array.isArray(v) ? v.length > 0 : $.trim(v || '') !== '';
+                });
+                $('#DialogRule').toggleClass('optional-hidden', !(pref || used));
+                $('#chk_show_advanced_rule').prop('checked', pref || used);
             });
         })();
 

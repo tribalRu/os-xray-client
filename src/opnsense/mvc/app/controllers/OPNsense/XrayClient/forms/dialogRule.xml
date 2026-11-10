@@ -1,8 +1,19 @@
 <form>
     <field>
+        <type>header</type>
+        <static>true</static>
+        <label>Rule</label>
+    </field>
+    <field>
         <id>rule.enabled</id>
         <label>Enabled</label>
         <type>checkbox</type>
+    </field>
+    <field>
+        <id>rule.description</id>
+        <label>Rule Description</label>
+        <type>text</type>
+        <help>Example: Bypass RU domains and IPs</help>
     </field>
     <field>
         <id>rule.sequence</id>
@@ -11,10 +22,15 @@
         <help>Rules are evaluated from lowest number to highest (e.g. 10, 20, 30).</help>
     </field>
     <field>
-        <id>rule.description</id>
-        <label>Rule Description</label>
-        <type>text</type>
-        <help>Example: Bypass RU domains and IPs</help>
+        <id>rule.outbound_tag</id>
+        <label>Target Outbound Action</label>
+        <type>dropdown</type>
+        <help>Route matching traffic to one of the outbounds in the list: «Standard (core)» — built-in direct and block; «Balancers (load balancing, failover)» — the balancers enabled in the Balancers tab, selected by their tag (leastPing/leastLoad pick the best node automatically); «Custom (from outbound nodes)» — the nodes enabled in the Outbound section, each tagged node_&lt;uuid&gt; (stable across add/remove/reorder). Unmatched traffic goes direct.</help>
+    </field>
+    <field>
+        <type>header</type>
+        <static>true</static>
+        <label>Match traffic by</label>
     </field>
     <field>
         <id>rule.domain</id>
@@ -51,6 +67,11 @@
         <help>Select sniffed protocols to match (multi-select): http, tls, quic, bittorrent. Leave empty for any protocol.</help>
     </field>
     <field>
+        <type>header</type>
+        <static>true</static>
+        <label>Additional conditions (rarely needed)</label>
+    </field>
+    <field>
         <id>rule.inbound_tag</id>
         <label>Inbound Tags</label>
         <type>select_multiple</type>
@@ -85,11 +106,5 @@
         <label>Rule Tag</label>
         <type>text</type>
         <help>Optional tag for this rule; it is used by Xray to label the rule in its traffic stats. Empty is fine.</help>
-    </field>
-    <field>
-        <id>rule.outbound_tag</id>
-        <label>Target Outbound Action</label>
-        <type>dropdown</type>
-        <help>Route matching traffic to one of the outbounds in the list: «Standard (core)» — built-in direct and block; «Balancers (load balancing, failover)» — the balancers enabled in the Balancers tab, selected by their tag (leastPing/leastLoad pick the best node automatically); «Custom (from outbound nodes)» — the nodes enabled in the Outbound section, each tagged node_&lt;uuid&gt; (stable across add/remove/reorder). Unmatched traffic goes direct.</help>
     </field>
 </form>
