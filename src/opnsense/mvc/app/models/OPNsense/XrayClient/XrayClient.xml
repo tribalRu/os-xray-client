@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>2.20.1</version>
+    <version>2.20.2</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -1160,19 +1160,19 @@
                 <wg_secret_key type="TextField">
                     <default></default>
                     <Required>N</Required>
-                    <Mask>/^$|^[A-Za-z0-9+/]{43}=$/</Mask>
+                    <Mask>/^$|^[A-Za-z0-9+\/]{43}=$/</Mask>
                     <ValidationMessage>WireGuard key must be 44 base64 characters (32 bytes + padding "=").</ValidationMessage>
                 </wg_secret_key>
                 <wg_public_key type="TextField">
                     <default></default>
                     <Required>N</Required>
-                    <Mask>/^$|^[A-Za-z0-9+/]{43}=$/</Mask>
+                    <Mask>/^$|^[A-Za-z0-9+\/]{43}=$/</Mask>
                     <ValidationMessage>WireGuard key must be 44 base64 characters (32 bytes + padding "=").</ValidationMessage>
                 </wg_public_key>
                 <wg_preshared_key type="TextField">
                     <default></default>
                     <Required>N</Required>
-                    <Mask>/^$|^[A-Za-z0-9+/]{43}=$/</Mask>
+                    <Mask>/^$|^[A-Za-z0-9+\/]{43}=$/</Mask>
                     <ValidationMessage>WireGuard key must be 44 base64 characters (32 bytes + padding "=").</ValidationMessage>
                 </wg_preshared_key>
                 <wg_endpoint type="TextField">

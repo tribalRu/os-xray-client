@@ -1015,5 +1015,24 @@ class TestWarpMasque(unittest.TestCase):
             self.wm.extract({'peers': [{'public_key': 'AAAA'}], 'interface': {}})
 
 
+class TestModelMasks(unittest.TestCase):
+    """A Mask is used as a PHP regex; an unescaped delimiter inside it breaks
+    the pattern and makes every value fail validation."""
+
+    def test_masks_have_no_unescaped_delimiter(self):
+        import re
+        import xml.etree.ElementTree as ET
+        model = os.path.join(SCRIPT_DIR, '..', '..', '..', 'mvc', 'app', 'models',
+                             'OPNsense', 'XrayClient', 'XrayClient.xml')
+        broken = []
+        for el in ET.parse(model).getroot().iter('Mask'):
+            mask = (el.text or '').strip()
+            self.assertTrue(mask.startswith('/'), mask)
+            body = mask[1:mask.rindex('/')]
+            if re.search(r'(?<!\\)/', body):
+                broken.append(mask)
+        self.assertEqual(broken, [])
+
+
 if __name__ == '__main__':
     unittest.main()
