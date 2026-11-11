@@ -2317,6 +2317,7 @@
         var LIVE_TRAFFIC_INTERVAL = 5000;
         var liveTrafficBusy = false;
         var LIVE_TRAFFIC_KEY = 'osxray_live_traffic';
+        $('#live_traffic_interval').text('\u00b7 ' + (LIVE_TRAFFIC_INTERVAL / 1000) + ' s');
 
         function startLiveTraffic() {
             if (liveTrafficTimer !== null) {
@@ -2765,16 +2766,16 @@
     </div>
 
     <div id="tab_nodes" class="tab-pane fade in">
-        <div class="col-md-12" style="margin-bottom: 10px;">
-            <button id="btn_open_import_modal" type="button" class="btn btn-success">
-                <i class="fa fa-paste"></i> <b>Import link</b>
+        <div id="nodes_toolbar" class="col-md-12" style="margin-bottom: 10px;">
+            <button id="btn_open_import_modal" type="button" class="btn btn-default">
+                <i class="fa fa-paste"></i> Import link
             </button>
-            <button id="btn_check_nodes" type="button" class="btn btn-info">
-                <i class="fa fa-refresh"></i> <b>Check Latency (Ping) &amp; Traffic</b>
+            <button id="btn_check_nodes" type="button" class="btn btn-default">
+                <i class="fa fa-refresh"></i> Check latency &amp; traffic
             </button>
             <span id="live_traffic_wrap" style="margin-left: 14px; user-select: none; vertical-align: middle;">
-                <span id="live_traffic_dot" class="live-traffic-dot"></span><label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal; margin: 0;">
-                    <input type="checkbox" id="live_traffic_toggle" style="margin: 0;"> <b>Live</b>
+                <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal; margin: 0;">
+                    <input type="checkbox" id="live_traffic_toggle" style="margin: 0;"> Live <span id="live_traffic_interval" class="text-muted"></span><span id="live_traffic_dot" class="live-traffic-dot" style="margin: 0;"></span>
                 </label>
             </span>
         </div>
