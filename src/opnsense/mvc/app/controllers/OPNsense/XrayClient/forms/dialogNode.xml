@@ -946,9 +946,9 @@
     <field>
         <id>node.fm_udp_udphop_mode</id>
         <label>UDP Hop Mode</label>
-        <type>text</type>
-        <style>fm_udp_udphop</style>
-        <help>Comma-separated: intervallocal, intervalremote, perconnremote. intervallocal works for WireGuard, Hysteria and XHTTP H3; the remote modes need iptables/nftables on the client. Example: intervallocal,intervalremote.</help>
+        <type>select_multiple</type>
+        <style>selectpicker fm_udp_udphop</style>
+        <help>intervallocal hops the local port and works for WireGuard, Hysteria and XHTTP H3; the two remote modes need Remote IPs and Remote Ports and iptables/nftables on the client. Several modes can be combined.</help>
     </field>
     <field>
         <id>node.fm_udp_udphop_interval</id>

@@ -47,7 +47,11 @@
 {%- if v != '' -%}{%- do s.append('"customTables": [' ~ (fm_items(v) | trim) ~ ']') -%}{%- endif -%}
 {{ s | join(', ') }}
 {%- endmacro %}
-{% macro finalmask_block(node) -%}
+{#- kind is "tcp" or "udp": TCP masks apply to TCP-based transports, UDP masks
+    and the QUIC parameters to QUIC-based ones (Hysteria, MASQUE over HTTP/3,
+    XHTTP over h3). Rows saved for the other kind are left out, so a stale
+    hidden value cannot leak into the config. -#}
+{% macro finalmask_block(node, kind) -%}
 {%- set parts = [] -%}
 {%- set tcp_masks = [] -%}
 {%- set tcp = node.fm_tcp_type | default('none') | string -%}
@@ -128,8 +132,8 @@
 {%-     do udp_masks.append('{"type": ' ~ (udp | tojson) ~ ', "settings": { ' ~ (header_object(v) | trim) ~ ' } }') -%}
 {%-   endif -%}
 {%- endif -%}
-{%- if tcp_masks | length > 0 -%}{%- do parts.append('"tcp": [' ~ (tcp_masks | join(', ')) ~ ']') -%}{%- endif -%}
-{%- if udp_masks | length > 0 -%}{%- do parts.append('"udp": [' ~ (udp_masks | join(', ')) ~ ']') -%}{%- endif -%}
+{%- if kind == 'tcp' and tcp_masks | length > 0 -%}{%- do parts.append('"tcp": [' ~ (tcp_masks | join(', ')) ~ ']') -%}{%- endif -%}
+{%- if kind == 'udp' and udp_masks | length > 0 -%}{%- do parts.append('"udp": [' ~ (udp_masks | join(', ')) ~ ']') -%}{%- endif -%}
 {%- set q = [] -%}
 {%- set v = node.fm_quic_congestion | default('auto') | string | trim -%}
 {%- if v != '' and v != 'auto' -%}{%- do q.append('"congestion": ' ~ (v | tojson)) -%}{%- endif -%}
@@ -154,7 +158,7 @@
 {%- set v = node.fm_quic_max_conn_window | default('') | string | trim -%}
 {%- if v != '' -%}{%- do q.append('"maxConnectionReceiveWindow": ' ~ (v | int)) -%}{%- endif -%}
 {%- if node.fm_quic_disable_pmtud == '1' -%}{%- do q.append('"disablePathMTUDiscovery": true') -%}{%- endif -%}
-{%- if q | length > 0 -%}{%- do parts.append('"quicParams": { ' ~ (q | join(', ')) ~ ' }') -%}{%- endif -%}
+{%- if kind == 'udp' and q | length > 0 -%}{%- do parts.append('"quicParams": { ' ~ (q | join(', ')) ~ ' }') -%}{%- endif -%}
 {%- if parts | length > 0 -%}
 { {{ parts | join(', ') }} }
 {%- endif -%}
@@ -421,6 +425,14 @@
           {{ sockopt | join(',\n          ') }}
         }
 {%       endif %}
+{%       set _fm_raw = node.finalmask | default('') | string | trim %}
+{%       set _fm_kind = 'udp' if (node.network == 'xhttp' and 'h3' in (node.alpn | default('') | string).split(',')) else 'tcp' %}
+{%       set _fm_struct = finalmask_block(node, _fm_kind) | trim %}
+{%       if _fm_raw != '' %}
+        ,"finalmask": { {{ header_object(_fm_raw) }} }
+{%       elif _fm_struct != '' %}
+        ,"finalmask": {{ _fm_struct }}
+{%       endif %}
       }{% if proto in mux_protos %},
       "mux": {
         "enabled": {{ 'true' if node.mux_enabled == '1' else 'false' }}
@@ -428,13 +440,6 @@
         ,"concurrency": {{ node.mux_concurrency | int }}
 {%       endif %}
       }{% endif %}
-{%       set _fm_raw = node.finalmask | default('') | string | trim %}
-{%       set _fm_struct = finalmask_block(node) | trim %}
-{%       if _fm_raw != '' %}
-      ,"finalmask": { {{ header_object(_fm_raw) }} }
-{%       elif _fm_struct != '' %}
-      ,"finalmask": {{ _fm_struct }}
-{%       endif %}
 {%   elif proto == 'hysteria' %}
       },
       "streamSettings": {
@@ -447,7 +452,7 @@
           "udpIdleTimeout": {{ (node.hysteria_udp_idle_timeout or '60') | int }}
         }
 {%- set _fm_raw = node.finalmask | default('') | string | trim %}
-{%- set _fm_struct = finalmask_block(node) | trim %}
+{%- set _fm_struct = finalmask_block(node, 'udp') | trim %}
 {%- if _fm_raw != '' %}
         ,"finalmask": { {{ header_object(_fm_raw) }} }
 {%- elif _fm_struct != '' %}
@@ -473,6 +478,14 @@
           ,"headers": { {{ header_object(node.http_headers) }} }
 {%     endif %}
         }
+{%-    set _fm_raw = node.finalmask | default('') | string | trim %}
+{%-    set _fm_kind = 'tcp' if 'h2' in (node.alpn | default('') | string).split(',') else 'udp' %}
+{%-    set _fm_struct = finalmask_block(node, _fm_kind) | trim %}
+{%-    if _fm_raw != '' %}
+        ,"finalmask": { {{ header_object(_fm_raw) }} }
+{%-    elif _fm_struct != '' %}
+        ,"finalmask": {{ _fm_struct }}
+{%-    endif %}
       }
 {%   else %}
       }
