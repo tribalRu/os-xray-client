@@ -2595,6 +2595,221 @@
             return null;
         }
 
+        // ---- FinalMask helper: templates + key lint (field stays raw JSON) ----
+        // FINALMASK_BEGIN
+        var FM_TEMPLATES = {
+            'tcp:fragment':      { list: 'tcp', type: 'fragment', settings: { packets: 'tlshello', lengths: ['100-200'], delays: ['10-20'] } },
+            'tcp:header-custom': { list: 'tcp', type: 'header-custom', settings: { clients: [[ { type: 'str', packet: 'GET / HTTP/1.1\r\nHost: example.com\r\n\r\n' } ]], servers: [[ { type: 'str', packet: 'HTTP/1.1 200 OK\r\n\r\n' } ]] } },
+            'tcp:sudoku':        { list: 'tcp', type: 'sudoku', settings: { password: 'change-me' } },
+            'tcp:filter':        { list: 'tcp', type: 'filter', settings: { allowedSourceIPs: ['10.0.0.0/8'] } },
+            'udp:header-custom': { list: 'udp', type: 'header-custom', settings: { client: [ { rand: 16 } ], server: [ { rand: 16 } ] } },
+            'udp:mkcp-legacy':   { list: 'udp', type: 'mkcp-legacy', settings: { header: 'dns', value: 'example.com' } },
+            'udp:noise':         { list: 'udp', type: 'noise', settings: { reset: 0, noise: [ { rand: '10-20', delay: '10-20' } ] } },
+            'udp:salamander':    { list: 'udp', type: 'salamander', settings: { password: 'change-me' } },
+            'udp:sudoku':        { list: 'udp', type: 'sudoku', settings: { password: 'change-me' } },
+            'udp:xdns':          { list: 'udp', type: 'xdns', settings: { domains: [ { names: ['t.example.com'] } ], resolvers: [ { addrs: ['1.1.1.1:53'] } ] } },
+            'udp:xicmp':         { list: 'udp', type: 'xicmp', settings: { dgram: false } },
+            'udp:realm':         { list: 'udp', type: 'realm', settings: { url: 'realm://token@host:443/id' } },
+            'udp:udphop':        { list: 'udp', type: 'udphop', settings: { mode: 'intervallocal', interval: '5-10' } },
+            'udp:filter':        { list: 'udp', type: 'filter', settings: { allowedSourceIPs: ['10.0.0.0/8'] } },
+            'quicParams':        { list: 'quicParams', settings: { congestion: 'bbr' } }
+        };
+        var FM_KEYS = {
+            tcp: {
+                'header-custom': ['clients', 'servers', 'errors'],
+                'fragment': ['packets', 'lengths', 'delays', 'maxSplit'],
+                'sudoku': ['password', 'ascii', 'customTable', 'customTables', 'paddingMin', 'paddingMax'],
+                'filter': ['allowedSourceIPs', 'blockedSourceIPs']
+            },
+            udp: {
+                'header-custom': ['client', 'server'],
+                'mkcp-legacy': ['header', 'value'],
+                'noise': ['reset', 'noise'],
+                'salamander': ['password', 'packetSize'],
+                'sudoku': ['password', 'ascii', 'customTable', 'customTables', 'paddingMin', 'paddingMax'],
+                'xdns': ['domains', 'resolvers'],
+                'xicmp': ['dgram', 'ips'],
+                'realm': ['url', 'stunServers', 'tlsConfig', 'ipMode', 'portMapping'],
+                'udphop': ['mode', 'interval', 'remoteIPs', 'remotePorts'],
+                'filter': ['allowedSourceIPs', 'blockedSourceIPs']
+            }
+        };
+        var FM_QUIC_KEYS = ['congestion', 'bbrProfile', 'debug', 'brutalUp', 'brutalDown', 'udpHop',
+            'initStreamReceiveWindow', 'maxStreamReceiveWindow', 'initConnectionReceiveWindow',
+            'maxConnectionReceiveWindow', 'maxIdleTimeout', 'keepAlivePeriod',
+            'disablePathMTUDiscovery', 'maxIncomingStreams'];
+        var FM_RENAMED = {
+            'udphop': { sockopt: 'sockopt is no longer read by Xray-core 26.11.9; use mode, interval, remoteIPs and remotePorts' },
+            'xdns': { domain: 'domain is no longer read by Xray-core 26.11.9; use domains (a list of objects with names) and resolvers' }
+        };
+
+        function fmIsObject(v) {
+            return v !== null && typeof v === 'object' && Object.prototype.toString.call(v) !== '[object Array]';
+        }
+
+        // Returns a list of human readable warnings; an empty list means
+        // nothing suspicious. Never blocks saving: the core ignores unknown
+        // keys silently, which is exactly what this tries to make visible.
+        function finalmaskLint(obj) {
+            var out = [];
+            if (!fmIsObject(obj)) {
+                return out;
+            }
+            Object.keys(obj).forEach(function (top) {
+                if (top !== 'tcp' && top !== 'udp' && top !== 'quicParams') {
+                    out.push('Unknown top-level key "' + top + '" (expected tcp, udp or quicParams); the core ignores it.');
+                }
+            });
+            ['tcp', 'udp'].forEach(function (list) {
+                if (obj[list] === undefined) {
+                    return;
+                }
+                if (Object.prototype.toString.call(obj[list]) !== '[object Array]') {
+                    out.push(list + ' must be a list of masks.');
+                    return;
+                }
+                obj[list].forEach(function (mask, idx) {
+                    var where = list + '[' + idx + ']';
+                    if (!fmIsObject(mask) || typeof mask.type !== 'string') {
+                        out.push(where + ': a mask needs a "type" string.');
+                        return;
+                    }
+                    var known = FM_KEYS[list][mask.type];
+                    if (!known) {
+                        out.push(where + ': unknown ' + list + ' mask type "' + mask.type + '".');
+                        return;
+                    }
+                    if (mask.settings !== undefined && !fmIsObject(mask.settings)) {
+                        out.push(where + ' (' + mask.type + '): "settings" must be an object.');
+                        return;
+                    }
+                    Object.keys(mask.settings || {}).forEach(function (key) {
+                        if (known.indexOf(key) !== -1) {
+                            return;
+                        }
+                        var hint = FM_RENAMED[mask.type] && FM_RENAMED[mask.type][key];
+                        if (!hint && list === 'tcp' && mask.type === 'header-custom' && (key === 'client' || key === 'server')) {
+                            hint = 'the tcp header-custom mask uses clients, servers and errors (client/server belong to udp)';
+                        }
+                        if (!hint && list === 'udp' && mask.type === 'header-custom' && (key === 'clients' || key === 'servers')) {
+                            hint = 'the udp header-custom mask uses client and server (clients/servers belong to tcp)';
+                        }
+                        out.push(where + ' (' + mask.type + '): key "' + key + '" is not read by the core' + (hint ? ' - ' + hint : '') + '.');
+                    });
+                    if (mask.type === 'filter' && idx !== obj[list].length - 1) {
+                        out.push(where + ': a filter mask should be the last item of the list.');
+                    }
+                });
+            });
+            if (obj.quicParams !== undefined) {
+                if (!fmIsObject(obj.quicParams)) {
+                    out.push('quicParams must be an object.');
+                } else {
+                    Object.keys(obj.quicParams).forEach(function (key) {
+                        if (FM_QUIC_KEYS.indexOf(key) === -1) {
+                            out.push('quicParams: key "' + key + '" is not read by the core.');
+                        }
+                    });
+                }
+            }
+            return out;
+        }
+
+        // Adds a template to the object (a filter mask stays last).
+        function finalmaskAddTemplate(obj, name) {
+            var tpl = FM_TEMPLATES[name];
+            var res = fmIsObject(obj) ? obj : {};
+            if (!tpl) {
+                return res;
+            }
+            if (tpl.list === 'quicParams') {
+                res.quicParams = fmIsObject(res.quicParams) ? res.quicParams : {};
+                Object.keys(tpl.settings).forEach(function (k) {
+                    if (res.quicParams[k] === undefined) {
+                        res.quicParams[k] = tpl.settings[k];
+                    }
+                });
+                return res;
+            }
+            var layer = { type: tpl.type, settings: JSON.parse(JSON.stringify(tpl.settings)) };
+            var arr = Object.prototype.toString.call(res[tpl.list]) === '[object Array]' ? res[tpl.list] : [];
+            var last = arr.length ? arr[arr.length - 1] : null;
+            if (tpl.type !== 'filter' && last && last.type === 'filter') {
+                arr.splice(arr.length - 1, 0, layer);
+            } else {
+                arr.push(layer);
+            }
+            res[tpl.list] = arr;
+            return res;
+        }
+        // FINALMASK_END
+
+        (function installFinalmaskHelper() {
+            var ta = document.getElementById('node.finalmask');
+            if (!ta || document.getElementById('finalmask_tools')) {
+                return;
+            }
+            var $tools = $('<div id="finalmask_tools" style="margin-top: 6px;"></div>');
+            var $sel = $('<select id="finalmask_template" class="form-control" style="width: auto; display: inline-block;"></select>');
+            $sel.append($('<option value="">Insert template…</option>'));
+            var groups = { tcp: 'TCP masks', udp: 'UDP masks', quicParams: 'QUIC parameters' };
+            Object.keys(groups).forEach(function (g) {
+                var $g = $('<optgroup/>').attr('label', groups[g]);
+                Object.keys(FM_TEMPLATES).forEach(function (name) {
+                    if (FM_TEMPLATES[name].list === g) {
+                        $g.append($('<option/>').val(name).text(g === 'quicParams' ? 'quicParams (congestion)' : FM_TEMPLATES[name].type));
+                    }
+                });
+                $sel.append($g);
+            });
+            var $warn = $('<div id="finalmask_warnings" class="text-warning" style="margin-top: 6px; display: none;"></div>');
+            $tools.append($sel).append($warn);
+            $(ta).after($tools);
+
+            function refresh() {
+                var raw = $.trim($(ta).val() || '');
+                var items = [];
+                if (raw !== '') {
+                    try {
+                        items = finalmaskLint(JSON.parse(raw));
+                    } catch (e) {
+                        items = [];
+                    }
+                }
+                $warn.empty();
+                items.forEach(function (text) {
+                    $warn.append($('<div/>').text('⚠ ' + text));
+                });
+                $warn.toggle(items.length > 0);
+            }
+
+            $sel.on('change', function () {
+                var name = this.value;
+                this.value = '';
+                if (!name) {
+                    return;
+                }
+                var raw = $.trim($(ta).val() || '');
+                var obj = {};
+                if (raw !== '') {
+                    try {
+                        obj = JSON.parse(raw);
+                    } catch (e) {
+                        showJsonSectionError('Fix the JSON in Final Mask first: ' + e.message, 'Final Mask');
+                        return;
+                    }
+                    if (!fmIsObject(obj)) {
+                        showJsonSectionError('Final Mask must be a JSON object.', 'Final Mask');
+                        return;
+                    }
+                }
+                $(ta).val(JSON.stringify(finalmaskAddTemplate(obj, name), null, 2));
+                refresh();
+            });
+            $(ta).on('input change focus', refresh);
+            $('#DialogNode').on('shown.bs.modal', refresh);
+        })();
+
         // Capture phase: runs before the bootgrid save handler; a bad raw
         // JSON field aborts the save and highlights the offending input.
         (function installNodeRawJsonGuard() {
