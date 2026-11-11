@@ -1626,7 +1626,7 @@
             });
             clearTokenizeField('#node\\.fm_tcp_fragment_lengths');
             clearTokenizeField('#node\\.fm_tcp_fragment_delays');
-            $('#node\\.fm_tcp_fragment_packets').val('tlshello');
+            setSelectValue($('#node\\.fm_tcp_fragment_packets'), 'tlshello');
             $('#node\\.fm_udp_udphop_mode').val('intervallocal');
             $('#node\\.fm_udp_xicmp_dgram').prop('checked', false);
             $('#node\\.fm_quic_disable_pmtud').prop('checked', false);
