@@ -803,16 +803,18 @@
     <field>
         <id>node.fm_tcp_fragment_lengths</id>
         <label>Fragment Lengths (bytes)</label>
-        <type>text</type>
-        <style>fm_tcp_fragment</style>
-        <help>Comma-separated sizes or Int32 ranges: the n-th value is the size of the n-th fragment, the last one repeats for every further fragment. Example: 3-7, 4-9, 6-9, 4-8, 5-8.</help>
+        <type>select_multiple</type>
+        <style>tokenize fm_tcp_fragment</style>
+        <allownew>true</allownew>
+        <help>One size or Int32 range per tag: the n-th value is the size of the n-th fragment, the last one repeats for every further fragment. Type a value and press Enter or comma to add it. Example: 3-7, 4-9, 6-9, 4-8, 5-8.</help>
     </field>
     <field>
         <id>node.fm_tcp_fragment_delays</id>
         <label>Fragment Delays (ms)</label>
-        <type>text</type>
-        <style>fm_tcp_fragment</style>
-        <help>Comma-separated delays or ranges before each fragment; 0 sends the next fragment immediately. With tlshello a single 0 sends the whole Client Hello as one TCP segment. Example: 30-40, 40-50, 50-60.</help>
+        <type>select_multiple</type>
+        <style>tokenize fm_tcp_fragment</style>
+        <allownew>true</allownew>
+        <help>One delay or range per tag, applied before each fragment; 0 sends the next fragment immediately. With tlshello a single 0 sends the whole Client Hello as one TCP segment. Example: 30-40, 40-50, 50-60.</help>
     </field>
     <field>
         <id>node.fm_tcp_fragment_max_split</id>

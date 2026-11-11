@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>2.18.0</version>
+    <version>2.18.1</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -857,11 +857,11 @@
                     <ValidationMessage>FinalMask must be a valid JSON object.</ValidationMessage>
                 </finalmask>
                 <!-- FinalMask: one mask per direction plus the QUIC tuning.
-                     Ranges are Int32Range strings ("30-50" or "30"), lists
-                     accept commas, semicolons or whitespace. The raw
-                     "finalmask" value above still wins when it is not
-                     empty, which keeps chained masks and every type that
-                     has nested arrays possible. -->
+                     Ranges are Int32Range strings ("30-50" or "30"); the
+                     fragment lengths and delays are tokenizer lists stored
+                     comma-separated. The raw "finalmask" value above still
+                     wins when it is not empty, which keeps chained masks
+                     and every type that has nested arrays possible. -->
                 <fm_tcp_type type="OptionField">
                     <default>none</default>
                     <Required>N</Required>
@@ -879,17 +879,19 @@
                     <Mask>/^$|^[A-Za-z0-9_-]{1,32}$/</Mask>
                     <ValidationMessage>Use tlshello, a number or a range from 1 to 3, e.g. 1-3.</ValidationMessage>
                 </fm_tcp_fragment_packets>
-                <fm_tcp_fragment_lengths type="TextField">
+                <fm_tcp_fragment_lengths type=".\TrimmedCSVListField">
                     <default></default>
                     <Required>N</Required>
-                    <Mask>/^$|^\s*\d{1,7}(-\d{1,7})?(\s*[,\s]\s*\d{1,7}(-\d{1,7})?)*\s*$/</Mask>
-                    <ValidationMessage>Comma-separated sizes or ranges in bytes, e.g. 3-7, 4-9, 6-9.</ValidationMessage>
+                    <Mask>/^\d{1,7}(-\d{1,7})?$/</Mask>
+                    <MaskPerItem>Y</MaskPerItem>
+                    <ValidationMessage>Each entry must be a size or a range in bytes, e.g. 3-7 or 120.</ValidationMessage>
                 </fm_tcp_fragment_lengths>
-                <fm_tcp_fragment_delays type="TextField">
+                <fm_tcp_fragment_delays type=".\TrimmedCSVListField">
                     <default></default>
                     <Required>N</Required>
-                    <Mask>/^$|^\s*\d{1,7}(-\d{1,7})?(\s*[,\s]\s*\d{1,7}(-\d{1,7})?)*\s*$/</Mask>
-                    <ValidationMessage>Comma-separated delays or ranges in milliseconds, e.g. 30-40, 40-50.</ValidationMessage>
+                    <Mask>/^\d{1,7}(-\d{1,7})?$/</Mask>
+                    <MaskPerItem>Y</MaskPerItem>
+                    <ValidationMessage>Each entry must be a delay or a range in milliseconds, e.g. 0 or 30-40.</ValidationMessage>
                 </fm_tcp_fragment_delays>
                 <fm_tcp_fragment_max_split type="TextField">
                     <default></default>

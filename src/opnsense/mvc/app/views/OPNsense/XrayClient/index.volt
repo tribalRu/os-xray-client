@@ -1480,6 +1480,20 @@
             $('.selectpicker').selectpicker('refresh');
         }
 
+        // Empty a tokenizer (select_multiple + tokenize). Clearing only the
+        // selection leaves the tag list on screen, so drop the options and
+        // let the formatter rebuild the widget from them.
+        function clearTokenizeField(selector) {
+            var $sel = $(selector);
+            if (!$sel.length) {
+                return;
+            }
+            $sel.empty();
+            if (typeof formatTokenizersUI === 'function') {
+                formatTokenizersUI();
+            }
+        }
+
         // Fixed multi-select (selectpicker with predefined options): select
         // matching options; re-add unknown stored values so legacy configs
         // round-trip instead of being silently dropped.
@@ -1592,7 +1606,7 @@
             // structured field instead of leaking values from a node that
             // was opened before.
             var fmText = [
-                'fm_tcp_fragment_lengths', 'fm_tcp_fragment_delays', 'fm_tcp_fragment_max_split',
+                'fm_tcp_fragment_max_split',
                 'fm_tcp_sudoku_password', 'fm_tcp_sudoku_ascii', 'fm_tcp_sudoku_padding_min',
                 'fm_tcp_sudoku_padding_max', 'fm_tcp_sudoku_tables', 'fm_tcp_extra_json',
                 'fm_udp_salamander_password', 'fm_udp_salamander_packet_size',
@@ -1610,6 +1624,8 @@
             $.each(fmText, function (i, id) {
                 $('#node\\.' + id).val('');
             });
+            clearTokenizeField('#node\\.fm_tcp_fragment_lengths');
+            clearTokenizeField('#node\\.fm_tcp_fragment_delays');
             $('#node\\.fm_tcp_fragment_packets').val('tlshello');
             $('#node\\.fm_udp_udphop_mode').val('intervallocal');
             $('#node\\.fm_udp_xicmp_dgram').prop('checked', false);
