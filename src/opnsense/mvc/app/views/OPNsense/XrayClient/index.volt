@@ -153,6 +153,21 @@
     .xray-help-legend .icon-optional { color: #5bc0de; }
     .xray-help-legend .icon-advanced { color: #9a9a9a; }
     /* Pulsing dot shown while the Live traffic mode is active. */
+    /* Toolbar of the nodes tab once it has been moved into the grid's own
+       action bar (left of the search box and the grid tools). */
+    .actionBar #nodes_toolbar {
+        float: left;
+        width: auto;
+        margin: 0 !important;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .actionBar #nodes_toolbar #live_traffic_wrap {
+        margin-left: 6px !important;
+    }
     .live-traffic-dot {
         display: none;
         width: 9px;
@@ -2232,6 +2247,25 @@
             }, 2000);
         });
 
+        // Put the nodes toolbar into the grid's own action bar so the tab has
+        // one header row (our actions left, search and grid tools right). The
+        // grid builds its bar asynchronously; if it never shows up, or has
+        // another structure, the toolbar simply stays above the table.
+        (function mergeNodesToolbar() {
+            var tries = 0;
+            var timer = setInterval(function () {
+                tries++;
+                var $bar = $('#tab_nodes .actionBar').first();
+                var $tb = $('#nodes_toolbar');
+                if ($bar.length && $tb.length) {
+                    $tb.removeClass('col-md-12').prependTo($bar);
+                    clearInterval(timer);
+                } else if (tries >= 40) {
+                    clearInterval(timer);
+                }
+            }, 250);
+        })();
+
         // --- Automatic telemetry (background refresh) ---
         // Traffic is refreshed at the user-configured interval. Latency is a
         // TCP connect probe, so it is measured less often on a separate
@@ -2240,21 +2274,17 @@
         var latencyTimer = null;
         var LATENCY_AUTO_INTERVAL = 300; // seconds (5 min), hardcoded
 
+        // The automatic refresh intervals are shown as a tooltip of the manual
+        // refresh button instead of a badge in the toolbar.
         function telemetryStatus(trafficActive, trafficInterval, latencyActive) {
-            var $s = $('#telemetry_status');
             var parts = [];
-            if (trafficActive) parts.push('traffic: ' + trafficInterval + ' s');
-            if (latencyActive) parts.push('latency: ' + LATENCY_AUTO_INTERVAL + ' s');
-            var text = parts.length ? 'Auto: ' + parts.join('; ') : '';
-            if ($s.length === 0) {
-                if (text) {
-                    $s = $('<span id="telemetry_status" class="label label-info" style="margin-left:8px;"></span>')
-                        .insertAfter('#btn_check_nodes');
-                }
-            }
-            if ($s.length) {
-                if (text) { $s.text(text).show(); } else { $s.remove(); }
-            }
+            if (trafficActive) parts.push('traffic every ' + trafficInterval + ' s');
+            if (latencyActive) parts.push('latency every ' + LATENCY_AUTO_INTERVAL + ' s');
+            var tip = parts.length
+                ? 'Measure now. Automatic refresh: ' + parts.join(', ') + '.'
+                : 'Measure now. Automatic refresh is off (General Settings \u2192 Telemetry & Statistics).';
+            $('#btn_check_nodes').attr('title', tip);
+            $('#telemetry_status').remove();
         }
 
         function refreshNodeLatency() {
@@ -2317,6 +2347,7 @@
         var LIVE_TRAFFIC_INTERVAL = 5000;
         var liveTrafficBusy = false;
         var LIVE_TRAFFIC_KEY = 'osxray_live_traffic';
+        $('#live_traffic_interval').text('\u00b7 ' + (LIVE_TRAFFIC_INTERVAL / 1000) + ' s');
 
         function startLiveTraffic() {
             if (liveTrafficTimer !== null) {
@@ -2431,6 +2462,26 @@
                     .insertAfter('#live_traffic_wrap');
             }
             $t.text(text);
+            placeTotalInFooter($t);
+        }
+
+        // The total belongs to the table, so show it next to the grid's
+        // "Showing x to y of z entries" line when that line can be found;
+        // otherwise it stays in the toolbar. The grid redraws its footer on
+        // every reload, so this runs on each update.
+        function placeTotalInFooter($t) {
+            var $host = null;
+            ['.infos', '.tabulator-footer-contents', '.tabulator-footer'].some(function (sel) {
+                var $h = $('#tab_nodes').find(sel).first();
+                if ($h.length) {
+                    $host = $h;
+                    return true;
+                }
+                return false;
+            });
+            if ($host && !$.contains($host[0], $t[0])) {
+                $t.addClass('text-muted').css({ 'margin-left': '12px', 'white-space': 'nowrap' }).appendTo($host);
+            }
         }
 
         function startTelemetryAutoRefresh() {
@@ -2765,16 +2816,16 @@
     </div>
 
     <div id="tab_nodes" class="tab-pane fade in">
-        <div class="col-md-12" style="margin-bottom: 10px;">
-            <button id="btn_open_import_modal" type="button" class="btn btn-success">
-                <i class="fa fa-paste"></i> <b>Import link</b>
+        <div id="nodes_toolbar" class="col-md-12" style="margin-bottom: 10px;">
+            <button id="btn_open_import_modal" type="button" class="btn btn-default">
+                <i class="fa fa-paste"></i> Import link
             </button>
-            <button id="btn_check_nodes" type="button" class="btn btn-info">
-                <i class="fa fa-refresh"></i> <b>Check Latency (Ping) &amp; Traffic</b>
+            <button id="btn_check_nodes" type="button" class="btn btn-default">
+                <i class="fa fa-refresh"></i> Check latency &amp; traffic
             </button>
             <span id="live_traffic_wrap" style="margin-left: 14px; user-select: none; vertical-align: middle;">
-                <span id="live_traffic_dot" class="live-traffic-dot"></span><label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal; margin: 0;">
-                    <input type="checkbox" id="live_traffic_toggle" style="margin: 0;"> <b>Live</b>
+                <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal; margin: 0;">
+                    <input type="checkbox" id="live_traffic_toggle" style="margin: 0;"> Live <span id="live_traffic_interval" class="text-muted"></span><span id="live_traffic_dot" class="live-traffic-dot" style="margin: 0;"></span>
                 </label>
             </span>
         </div>
