@@ -782,11 +782,331 @@
         <help>Optional JSON object merged into streamSettings (e.g. {"wsSettings":{"path":"/"}}). Outer braces are stripped; leave empty to use the UI fields above. Must be valid JSON.</help>
     </field>
     <field>
+        <type>header</type>
+        <label>FinalMask — TCP</label>
+        <style>fm_tcp</style>
+    </field>
+    <field>
+        <id>node.fm_tcp_type</id>
+        <label>TCP Mask</label>
+        <type>dropdown</type>
+        <style>fm_tcp</style>
+        <help>Last-stage camouflage for outgoing TCP. Fragment is the usual choice against SNI-based blocking; Sudoku additionally encrypts and pads the stream. Header Custom and XMC take their settings as JSON below. Only one mask can be configured here — use the raw FinalMask JSON at the end of this section to chain several masks.</help>
+    </field>
+    <field>
+        <id>node.fm_tcp_fragment_packets</id>
+        <label>Fragmented Packets</label>
+        <type>text</type>
+        <style>fm_tcp_fragment</style>
+        <help>Which writes to split: tlshello fragments the TLS Client Hello, while a number or range such as 1-3 splits that many first writes of the TCP stream. Default tlshello.</help>
+    </field>
+    <field>
+        <id>node.fm_tcp_fragment_lengths</id>
+        <label>Fragment Lengths (bytes)</label>
+        <type>text</type>
+        <style>fm_tcp_fragment</style>
+        <help>Comma-separated sizes or Int32 ranges: the n-th value is the size of the n-th fragment, the last one repeats for every further fragment. Example: 3-7, 4-9, 6-9, 4-8, 5-8.</help>
+    </field>
+    <field>
+        <id>node.fm_tcp_fragment_delays</id>
+        <label>Fragment Delays (ms)</label>
+        <type>text</type>
+        <style>fm_tcp_fragment</style>
+        <help>Comma-separated delays or ranges before each fragment; 0 sends the next fragment immediately. With tlshello a single 0 sends the whole Client Hello as one TCP segment. Example: 30-40, 40-50, 50-60.</help>
+    </field>
+    <field>
+        <id>node.fm_tcp_fragment_max_split</id>
+        <label>Max Splits</label>
+        <type>text</type>
+        <style>fm_tcp_fragment</style>
+        <help>Maximum number of pieces one packet may be split into, a number or a range. 0 means unlimited. Example: 30-50.</help>
+    </field>
+    <field>
+        <id>node.fm_tcp_sudoku_password</id>
+        <label>Sudoku Password</label>
+        <type>text</type>
+        <style>fm_tcp_sudoku</style>
+        <help>Shared secret of the Sudoku obfuscation; the server must use the same value.</help>
+    </field>
+    <field>
+        <id>node.fm_tcp_sudoku_ascii</id>
+        <label>Sudoku ASCII Table</label>
+        <type>text</type>
+        <style>fm_tcp_sudoku</style>
+        <help>Optional custom ASCII character set used by the built-in table. Leave empty to use the default.</help>
+    </field>
+    <field>
+        <id>node.fm_tcp_sudoku_padding_min</id>
+        <label>Sudoku Padding Min</label>
+        <type>text</type>
+        <style>fm_tcp_sudoku</style>
+        <help>Minimum random padding in bytes. Leave empty for the core default (0).</help>
+    </field>
+    <field>
+        <id>node.fm_tcp_sudoku_padding_max</id>
+        <label>Sudoku Padding Max</label>
+        <type>text</type>
+        <style>fm_tcp_sudoku</style>
+        <help>Maximum random padding in bytes. Leave empty for the core default (0).</help>
+    </field>
+    <field>
+        <id>node.fm_tcp_sudoku_tables</id>
+        <label>Sudoku Custom Tables</label>
+        <type>textbox</type>
+        <style>fm_tcp_sudoku</style>
+        <height>3</height>
+        <help>Optional custom tables, one per line. Leave empty to use the built-in table; a custom table must match the server.</help>
+    </field>
+    <field>
+        <id>node.fm_tcp_extra_json</id>
+        <label>TCP Mask Settings (JSON)</label>
+        <type>textbox</type>
+        <style>fm_tcp_json</style>
+        <height>5</height>
+        <help>Settings object for Header Custom or XMC, copied verbatim into finalmask.tcp[0].settings. Header Custom uses clients/servers/errors arrays of packet sequences; XMC uses hostname, password and profiles. These structures are nested, so they are entered as JSON rather than rows.</help>
+    </field>
+    <field>
+        <type>header</type>
+        <label>FinalMask — UDP</label>
+        <style>fm_udp</style>
+    </field>
+    <field>
+        <id>node.fm_udp_type</id>
+        <label>UDP Mask</label>
+        <type>dropdown</type>
+        <style>fm_udp</style>
+        <help>Last-stage camouflage for outgoing UDP. Salamander (Hysteria 2), UDP Hop and mKCP Legacy are the common choices; Noise, XDNS and Header Custom take their settings as JSON below. Only one mask can be configured here — use the raw FinalMask JSON to chain several masks.</help>
+    </field>
+    <field>
+        <id>node.fm_udp_salamander_password</id>
+        <label>Salamander Password</label>
+        <type>text</type>
+        <style>fm_udp_salamander</style>
+        <help>Obfuscation password, identical on the server side.</help>
+    </field>
+    <field>
+        <id>node.fm_udp_salamander_packet_size</id>
+        <label>Salamander Packet Size</label>
+        <type>text</type>
+        <style>fm_udp_salamander</style>
+        <help>Optional fragment size or range (upper bound 2048), which enables Gecko obfuscation on QUIC long-header packets. Example: 512-1200.</help>
+    </field>
+    <field>
+        <id>node.fm_udp_sudoku_password</id>
+        <label>Sudoku Password</label>
+        <type>text</type>
+        <style>fm_udp_sudoku</style>
+        <help>Shared secret of the Sudoku obfuscation; the server must use the same value.</help>
+    </field>
+    <field>
+        <id>node.fm_udp_sudoku_ascii</id>
+        <label>Sudoku ASCII Table</label>
+        <type>text</type>
+        <style>fm_udp_sudoku</style>
+        <help>Optional custom ASCII character set used by the built-in table. Leave empty to use the default.</help>
+    </field>
+    <field>
+        <id>node.fm_udp_sudoku_padding_min</id>
+        <label>Sudoku Padding Min</label>
+        <type>text</type>
+        <style>fm_udp_sudoku</style>
+        <help>Minimum random padding in bytes. Leave empty for the core default (0).</help>
+    </field>
+    <field>
+        <id>node.fm_udp_sudoku_padding_max</id>
+        <label>Sudoku Padding Max</label>
+        <type>text</type>
+        <style>fm_udp_sudoku</style>
+        <help>Maximum random padding in bytes. Leave empty for the core default (0).</help>
+    </field>
+    <field>
+        <id>node.fm_udp_sudoku_tables</id>
+        <label>Sudoku Custom Tables</label>
+        <type>textbox</type>
+        <style>fm_udp_sudoku</style>
+        <height>3</height>
+        <help>Optional custom tables, one per line. Leave empty to use the built-in table; a custom table must match the server.</help>
+    </field>
+    <field>
+        <id>node.fm_udp_udphop_mode</id>
+        <label>UDP Hop Mode</label>
+        <type>text</type>
+        <style>fm_udp_udphop</style>
+        <help>Comma-separated: intervallocal, intervalremote, perconnremote. intervallocal works for WireGuard, Hysteria and XHTTP H3; the remote modes need iptables/nftables on the client. Example: intervallocal,intervalremote.</help>
+    </field>
+    <field>
+        <id>node.fm_udp_udphop_interval</id>
+        <label>UDP Hop Interval (s)</label>
+        <type>text</type>
+        <style>fm_udp_udphop</style>
+        <help>Seconds between port changes, a number or a range. Minimum 5; the core default is 30.</help>
+    </field>
+    <field>
+        <id>node.fm_udp_udphop_remote_ips</id>
+        <label>UDP Hop Remote IPs</label>
+        <type>text</type>
+        <style>fm_udp_udphop</style>
+        <help>Comma-separated addresses or CIDR ranges. Required only for intervalremote/perconnremote; empty inherits the node address.</help>
+    </field>
+    <field>
+        <id>node.fm_udp_udphop_remote_ports</id>
+        <label>UDP Hop Remote Ports</label>
+        <type>text</type>
+        <style>fm_udp_udphop</style>
+        <help>Ports or ranges to hop between, e.g. 20000-50000,443. Required only for intervalremote/perconnremote.</help>
+    </field>
+    <field>
+        <id>node.fm_udp_mkcp_header</id>
+        <label>mKCP Legacy Header</label>
+        <type>dropdown</type>
+        <style>fm_udp_mkcp_legacy</style>
+        <help>Fake packet header for legacy mKCP. With None, a non-empty Value is used as an AES-128-GCM password, otherwise the core falls back to simple XOR obfuscation.</help>
+    </field>
+    <field>
+        <id>node.fm_udp_mkcp_value</id>
+        <label>mKCP Legacy Value</label>
+        <type>text</type>
+        <style>fm_udp_mkcp_legacy</style>
+        <help>Password for AES-128-GCM, or the domain for the DNS header (www.baidu.com when empty). Has no effect for DTLS, SRTP, uTP, WeChat and WireGuard headers.</help>
+    </field>
+    <field>
+        <id>node.fm_udp_xicmp_dgram</id>
+        <label>XICMP Datagram Mode</label>
+        <type>checkbox</type>
+        <style>fm_udp_xicmp</style>
+        <help>Use datagram ICMP sockets, which need fewer privileges. Client-side only; supported on Linux, macOS and iOS.</help>
+    </field>
+    <field>
+        <id>node.fm_udp_xicmp_ips</id>
+        <label>XICMP IPs</label>
+        <type>text</type>
+        <style>fm_udp_xicmp</style>
+        <help>Optional comma-separated IP addresses the ICMP traffic may use. CIDR is not supported by XICMP.</help>
+    </field>
+    <field>
+        <id>node.fm_udp_realm_url</id>
+        <label>Realm URL</label>
+        <type>text</type>
+        <style>fm_udp_realm</style>
+        <help>realm://token@host[:port]/id (or realm+http://...) issued by a hysteria-realm server.</help>
+    </field>
+    <field>
+        <id>node.fm_udp_realm_stun_servers</id>
+        <label>Realm STUN Servers</label>
+        <type>text</type>
+        <style>fm_udp_realm</style>
+        <help>Comma-separated STUN servers as host:port, used for NAT port prediction. At least one is required.</help>
+    </field>
+    <field>
+        <id>node.fm_udp_realm_ip_mode</id>
+        <label>Realm IP Mode</label>
+        <type>text</type>
+        <style>fm_udp_realm</style>
+        <help>Controls STUN name resolution and peer filtering, e.g. dual. Leave empty for the core default.</help>
+    </field>
+    <field>
+        <id>node.fm_udp_extra_json</id>
+        <label>UDP Mask Settings (JSON)</label>
+        <type>textbox</type>
+        <style>fm_udp_json</style>
+        <height>5</height>
+        <help>Settings object for Noise, XDNS or Header Custom, copied verbatim into finalmask.udp[0].settings. Noise uses reset and a noise array; XDNS uses domains and resolvers; Header Custom uses client and server arrays. These structures are nested, so they are entered as JSON rather than rows.</help>
+    </field>
+    <field>
+        <type>header</type>
+        <label>FinalMask — QUIC Parameters</label>
+        <style>fm_quic</style>
+    </field>
+    <field>
+        <id>node.fm_quic_congestion</id>
+        <label>QUIC Congestion Control</label>
+        <type>dropdown</type>
+        <style>fm_quic</style>
+        <help>Congestion control for QUIC transports (XHTTP H3, Hysteria, MASQUE H3). Hysteria defaults to Brutal, XHTTP H3 and MASQUE to BBR. XHTTP H3 cannot use Brutal, only Force Brutal.</help>
+    </field>
+    <field>
+        <id>node.fm_quic_bbr_profile</id>
+        <label>BBR Profile</label>
+        <type>dropdown</type>
+        <style>fm_quic_bbr</style>
+        <help>Preset used when the congestion control is BBR. Default is Standard.</help>
+    </field>
+    <field>
+        <id>node.fm_quic_brutal_up</id>
+        <label>Brutal Up Rate</label>
+        <type>text</type>
+        <style>fm_quic_brutal</style>
+        <help>Upload rate, e.g. 20 mbps. Direction is relative to this client: your upload is the server's download. 0 or empty means BBR instead of Brutal. Force Brutal requires a value.</help>
+    </field>
+    <field>
+        <id>node.fm_quic_brutal_down</id>
+        <label>Brutal Down Rate</label>
+        <type>text</type>
+        <style>fm_quic_brutal</style>
+        <help>Download rate, e.g. 100 mbps. 0 or empty means no limit.</help>
+    </field>
+    <field>
+        <id>node.fm_quic_max_idle_timeout</id>
+        <label>Max Idle Timeout (s)</label>
+        <type>text</type>
+        <style>fm_quic</style>
+        <help>How long the peer waits without data before closing the QUIC connection. 4 to 120 seconds; the core default is 30.</help>
+    </field>
+    <field>
+        <id>node.fm_quic_keep_alive_period</id>
+        <label>KeepAlive Period (s)</label>
+        <type>text</type>
+        <style>fm_quic</style>
+        <help>QUIC KeepAlive interval, 2 to 60 seconds. Disabled by default.</help>
+    </field>
+    <field>
+        <id>node.fm_quic_max_incoming_streams</id>
+        <label>Max Incoming Streams</label>
+        <type>text</type>
+        <style>fm_quic</style>
+        <help>Server-side limit for concurrent QUIC streams. When set it must be at least 8.</help>
+    </field>
+    <field>
+        <id>node.fm_quic_init_stream_window</id>
+        <label>Initial Stream Window</label>
+        <type>text</type>
+        <style>fm_quic_window</style>
+        <help>Initial QUIC stream receive window in bytes, at least 16384. Leave empty unless you know what you are doing; keep the stream-to-connection window ratio near 2:5.</help>
+    </field>
+    <field>
+        <id>node.fm_quic_max_stream_window</id>
+        <label>Max Stream Window</label>
+        <type>text</type>
+        <style>fm_quic_window</style>
+        <help>Maximum QUIC stream receive window in bytes, at least 16384. Leave empty unless you know what you are doing.</help>
+    </field>
+    <field>
+        <id>node.fm_quic_init_conn_window</id>
+        <label>Initial Connection Window</label>
+        <type>text</type>
+        <style>fm_quic_window</style>
+        <help>Initial QUIC connection receive window in bytes, at least 16384. Leave empty unless you know what you are doing.</help>
+    </field>
+    <field>
+        <id>node.fm_quic_max_conn_window</id>
+        <label>Max Connection Window</label>
+        <type>text</type>
+        <style>fm_quic_window</style>
+        <help>Maximum QUIC connection receive window in bytes, at least 16384. Leave empty unless you know what you are doing.</help>
+    </field>
+    <field>
+        <id>node.fm_quic_disable_pmtud</id>
+        <label>Disable Path MTU Discovery</label>
+        <type>checkbox</type>
+        <style>fm_quic</style>
+        <help>Turn off QUIC Path MTU Discovery. Useful on operating systems the core does not auto-tune (FreeBSD is not in that list), so enable it if QUIC connections stall.</help>
+    </field>
+    <field>
         <id>node.finalmask</id>
-        <label>FinalMask</label>
+        <label>Raw FinalMask JSON (override)</label>
         <type>textbox</type>
         <style>stream_custom</style>
         <height>6</height>
-        <help>FinalMask traffic obfuscation settings as a JSON object with tcp and udp lists. tcp types: header-custom, fragment, sudoku, filter. udp types: header-custom, mkcp-legacy, noise, salamander, sudoku, xdns, xicmp, realm, udphop, filter. Xray-core 26.11.9 reads different keys than older cores: udphop takes mode, interval, remoteIPs and remotePorts (no sockopt), and xdns takes domains and resolvers (no domain). Keys the core does not read are ignored silently and do not fail the config test, so verify the obfuscation on a live connection.</help>
+        <help>Optional. When this object is not empty it replaces everything configured in the rows above, which is the only way to chain several masks (finalmask.tcp and finalmask.udp are arrays, the first entry is the innermost layer) or to configure filter masks. Clear it to let the rows build the object.</help>
     </field>
 </form>

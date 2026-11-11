@@ -172,6 +172,7 @@ class XrayClient extends BaseModel
         $rawFields = [
             'extra' => 'object', 'xhttp_extra' => 'object', 'xdrive_extra' => 'object',
             'finalmask' => 'object', 'custom_stream_json' => 'object', 'http_headers' => 'object',
+            'fm_tcp_extra_json' => 'object', 'fm_udp_extra_json' => 'object',
             'freedom_final_rules' => 'array', 'dns_rules_json' => 'array',
         ];
         foreach ($this->nodes->node->iterateItems() as $node) {
@@ -183,6 +184,73 @@ class XrayClient extends BaseModel
                 if ($problem !== null) {
                     $messages->appendMessage(new Message($problem, $node->$name->__reference));
                 }
+            }
+        }
+
+        // FinalMask rows: the template builds the object, so enforce the
+        // bounds the core documents (infra/conf/transport_finalmask.go).
+        // Without this the only feedback is an opaque "xray run -test"
+        // failure when Apply is pressed.
+        foreach ($this->nodes->node->iterateItems() as $node) {
+            if ((string)$node->enabled !== '1') {
+                continue;
+            }
+            if (trim((string)$node->finalmask) !== '') {
+                continue; // the raw override supersedes the rows
+            }
+            $udp = (string)$node->fm_udp_type;
+            if ($udp === 'realm') {
+                foreach (['fm_udp_realm_url', 'fm_udp_realm_stun_servers'] as $name) {
+                    if (trim((string)$node->$name) === '') {
+                        $messages->appendMessage(new Message(
+                            gettext('Realm requires a realm:// URL and at least one STUN server.'),
+                            $node->$name->__reference
+                        ));
+                    }
+                }
+            }
+            $size = trim((string)$node->fm_udp_salamander_packet_size);
+            if ($udp === 'salamander' && $size !== '' && preg_match('/^(\d+)(?:-(\d+))?$/', $size, $m)) {
+                $high = isset($m[2]) ? (int)$m[2] : (int)$m[1];
+                if ($high > 2048) {
+                    $messages->appendMessage(new Message(
+                        gettext('Salamander packet size must not exceed 2048 bytes.'),
+                        $node->fm_udp_salamander_packet_size->__reference
+                    ));
+                }
+            }
+            $interval = trim((string)$node->fm_udp_udphop_interval);
+            if ($udp === 'udphop' && $interval !== '' && preg_match('/^(\d+)/', $interval, $m) && (int)$m[1] < 5) {
+                $messages->appendMessage(new Message(
+                    gettext('UDP Hop interval must be at least 5 seconds.'),
+                    $node->fm_udp_udphop_interval->__reference
+                ));
+            }
+            $limits = [
+                'fm_quic_max_idle_timeout' => [4, 120, gettext('Max idle timeout must be between 4 and 120 seconds.')],
+                'fm_quic_keep_alive_period' => [2, 60, gettext('KeepAlive period must be between 2 and 60 seconds.')],
+                'fm_quic_max_incoming_streams' => [8, 0, gettext('Max incoming streams must be at least 8.')],
+                'fm_quic_init_stream_window' => [16384, 0, gettext('QUIC receive windows must be at least 16384 bytes.')],
+                'fm_quic_max_stream_window' => [16384, 0, gettext('QUIC receive windows must be at least 16384 bytes.')],
+                'fm_quic_init_conn_window' => [16384, 0, gettext('QUIC receive windows must be at least 16384 bytes.')],
+                'fm_quic_max_conn_window' => [16384, 0, gettext('QUIC receive windows must be at least 16384 bytes.')],
+            ];
+            foreach ($limits as $name => $limit) {
+                $value = trim((string)$node->$name);
+                if ($value === '' || !ctype_digit($value)) {
+                    continue;
+                }
+                $number = (int)$value;
+                if ($number < $limit[0] || ($limit[1] > 0 && $number > $limit[1])) {
+                    $messages->appendMessage(new Message($limit[2], $node->$name->__reference));
+                }
+            }
+            if ((string)$node->fm_quic_congestion === 'force-brutal'
+                && trim((string)$node->fm_quic_brutal_up) === '') {
+                $messages->appendMessage(new Message(
+                    gettext('Force Brutal requires an upload rate.'),
+                    $node->fm_quic_brutal_up->__reference
+                ));
             }
         }
 

@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>2.17.39</version>
+    <version>2.18.0</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -856,6 +856,281 @@
                     <Mask>/^$|^\s*\{[\s\S]*\}\s*$/</Mask>
                     <ValidationMessage>FinalMask must be a valid JSON object.</ValidationMessage>
                 </finalmask>
+                <!-- FinalMask: one mask per direction plus the QUIC tuning.
+                     Ranges are Int32Range strings ("30-50" or "30"), lists
+                     accept commas, semicolons or whitespace. The raw
+                     "finalmask" value above still wins when it is not
+                     empty, which keeps chained masks and every type that
+                     has nested arrays possible. -->
+                <fm_tcp_type type="OptionField">
+                    <default>none</default>
+                    <Required>N</Required>
+                    <OptionValues>
+                        <none>None</none>
+                        <fragment>Fragment</fragment>
+                        <sudoku>Sudoku</sudoku>
+                        <header-custom>Header Custom (JSON settings)</header-custom>
+                        <xmc>XMC (JSON settings)</xmc>
+                    </OptionValues>
+                </fm_tcp_type>
+                <fm_tcp_fragment_packets type="TextField">
+                    <default>tlshello</default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[A-Za-z0-9_-]{1,32}$/</Mask>
+                    <ValidationMessage>Use tlshello, a number or a range from 1 to 3, e.g. 1-3.</ValidationMessage>
+                </fm_tcp_fragment_packets>
+                <fm_tcp_fragment_lengths type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^\s*\d{1,7}(-\d{1,7})?(\s*[,\s]\s*\d{1,7}(-\d{1,7})?)*\s*$/</Mask>
+                    <ValidationMessage>Comma-separated sizes or ranges in bytes, e.g. 3-7, 4-9, 6-9.</ValidationMessage>
+                </fm_tcp_fragment_lengths>
+                <fm_tcp_fragment_delays type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^\s*\d{1,7}(-\d{1,7})?(\s*[,\s]\s*\d{1,7}(-\d{1,7})?)*\s*$/</Mask>
+                    <ValidationMessage>Comma-separated delays or ranges in milliseconds, e.g. 30-40, 40-50.</ValidationMessage>
+                </fm_tcp_fragment_delays>
+                <fm_tcp_fragment_max_split type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^\d{1,7}(-\d{1,7})?$/</Mask>
+                    <ValidationMessage>Enter a number or a range, e.g. 30-50. 0 means unlimited.</ValidationMessage>
+                </fm_tcp_fragment_max_split>
+                <fm_tcp_sudoku_password type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </fm_tcp_sudoku_password>
+                <fm_tcp_sudoku_ascii type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </fm_tcp_sudoku_ascii>
+                <fm_tcp_sudoku_padding_min type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^\d{1,6}$/</Mask>
+                    <ValidationMessage>Enter a non-negative integer, e.g. 0.</ValidationMessage>
+                </fm_tcp_sudoku_padding_min>
+                <fm_tcp_sudoku_padding_max type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^\d{1,6}$/</Mask>
+                    <ValidationMessage>Enter a non-negative integer, e.g. 64.</ValidationMessage>
+                </fm_tcp_sudoku_padding_max>
+                <fm_tcp_sudoku_tables type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </fm_tcp_sudoku_tables>
+                <fm_tcp_extra_json type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^\s*\{[\s\S]*\}\s*$/</Mask>
+                    <ValidationMessage>Mask settings must be a JSON object.</ValidationMessage>
+                </fm_tcp_extra_json>
+                <fm_udp_type type="OptionField">
+                    <default>none</default>
+                    <Required>N</Required>
+                    <OptionValues>
+                        <none>None</none>
+                        <salamander>Salamander</salamander>
+                        <sudoku>Sudoku</sudoku>
+                        <udphop>UDP Hop</udphop>
+                        <mkcp-legacy>mKCP Legacy</mkcp-legacy>
+                        <xicmp>XICMP</xicmp>
+                        <realm>Realm</realm>
+                        <noise>Noise (JSON settings)</noise>
+                        <xdns>XDNS (JSON settings)</xdns>
+                        <header-custom>Header Custom (JSON settings)</header-custom>
+                    </OptionValues>
+                </fm_udp_type>
+                <fm_udp_salamander_password type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </fm_udp_salamander_password>
+                <fm_udp_salamander_packet_size type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^\d{1,7}(-\d{1,7})?$/</Mask>
+                    <ValidationMessage>Enter a size or a range in bytes, e.g. 512-1200 (upper bound 2048).</ValidationMessage>
+                </fm_udp_salamander_packet_size>
+                <fm_udp_sudoku_password type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </fm_udp_sudoku_password>
+                <fm_udp_sudoku_ascii type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </fm_udp_sudoku_ascii>
+                <fm_udp_sudoku_padding_min type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^\d{1,6}$/</Mask>
+                    <ValidationMessage>Enter a non-negative integer, e.g. 0.</ValidationMessage>
+                </fm_udp_sudoku_padding_min>
+                <fm_udp_sudoku_padding_max type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^\d{1,6}$/</Mask>
+                    <ValidationMessage>Enter a non-negative integer, e.g. 64.</ValidationMessage>
+                </fm_udp_sudoku_padding_max>
+                <fm_udp_sudoku_tables type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </fm_udp_sudoku_tables>
+                <fm_udp_udphop_mode type="TextField">
+                    <default>intervallocal</default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[A-Za-z]+(\s*,\s*[A-Za-z]+)*$/</Mask>
+                    <ValidationMessage>Comma-separated modes: intervallocal, intervalremote, perconnremote.</ValidationMessage>
+                </fm_udp_udphop_mode>
+                <fm_udp_udphop_interval type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^\d{1,6}(-\d{1,6})?$/</Mask>
+                    <ValidationMessage>Seconds between port changes (minimum 5), a number or a range.</ValidationMessage>
+                </fm_udp_udphop_interval>
+                <fm_udp_udphop_remote_ips type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[0-9A-Fa-f:.,\/\s-]+$/</Mask>
+                    <ValidationMessage>Comma-separated IP addresses or CIDR ranges.</ValidationMessage>
+                </fm_udp_udphop_remote_ips>
+                <fm_udp_udphop_remote_ports type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^\s*\d{1,5}(-\d{1,5})?(\s*[,\s]\s*\d{1,5}(-\d{1,5})?)*\s*$/</Mask>
+                    <ValidationMessage>Ports or ranges, e.g. 20000-50000,443.</ValidationMessage>
+                </fm_udp_udphop_remote_ports>
+                <fm_udp_mkcp_header type="OptionField">
+                    <default>none</default>
+                    <Required>N</Required>
+                    <OptionValues>
+                        <none>None (AES-128-GCM / XOR)</none>
+                        <dns>DNS</dns>
+                        <dtls>DTLS</dtls>
+                        <srtp>SRTP</srtp>
+                        <utp>uTP</utp>
+                        <wechat>WeChat</wechat>
+                        <wireguard>WireGuard</wireguard>
+                    </OptionValues>
+                </fm_udp_mkcp_header>
+                <fm_udp_mkcp_value type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                </fm_udp_mkcp_value>
+                <fm_udp_xicmp_dgram type="BooleanField">
+                    <default>0</default>
+                    <Required>N</Required>
+                </fm_udp_xicmp_dgram>
+                <fm_udp_xicmp_ips type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[0-9A-Fa-f:.,\/\s-]+$/</Mask>
+                    <ValidationMessage>Comma-separated IP addresses (CIDR is not supported by XICMP).</ValidationMessage>
+                </fm_udp_xicmp_ips>
+                <fm_udp_realm_url type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^realm(\+http)?:\/\/\S+$/</Mask>
+                    <ValidationMessage>Enter realm://token@host[:port]/id or realm+http://...</ValidationMessage>
+                </fm_udp_realm_url>
+                <fm_udp_realm_stun_servers type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^\s*[0-9A-Za-z._:\[\]-]+(\s*[,\s]\s*[0-9A-Za-z._:\[\]-]+)*\s*$/</Mask>
+                    <ValidationMessage>Comma-separated STUN servers as host:port.</ValidationMessage>
+                </fm_udp_realm_stun_servers>
+                <fm_udp_realm_ip_mode type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^[A-Za-z]+$/</Mask>
+                    <ValidationMessage>IP mode understood by the core, e.g. dual.</ValidationMessage>
+                </fm_udp_realm_ip_mode>
+                <fm_udp_extra_json type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^\s*\{[\s\S]*\}\s*$/</Mask>
+                    <ValidationMessage>Mask settings must be a JSON object.</ValidationMessage>
+                </fm_udp_extra_json>
+                <fm_quic_congestion type="OptionField">
+                    <default>auto</default>
+                    <Required>N</Required>
+                    <OptionValues>
+                        <auto>Default</auto>
+                        <reno>Reno</reno>
+                        <bbr>BBR</bbr>
+                        <brutal>Brutal</brutal>
+                        <force-brutal>Force Brutal</force-brutal>
+                    </OptionValues>
+                </fm_quic_congestion>
+                <fm_quic_bbr_profile type="OptionField">
+                    <default>auto</default>
+                    <Required>N</Required>
+                    <OptionValues>
+                        <auto>Default</auto>
+                        <conservative>Conservative</conservative>
+                        <standard>Standard</standard>
+                        <aggressive>Aggressive</aggressive>
+                    </OptionValues>
+                </fm_quic_bbr_profile>
+                <fm_quic_brutal_up type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^\d+(\.\d+)?\s*[A-Za-z]*$/</Mask>
+                    <ValidationMessage>Rate with an optional unit, e.g. 20 mbps or 1000000.</ValidationMessage>
+                </fm_quic_brutal_up>
+                <fm_quic_brutal_down type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^\d+(\.\d+)?\s*[A-Za-z]*$/</Mask>
+                    <ValidationMessage>Rate with an optional unit, e.g. 100 mbps or 0.</ValidationMessage>
+                </fm_quic_brutal_down>
+                <fm_quic_max_idle_timeout type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^\d{1,3}$/</Mask>
+                    <ValidationMessage>Seconds, 4 to 120.</ValidationMessage>
+                </fm_quic_max_idle_timeout>
+                <fm_quic_keep_alive_period type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^\d{1,3}$/</Mask>
+                    <ValidationMessage>Seconds, 2 to 60.</ValidationMessage>
+                </fm_quic_keep_alive_period>
+                <fm_quic_max_incoming_streams type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^\d{1,9}$/</Mask>
+                    <ValidationMessage>At least 8.</ValidationMessage>
+                </fm_quic_max_incoming_streams>
+                <fm_quic_init_stream_window type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^\d{1,12}$/</Mask>
+                    <ValidationMessage>Bytes, at least 16384.</ValidationMessage>
+                </fm_quic_init_stream_window>
+                <fm_quic_max_stream_window type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^\d{1,12}$/</Mask>
+                    <ValidationMessage>Bytes, at least 16384.</ValidationMessage>
+                </fm_quic_max_stream_window>
+                <fm_quic_init_conn_window type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^\d{1,12}$/</Mask>
+                    <ValidationMessage>Bytes, at least 16384.</ValidationMessage>
+                </fm_quic_init_conn_window>
+                <fm_quic_max_conn_window type="TextField">
+                    <default></default>
+                    <Required>N</Required>
+                    <Mask>/^$|^\d{1,12}$/</Mask>
+                    <ValidationMessage>Bytes, at least 16384.</ValidationMessage>
+                </fm_quic_max_conn_window>
+                <fm_quic_disable_pmtud type="BooleanField">
+                    <default>0</default>
+                    <Required>N</Required>
+                </fm_quic_disable_pmtud>
                 <custom_stream_json type="TextField">
                     <default></default>
                     <Required>N</Required>

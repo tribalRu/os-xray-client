@@ -67,6 +67,11 @@
     #DialogNode.optional-hidden div.form-group:has(.expert_only) {
         display: none !important;
     }
+    /* The FinalMask sections hold nothing but advanced rows, so hide the
+       whole section (header included) instead of leaving an empty one. */
+    #DialogNode.optional-hidden .form-search-section.expert_section {
+        display: none !important;
+    }
     #frm_DialogNode .json-invalid,
     #DialogNode .json-invalid {
         outline: 2px solid #d9534f !important;
@@ -963,6 +968,13 @@
             // XDRIVE is VLESS-only; the fields must not show for other protocols.
             var isXdrive = proto === 'vless' && effNet === 'xdrive';
             var xdrvSvc = $('#node\\.xdrive_service').val() || 'google-drive';
+            // FinalMask: the raw JSON override wins over the structured rows,
+            // so hide the rows while it is filled (their values are still
+            // saved but the template ignores them).
+            var fmRaw = $.trim($('#node\\.finalmask').val() || '') !== '';
+            var fmTcp = $('#node\\.fm_tcp_type').val() || 'none';
+            var fmUdp = $('#node\\.fm_udp_type').val() || 'none';
+            var fmQuic = $('#node\\.fm_quic_congestion').val() || 'auto';
 
             // Field visibility table: selector -> condition
             var view = {
@@ -1000,7 +1012,26 @@
                 '.xdrive_template': isXdrive && xdrvSvc === 'template',
                 '.sec_tls': hasTransport && effSec === 'tls',
                 '.sec_tls_reality': hasTransport && (effSec === 'tls' || effSec === 'reality'),
-                '.sec_reality': hasTransport && effSec === 'reality'
+                '.sec_reality': hasTransport && effSec === 'reality',
+                // FinalMask rows: one mask per direction, built by the
+                // config template. Hidden entirely while the raw override
+                // is filled.
+                '.fm_tcp': hasStream && !fmRaw,
+                '.fm_tcp_fragment': hasStream && !fmRaw && fmTcp === 'fragment',
+                '.fm_tcp_sudoku': hasStream && !fmRaw && fmTcp === 'sudoku',
+                '.fm_tcp_json': hasStream && !fmRaw && (fmTcp === 'header-custom' || fmTcp === 'xmc'),
+                '.fm_udp': hasStream && !fmRaw,
+                '.fm_udp_salamander': hasStream && !fmRaw && fmUdp === 'salamander',
+                '.fm_udp_sudoku': hasStream && !fmRaw && fmUdp === 'sudoku',
+                '.fm_udp_udphop': hasStream && !fmRaw && fmUdp === 'udphop',
+                '.fm_udp_mkcp_legacy': hasStream && !fmRaw && fmUdp === 'mkcp-legacy',
+                '.fm_udp_xicmp': hasStream && !fmRaw && fmUdp === 'xicmp',
+                '.fm_udp_realm': hasStream && !fmRaw && fmUdp === 'realm',
+                '.fm_udp_json': hasStream && !fmRaw && ['noise', 'xdns', 'header-custom'].indexOf(fmUdp) !== -1,
+                '.fm_quic': hasStream && !fmRaw,
+                '.fm_quic_bbr': hasStream && !fmRaw && fmQuic === 'bbr',
+                '.fm_quic_brutal': hasStream && !fmRaw && (fmQuic === 'brutal' || fmQuic === 'force-brutal'),
+                '.fm_quic_window': hasStream && !fmRaw
             };
             for (var sel in view) {
                 if (Object.prototype.hasOwnProperty.call(view, sel)) {
@@ -1033,6 +1064,10 @@
         }
 
         $('#node\\.protocol, #node\\.network, #node\\.security, #node\\.encryption, #node\\.xdrive_service').on('change', toggleNodeDialogFields);
+        $('#node\\.fm_tcp_type, #node\\.fm_udp_type, #node\\.fm_quic_congestion').on('change', toggleNodeDialogFields);
+        // Typing into the raw override hides the structured FinalMask rows,
+        // so react to every keystroke (and to a programmatic .val() change).
+        $('#node\\.finalmask').on('input change', toggleNodeDialogFields);
 
         var nodeLatencyCache = {};
         var nodeTrafficCache = {};
@@ -1553,6 +1588,37 @@
             $('#node\\.send_through').val(data.send_through || '');
             $('#node\\.mux_concurrency').val(data.mux_concurrency || '');
             $('#node\\.finalmask').val(prettyJson(data.finalmask));
+            // An imported link never carries FinalMask, so reset every
+            // structured field instead of leaking values from a node that
+            // was opened before.
+            var fmText = [
+                'fm_tcp_fragment_lengths', 'fm_tcp_fragment_delays', 'fm_tcp_fragment_max_split',
+                'fm_tcp_sudoku_password', 'fm_tcp_sudoku_ascii', 'fm_tcp_sudoku_padding_min',
+                'fm_tcp_sudoku_padding_max', 'fm_tcp_sudoku_tables', 'fm_tcp_extra_json',
+                'fm_udp_salamander_password', 'fm_udp_salamander_packet_size',
+                'fm_udp_sudoku_password', 'fm_udp_sudoku_ascii', 'fm_udp_sudoku_padding_min',
+                'fm_udp_sudoku_padding_max', 'fm_udp_sudoku_tables',
+                'fm_udp_udphop_interval', 'fm_udp_udphop_remote_ips', 'fm_udp_udphop_remote_ports',
+                'fm_udp_mkcp_value', 'fm_udp_xicmp_ips',
+                'fm_udp_realm_url', 'fm_udp_realm_stun_servers', 'fm_udp_realm_ip_mode',
+                'fm_udp_extra_json',
+                'fm_quic_brutal_up', 'fm_quic_brutal_down', 'fm_quic_max_idle_timeout',
+                'fm_quic_keep_alive_period', 'fm_quic_max_incoming_streams',
+                'fm_quic_init_stream_window', 'fm_quic_max_stream_window',
+                'fm_quic_init_conn_window', 'fm_quic_max_conn_window'
+            ];
+            $.each(fmText, function (i, id) {
+                $('#node\\.' + id).val('');
+            });
+            $('#node\\.fm_tcp_fragment_packets').val('tlshello');
+            $('#node\\.fm_udp_udphop_mode').val('intervallocal');
+            $('#node\\.fm_udp_xicmp_dgram').prop('checked', false);
+            $('#node\\.fm_quic_disable_pmtud').prop('checked', false);
+            setSelectValue($('#node\\.fm_tcp_type'), 'none');
+            setSelectValue($('#node\\.fm_udp_type'), 'none');
+            setSelectValue($('#node\\.fm_udp_mkcp_header'), 'none');
+            setSelectValue($('#node\\.fm_quic_congestion'), 'auto');
+            setSelectValue($('#node\\.fm_quic_bbr_profile'), 'auto');
 
             // WireGuard
             $('#node\\.wg_secret_key').val(data.wg_secret_key);
@@ -1636,6 +1702,15 @@
             ];
             expertIds.forEach(function (id) {
                 $('[id="' + id + '"]').addClass('expert_only');
+            });
+            // Every structured FinalMask field is advanced. The sections
+            // themselves carry no field id, so mark the wrappers by their
+            // header label and hide them with the same toggle.
+            $('#frm_DialogNode :input[id^="node.fm_"]').addClass('expert_only');
+            $('#frm_DialogNode .form-search-section').each(function () {
+                if (/^FinalMask/i.test(sectionDetails($(this)).label)) {
+                    $(this).addClass('expert_section');
+                }
             });
             var saved = localStorage.getItem('osxray_show_advanced') === '1';
             $('#DialogNode').toggleClass('optional-hidden', !saved);
@@ -2560,6 +2635,8 @@
                 ['#node\\.xhttp_extra', 'XHTTP Extra', 'object'],
                 ['#node\\.xdrive_extra', 'XDRIVE Extra', 'object'],
                 ['#node\\.finalmask', 'Final Mask', 'object'],
+                ['#node\\.fm_tcp_extra_json', 'FinalMask TCP Settings', 'object'],
+                ['#node\\.fm_udp_extra_json', 'FinalMask UDP Settings', 'object'],
                 ['#node\\.custom_stream_json', 'Custom Stream JSON', 'object'],
                 ['#node\\.http_headers', 'HTTP Headers', 'object'],
                 ['#node\\.freedom_final_rules', 'Final Rules', 'array'],

@@ -15,6 +15,141 @@
 {%- endif -%}
 ]
 {%- endmacro -%}
+{#- FinalMask helpers: the dialog edits one mask per direction plus the QUIC
+    tuning, and the raw "finalmask" value still wins when it is not empty.
+    Int32Range values ("3-7" or "30") are emitted as strings because that is
+    what the core's Int32Range parser accepts; lists take commas, semicolons
+    or whitespace. -#}
+{% macro fm_items(value) -%}
+{%- set _s = value | string -%}
+{%- set _s = _s.replace(';', ',') -%}
+{%- set _s = _s.replace('\n', ',') -%}
+{%- set _s = _s.replace('\r', ',') -%}
+{%- set _s = _s.replace(' ', ',') -%}
+{%- set _out = [] -%}
+{%- for _v in _s.split(',') -%}
+{%-   set _t = _v | trim -%}
+{%-   if _t != '' -%}{%- do _out.append(_t | tojson) -%}{%- endif -%}
+{%- endfor -%}
+{{ _out | join(', ') }}
+{%- endmacro %}
+{% macro fm_sudoku(password, ascii, pmin, pmax, tables) -%}
+{%- set s = [] -%}
+{%- set v = password | string | trim -%}
+{%- if v != '' -%}{%- do s.append('"password": ' ~ (v | tojson)) -%}{%- endif -%}
+{%- set v = ascii | string | trim -%}
+{%- if v != '' -%}{%- do s.append('"ascii": ' ~ (v | tojson)) -%}{%- endif -%}
+{%- set v = pmin | string | trim -%}
+{%- if v != '' -%}{%- do s.append('"paddingMin": ' ~ (v | int)) -%}{%- endif -%}
+{%- set v = pmax | string | trim -%}
+{%- if v != '' -%}{%- do s.append('"paddingMax": ' ~ (v | int)) -%}{%- endif -%}
+{%- set v = tables | string | trim -%}
+{%- if v != '' -%}{%- do s.append('"customTables": [' ~ (fm_items(v) | trim) ~ ']') -%}{%- endif -%}
+{{ s | join(', ') }}
+{%- endmacro %}
+{% macro finalmask_block(node) -%}
+{%- set parts = [] -%}
+{%- set tcp_masks = [] -%}
+{%- set tcp = node.fm_tcp_type | default('none') | string -%}
+{%- if tcp == 'fragment' -%}
+{%-   set s = [] -%}
+{%-   set v = node.fm_tcp_fragment_packets | default('tlshello') | string | trim -%}
+{%-   if v != '' -%}{%- do s.append('"packets": ' ~ (v | tojson)) -%}{%- endif -%}
+{%-   set v = node.fm_tcp_fragment_lengths | default('') | string | trim -%}
+{%-   if v != '' -%}{%- do s.append('"lengths": [' ~ (fm_items(v) | trim) ~ ']') -%}{%- endif -%}
+{%-   set v = node.fm_tcp_fragment_delays | default('') | string | trim -%}
+{%-   if v != '' -%}{%- do s.append('"delays": [' ~ (fm_items(v) | trim) ~ ']') -%}{%- endif -%}
+{%-   set v = node.fm_tcp_fragment_max_split | default('') | string | trim -%}
+{%-   if v != '' -%}{%- do s.append('"maxSplit": ' ~ (v | tojson)) -%}{%- endif -%}
+{%-   do tcp_masks.append('{"type": "fragment", "settings": { ' ~ (s | join(', ')) ~ ' } }') -%}
+{%- elif tcp == 'sudoku' -%}
+{%-   do tcp_masks.append('{"type": "sudoku", "settings": { ' ~ (fm_sudoku(node.fm_tcp_sudoku_password, node.fm_tcp_sudoku_ascii, node.fm_tcp_sudoku_padding_min, node.fm_tcp_sudoku_padding_max, node.fm_tcp_sudoku_tables) | trim) ~ ' } }') -%}
+{%- elif tcp in ['header-custom', 'xmc'] -%}
+{%-   set v = node.fm_tcp_extra_json | default('') | string | trim -%}
+{%-   if v != '' -%}
+{%-     do tcp_masks.append('{"type": ' ~ (tcp | tojson) ~ ', "settings": { ' ~ (header_object(v) | trim) ~ ' } }') -%}
+{%-   endif -%}
+{%- endif -%}
+{%- set udp_masks = [] -%}
+{%- set udp = node.fm_udp_type | default('none') | string -%}
+{%- if udp == 'salamander' -%}
+{%-   set s = [] -%}
+{%-   set v = node.fm_udp_salamander_password | default('') | string | trim -%}
+{%-   if v != '' -%}{%- do s.append('"password": ' ~ (v | tojson)) -%}{%- endif -%}
+{%-   set v = node.fm_udp_salamander_packet_size | default('') | string | trim -%}
+{%-   if v != '' -%}{%- do s.append('"packetSize": ' ~ (v | tojson)) -%}{%- endif -%}
+{%-   do udp_masks.append('{"type": "salamander", "settings": { ' ~ (s | join(', ')) ~ ' } }') -%}
+{%- elif udp == 'sudoku' -%}
+{%-   do udp_masks.append('{"type": "sudoku", "settings": { ' ~ (fm_sudoku(node.fm_udp_sudoku_password, node.fm_udp_sudoku_ascii, node.fm_udp_sudoku_padding_min, node.fm_udp_sudoku_padding_max, node.fm_udp_sudoku_tables) | trim) ~ ' } }') -%}
+{%- elif udp == 'udphop' -%}
+{%-   set s = [] -%}
+{%-   set v = node.fm_udp_udphop_mode | default('intervallocal') | string | trim -%}
+{%-   if v != '' -%}{%- do s.append('"mode": ' ~ (v | tojson)) -%}{%- endif -%}
+{%-   set v = node.fm_udp_udphop_interval | default('') | string | trim -%}
+{%-   if v != '' -%}{%- do s.append('"interval": ' ~ (v | tojson)) -%}{%- endif -%}
+{%-   set v = node.fm_udp_udphop_remote_ips | default('') | string | trim -%}
+{%-   if v != '' -%}{%- do s.append('"remoteIPs": [' ~ (fm_items(v) | trim) ~ ']') -%}{%- endif -%}
+{%-   set v = node.fm_udp_udphop_remote_ports | default('') | string | trim -%}
+{%-   if v != '' -%}{%- do s.append('"remotePorts": ' ~ ((v | replace(' ', ',')) | tojson)) -%}{%- endif -%}
+{%-   do udp_masks.append('{"type": "udphop", "settings": { ' ~ (s | join(', ')) ~ ' } }') -%}
+{%- elif udp == 'mkcp-legacy' -%}
+{%-   set s = [] -%}
+{%-   set v = node.fm_udp_mkcp_header | default('none') | string | trim -%}
+{%-   if v != '' and v != 'none' -%}{%- do s.append('"header": ' ~ (v | tojson)) -%}{%- endif -%}
+{%-   set v = node.fm_udp_mkcp_value | default('') | string | trim -%}
+{%-   if v != '' -%}{%- do s.append('"value": ' ~ (v | tojson)) -%}{%- endif -%}
+{%-   do udp_masks.append('{"type": "mkcp-legacy", "settings": { ' ~ (s | join(', ')) ~ ' } }') -%}
+{%- elif udp == 'xicmp' -%}
+{%-   set s = ['"dgram": ' ~ ('true' if node.fm_udp_xicmp_dgram == '1' else 'false')] -%}
+{%-   set v = node.fm_udp_xicmp_ips | default('') | string | trim -%}
+{%-   if v != '' -%}{%- do s.append('"ips": [' ~ (fm_items(v) | trim) ~ ']') -%}{%- endif -%}
+{%-   do udp_masks.append('{"type": "xicmp", "settings": { ' ~ (s | join(', ')) ~ ' } }') -%}
+{%- elif udp == 'realm' -%}
+{%-   set s = [] -%}
+{%-   set v = node.fm_udp_realm_url | default('') | string | trim -%}
+{%-   if v != '' -%}{%- do s.append('"url": ' ~ (v | tojson)) -%}{%- endif -%}
+{%-   set v = node.fm_udp_realm_stun_servers | default('') | string | trim -%}
+{%-   if v != '' -%}{%- do s.append('"stunServers": [' ~ (fm_items(v) | trim) ~ ']') -%}{%- endif -%}
+{%-   set v = node.fm_udp_realm_ip_mode | default('') | string | trim -%}
+{%-   if v != '' -%}{%- do s.append('"ipMode": ' ~ (v | tojson)) -%}{%- endif -%}
+{%-   do udp_masks.append('{"type": "realm", "settings": { ' ~ (s | join(', ')) ~ ' } }') -%}
+{%- elif udp in ['noise', 'xdns', 'header-custom'] -%}
+{%-   set v = node.fm_udp_extra_json | default('') | string | trim -%}
+{%-   if v != '' -%}
+{%-     do udp_masks.append('{"type": ' ~ (udp | tojson) ~ ', "settings": { ' ~ (header_object(v) | trim) ~ ' } }') -%}
+{%-   endif -%}
+{%- endif -%}
+{%- if tcp_masks | length > 0 -%}{%- do parts.append('"tcp": [' ~ (tcp_masks | join(', ')) ~ ']') -%}{%- endif -%}
+{%- if udp_masks | length > 0 -%}{%- do parts.append('"udp": [' ~ (udp_masks | join(', ')) ~ ']') -%}{%- endif -%}
+{%- set q = [] -%}
+{%- set v = node.fm_quic_congestion | default('auto') | string | trim -%}
+{%- if v != '' and v != 'auto' -%}{%- do q.append('"congestion": ' ~ (v | tojson)) -%}{%- endif -%}
+{%- set v = node.fm_quic_bbr_profile | default('auto') | string | trim -%}
+{%- if v != '' and v != 'auto' -%}{%- do q.append('"bbrProfile": ' ~ (v | tojson)) -%}{%- endif -%}
+{%- set v = node.fm_quic_brutal_up | default('') | string | trim -%}
+{%- if v != '' -%}{%- do q.append('"brutalUp": ' ~ (v | tojson)) -%}{%- endif -%}
+{%- set v = node.fm_quic_brutal_down | default('') | string | trim -%}
+{%- if v != '' -%}{%- do q.append('"brutalDown": ' ~ (v | tojson)) -%}{%- endif -%}
+{%- set v = node.fm_quic_max_idle_timeout | default('') | string | trim -%}
+{%- if v != '' -%}{%- do q.append('"maxIdleTimeout": ' ~ (v | int)) -%}{%- endif -%}
+{%- set v = node.fm_quic_keep_alive_period | default('') | string | trim -%}
+{%- if v != '' -%}{%- do q.append('"keepAlivePeriod": ' ~ (v | int)) -%}{%- endif -%}
+{%- set v = node.fm_quic_max_incoming_streams | default('') | string | trim -%}
+{%- if v != '' -%}{%- do q.append('"maxIncomingStreams": ' ~ (v | int)) -%}{%- endif -%}
+{%- set v = node.fm_quic_init_stream_window | default('') | string | trim -%}
+{%- if v != '' -%}{%- do q.append('"initStreamReceiveWindow": ' ~ (v | int)) -%}{%- endif -%}
+{%- set v = node.fm_quic_max_stream_window | default('') | string | trim -%}
+{%- if v != '' -%}{%- do q.append('"maxStreamReceiveWindow": ' ~ (v | int)) -%}{%- endif -%}
+{%- set v = node.fm_quic_init_conn_window | default('') | string | trim -%}
+{%- if v != '' -%}{%- do q.append('"initConnectionReceiveWindow": ' ~ (v | int)) -%}{%- endif -%}
+{%- set v = node.fm_quic_max_conn_window | default('') | string | trim -%}
+{%- if v != '' -%}{%- do q.append('"maxConnectionReceiveWindow": ' ~ (v | int)) -%}{%- endif -%}
+{%- if node.fm_quic_disable_pmtud == '1' -%}{%- do q.append('"disablePathMTUDiscovery": true') -%}{%- endif -%}
+{%- if q | length > 0 -%}{%- do parts.append('"quicParams": { ' ~ (q | join(', ')) ~ ' }') -%}{%- endif -%}
+{%- if parts | length > 0 -%}
+{ {{ parts | join(', ') }} }
+{%- endif -%}
+{%- endmacro %}
 {% macro outbound_block(node, tag) -%}
 {%   set proto = node.protocol or '' %}
     {
@@ -284,8 +419,12 @@
         ,"concurrency": {{ node.mux_concurrency | int }}
 {%       endif %}
       }{% endif %}
-{%       if node.finalmask %}
-      ,"finalmask": { {{ header_object(node.finalmask) }} }
+{%       set _fm_raw = node.finalmask | default('') | string | trim %}
+{%       set _fm_struct = finalmask_block(node) | trim %}
+{%       if _fm_raw != '' %}
+      ,"finalmask": { {{ header_object(_fm_raw) }} }
+{%       elif _fm_struct != '' %}
+      ,"finalmask": {{ _fm_struct }}
 {%       endif %}
 {%   elif proto == 'hysteria' %}
       },
