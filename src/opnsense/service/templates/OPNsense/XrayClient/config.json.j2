@@ -260,8 +260,10 @@
 {%   elif proto == 'masque' %}
       "settings": {
         "address": {{ (node.address or '') | tojson }},
-        "port": {{ node.port | int }},
-        "remoteDNS": {{ json_array(node.masque_remote_dns, '"1.1.1.1", "1.0.0.1"') }}
+        "port": {{ node.port | int }}
+{%     if node.masque_mode != 'warp' %}
+        ,"remoteDNS": {{ json_array(node.masque_remote_dns, '"1.1.1.1", "1.0.0.1"') }}
+{%     endif %}
 {%   elif proto == 'freedom' %}
       "settings": {
         "userLevel": 0
@@ -466,6 +468,15 @@
         "security": "tls"
         {{ tls_settings(node) }}
         ,"masqueSettings": {
+{%     if node.masque_mode == 'warp' %}
+          "warp": {
+            "privateKey": {{ (node.masque_warp_private_key or '') | tojson }}
+{%       if (node.masque_warp_public_key | default('') | string | trim) != '' %}
+            ,"publicKey": {{ (node.masque_warp_public_key | string | trim) | tojson }}
+{%       endif %}
+            ,"address": {{ json_array(node.masque_warp_address, '[]') }}
+          }
+{%     else %}
           "host": {{ (node.masque_host or '') | tojson }},
           "path": {{ (node.masque_path or '/.well-known/masque/ip/{target}/{ipproto}/') | tojson }}
 {%     if node.auth_user %}
@@ -476,6 +487,7 @@
 {%     endif %}
 {%     if node.http_headers %}
           ,"headers": { {{ header_object(node.http_headers) }} }
+{%     endif %}
 {%     endif %}
         }
 {%-    set _fm_raw = node.finalmask | default('') | string | trim %}

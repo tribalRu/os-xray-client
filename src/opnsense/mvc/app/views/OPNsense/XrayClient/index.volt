@@ -975,6 +975,8 @@
             var fmTcp = $('#node\\.fm_tcp_type').val() || 'none';
             var fmUdp = $('#node\\.fm_udp_type').val() || 'none';
             var fmQuic = $('#node\\.fm_quic_congestion').val() || 'auto';
+            // MASQUE: a custom CONNECT-IP server or the built-in Cloudflare WARP client.
+            var masqueWarp = isMasque && ($('#node\\.masque_mode').val() === 'warp');
             // TCP masks belong to TCP-based transports, UDP masks and the QUIC
             // parameters to QUIC-based ones: Hysteria, MASQUE over HTTP/3
             // (no h2 in ALPN) and XHTTP over h3.
@@ -988,7 +990,7 @@
             var view = {
                 '.proto_endpoint': hasEndpoint,
                 '.proto_password': hasPassword,
-                '.proto_auth': hasAuth,
+                '.proto_auth': hasAuth && !masqueWarp,
                 '.proto_vless': proto === 'vless',
                 '.proto_vmess': proto === 'vmess',
                 '.proto_shadowsocks': proto === 'shadowsocks',
@@ -1000,7 +1002,9 @@
                 '.proto_hysteria': isHysteria,
                 '.proto_masque': isMasque,
                 '.proto_vless_enc': proto === 'vless' && ($('#node\\.encryption').val() || 'none').toLowerCase() !== 'none',
-                '.proto_http_masque': proto === 'http' || isMasque,
+                '.proto_http_masque': proto === 'http' || (isMasque && !masqueWarp),
+                '.masque_custom': isMasque && !masqueWarp,
+                '.masque_warp': masqueWarp,
                 '.proto_transport': hasTransport,
                 '.transport_selector': hasStream,
                 '.stream_sockopt': hasStream,
@@ -1075,6 +1079,7 @@
         }
 
         $('#node\\.protocol, #node\\.network, #node\\.security, #node\\.encryption, #node\\.xdrive_service, #node\\.alpn').on('change', toggleNodeDialogFields);
+        $('#node\\.masque_mode').on('change', toggleNodeDialogFields);
         $('#node\\.fm_tcp_type, #node\\.fm_udp_type, #node\\.fm_quic_congestion').on('change', toggleNodeDialogFields);
         // Typing into the raw override hides the structured FinalMask rows,
         // so react to every keystroke (and to a programmatic .val() change).
@@ -1688,6 +1693,10 @@
             $('#node\\.masque_host').val(data.masque_host);
             $('#node\\.masque_path').val(data.masque_path);
             fillTokenizeField('#node\\.masque_remote_dns', data.masque_remote_dns);
+            // An imported link never carries WARP keys.
+            setSelectValue($('#node\\.masque_mode'), 'custom');
+            $('#node\\.masque_warp_private_key, #node\\.masque_warp_public_key').val('');
+            clearTokenizeField('#node\\.masque_warp_address');
 
             $('#node\\.mux_enabled').prop('checked', data.mux_enabled == '1');
 
@@ -1773,6 +1782,9 @@
                 if (st.proto === 'hysteria') {
                     req.push('node.hysteria_auth');
                 }
+                if (st.proto === 'masque' && st.masqueMode === 'warp') {
+                    req.push('node.masque_warp_private_key', 'node.masque_warp_address');
+                }
                 if (st.proto === 'loopback') {
                     req.push('node.loopback_inbound_tag');
                 }
@@ -1798,7 +1810,8 @@
                     proto: $('#node\\.protocol').val(),
                     net: $('#node\\.network').val(),
                     sec: $('#node\\.security').val(),
-                    svc: $('#node\\.xdrive_service').val() || 'google-drive'
+                    svc: $('#node\\.xdrive_service').val() || 'google-drive',
+                    masqueMode: $('#node\\.masque_mode').val() || 'custom'
                 });
                 $('#frm_DialogNode .showhelp').each(function () {
                     var $a = $(this);
@@ -2699,6 +2712,175 @@
             }
             return null;
         }
+
+        // ---- MASQUE / Cloudflare WARP helpers ----
+        // MASQUEWARP_BEGIN
+        var WARP_MASQUE_SNI = 'consumer-masque.cloudflareclient.com';
+        var WARP_MASQUE_ENDPOINTS = {
+            warp: { v4: '162.159.198.2', v6: '2606:4700:103::2' },
+            warp_plus: { v4: '162.159.199.2', v6: '2606:4700:104::2' },
+            zero_trust: { v4: '162.159.197.2', v6: '2606:4700:102::2' }
+        };
+
+        // PEM text (or the base64 of PEM text) -> bare base64 body; bare
+        // base64 is returned as it is.
+        function warpPemToBase64(text) {
+            var t = String(text || '').trim();
+            if (t === '') {
+                return '';
+            }
+            if (t.indexOf('-----BEGIN') === -1 && /^[A-Za-z0-9+\/=\s]+$/.test(t)) {
+                try {
+                    var decoded = (typeof atob === 'function') ? atob(t.replace(/\s+/g, '')) : '';
+                    if (decoded.indexOf('-----BEGIN') !== -1) {
+                        t = decoded;
+                    }
+                } catch (e) {
+                    /* not base64 text: keep as is */
+                }
+            }
+            return t.replace(/-----[^-]+-----/g, '').replace(/\s+/g, '');
+        }
+
+        // Reads the config.json written by "usque register" and returns the
+        // WARP MASQUE fields; throws an Error with a readable message.
+        function warpImportUsque(text) {
+            var cfg;
+            try {
+                cfg = JSON.parse(String(text || ''));
+            } catch (e) {
+                throw new Error('This is not valid JSON.');
+            }
+            if (cfg === null || typeof cfg !== 'object' || Array.isArray(cfg)) {
+                throw new Error('Expected the JSON object of the usque config.');
+            }
+            var out = { privateKey: warpPemToBase64(cfg.private_key), publicKey: warpPemToBase64(cfg.endpoint_pub_key),
+                        addresses: [], address: '' };
+            if (out.privateKey === '') {
+                throw new Error('The config has no private_key.');
+            }
+            if (typeof cfg.ipv4 === 'string' && cfg.ipv4 !== '') {
+                out.addresses.push(cfg.ipv4.indexOf('/') === -1 ? cfg.ipv4 + '/32' : cfg.ipv4);
+            }
+            if (typeof cfg.ipv6 === 'string' && cfg.ipv6 !== '') {
+                out.addresses.push(cfg.ipv6.indexOf('/') === -1 ? cfg.ipv6 + '/128' : cfg.ipv6);
+            }
+            if (typeof cfg.endpoint_v4 === 'string' && cfg.endpoint_v4 !== '') {
+                out.address = cfg.endpoint_v4.replace(/:\d+$/, '');
+            }
+            return out;
+        }
+        // MASQUEWARP_END
+
+        (function installMasqueWarpTools() {
+            var $row = $('#node\\.masque_warp_address').closest('tr, .form-group');
+            if ($row.length === 0 || $('#masque_warp_tools').length > 0) {
+                return;
+            }
+            var isTr = $row.is('tr');
+            var $tools = $(isTr ? '<tr id="masque_warp_tools" class="masque_warp"><td colspan="3"></td></tr>'
+                                : '<div id="masque_warp_tools" class="form-group masque_warp"></div>');
+            var $cell = isTr ? $tools.find('td') : $tools;
+            var $acc = $('<select id="masque_warp_account" class="form-control" style="width: auto; display: inline-block;"></select>')
+                .append('<option value="">Endpoint for account type…</option>')
+                .append('<option value="warp">WARP</option>')
+                .append('<option value="warp_plus">WARP+</option>')
+                .append('<option value="zero_trust">Zero Trust</option>');
+            var $fetch = $('<button id="btn_masque_warp_edge" type="button" class="btn btn-xs btn-info" style="margin-left: 6px;">' +
+                '<i class="fa fa-key"></i> <b>Fetch edge key</b></button>');
+            var $status = $('<span id="masque_warp_status" class="text-muted" style="margin-left: 8px; font-size: 12px;"></span>');
+            var $imp = $('<textarea id="masque_warp_usque" class="form-control" rows="3" style="margin-top: 8px;" ' +
+                'placeholder="Paste the config.json written by usque register here"></textarea>');
+            var $impBtn = $('<button id="btn_masque_warp_import" type="button" class="btn btn-xs btn-default" style="margin-top: 6px;">' +
+                '<i class="fa fa-download"></i> Import from usque config</button>');
+            $cell.append($acc).append($fetch).append($status).append($imp).append($impBtn);
+            $row.after($tools);
+
+            function say(cls, text) {
+                $status.removeClass('text-muted text-danger text-success').addClass(cls).text(text);
+            }
+
+            $acc.on('change', function () {
+                var ep = WARP_MASQUE_ENDPOINTS[this.value];
+                if (!ep) {
+                    return;
+                }
+                $('#node\\.address').val(ep.v4);
+                $('#node\\.port').val('443');
+                if ($.trim($('#node\\.sni').val() || '') === '') {
+                    $('#node\\.sni').val(WARP_MASQUE_SNI);
+                }
+                var alpn = $('#node\\.alpn').val() || [];
+                if (alpn.length === 0 && $('#node\\.alpn').length) {
+                    $('#node\\.alpn').val(['h2']);
+                    if ($.fn.selectpicker) {
+                        $('#node\\.alpn').selectpicker('refresh');
+                    }
+                    $('#node\\.alpn').trigger('change');
+                }
+                this.value = '';
+                if ($.fn.selectpicker) {
+                    $(this).selectpicker('refresh');
+                }
+                say('text-muted', 'Endpoint set to ' + ep.v4 + ':443 (IPv6 ' + ep.v6 + '). The edge key belongs to this IP: fetch it again after any change.');
+            });
+
+            $fetch.on('click', function () {
+                var addr = $.trim($('#node\\.address').val() || '');
+                if (addr === '') {
+                    say('text-danger', 'Set the endpoint address first (or pick an account type).');
+                    return;
+                }
+                $fetch.prop('disabled', true);
+                say('text-muted', 'Reading the edge certificate…');
+                $.ajax({
+                    url: '/api/xrayclient/service/warpEdgeKey',
+                    type: 'POST',
+                    timeout: 30000,
+                    data: { address: addr, port: $.trim($('#node\\.port').val() || '443'),
+                            sni: $.trim($('#node\\.sni').val() || '') || WARP_MASQUE_SNI },
+                    success: function (data) {
+                        $fetch.prop('disabled', false);
+                        if (data && data.status === 'ok' && data.public_key) {
+                            $('#node\\.masque_warp_public_key').val(data.public_key);
+                            say('text-success', 'Edge public key filled in. Save the node to apply.');
+                        } else {
+                            say('text-danger', 'Failed: ' + (data && data.message ? data.message : 'unknown error'));
+                        }
+                    },
+                    error: function (xhr, status) {
+                        $fetch.prop('disabled', false);
+                        say('text-danger', status === 'timeout' ? 'Request timed out.' : 'Request failed.');
+                    }
+                });
+            });
+
+            $impBtn.on('click', function () {
+                var res;
+                try {
+                    res = warpImportUsque($imp.val());
+                } catch (e) {
+                    say('text-danger', e.message);
+                    return;
+                }
+                $('#node\\.masque_warp_private_key').val(res.privateKey);
+                if (res.publicKey) {
+                    $('#node\\.masque_warp_public_key').val(res.publicKey);
+                }
+                if (res.addresses.length) {
+                    setTokens('masque_warp_address', res.addresses);
+                }
+                if (res.address && $.trim($('#node\\.address').val() || '') === '') {
+                    $('#node\\.address').val(res.address);
+                    $('#node\\.port').val('443');
+                }
+                if ($.trim($('#node\\.sni').val() || '') === '') {
+                    $('#node\\.sni').val(WARP_MASQUE_SNI);
+                }
+                $imp.val('');
+                say('text-success', 'Imported the device key and addresses. Save the node to apply.');
+            });
+        })();
 
         // Capture phase: runs before the bootgrid save handler; a bad raw
         // JSON field aborts the save and highlights the offending input.

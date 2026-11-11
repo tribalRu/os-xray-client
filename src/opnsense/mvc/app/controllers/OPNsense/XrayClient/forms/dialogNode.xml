@@ -319,24 +319,53 @@
         <style>proto_masque</style>
     </field>
     <field>
+        <id>node.masque_mode</id>
+        <label>MASQUE Mode</label>
+        <type>dropdown</type>
+        <style>selectpicker proto_masque</style>
+        <help>Custom MASQUE server: any CONNECT-IP server (authority, path, optional credentials). Cloudflare WARP: the built-in WARP client (a P-256 device key, the edge public key and the addresses assigned at registration). The WARP keys cannot be the WireGuard keys of a WARP WireGuard node.</help>
+    </field>
+    <field>
+        <id>node.masque_warp_private_key</id>
+        <label>WARP Private Key (P-256)</label>
+        <type>text</type>
+        <style>masque_warp</style>
+        <help>Device private key, base64 DER (PKCS#8 or SEC 1) without PEM header lines. Xray derives the client certificate for mTLS from it. The device must be registered with MASQUE support and warp_enabled, otherwise the edge answers access denied.</help>
+    </field>
+    <field>
+        <id>node.masque_warp_public_key</id>
+        <label>WARP Edge Public Key</label>
+        <type>text</type>
+        <style>masque_warp</style>
+        <help>Public key (SubjectPublicKeyInfo, base64) of the edge certificate; the connection is pinned to it. Use Fetch edge key below, or leave it empty and pin the certificate with Pinned Peer Cert SHA-256 or Verify Peer Cert By Name instead (then this key is ignored). The key belongs to the endpoint IP: if you change the address, fetch it again.</help>
+    </field>
+    <field>
+        <id>node.masque_warp_address</id>
+        <label>WARP Device Addresses</label>
+        <type>select_multiple</type>
+        <style>tokenize masque_warp</style>
+        <allownew>true</allownew>
+        <help>The IPv4 /32 and IPv6 /128 addresses assigned to the device at registration, e.g. 172.16.0.2/32 and 2606:4700:110:8a36::2/128.</help>
+    </field>
+    <field>
         <id>node.masque_host</id>
         <label>MASQUE Authority (:authority)</label>
         <type>text</type>
-        <style>proto_masque</style>
+        <style>masque_custom</style>
         <help>Optional CONNECT-IP :authority. Priority: host &gt; SNI &gt; server address.</help>
     </field>
     <field>
         <id>node.masque_path</id>
         <label>MASQUE Path Template</label>
         <type>text</type>
-        <style>proto_masque</style>
+        <style>masque_custom</style>
         <help>RFC 9484 path, default /.well-known/masque/ip/{target}/{ipproto}/.</help>
     </field>
     <field>
         <id>node.masque_remote_dns</id>
         <label>Remote DNS Servers</label>
         <type>select_multiple</type>
-        <style>tokenize proto_masque</style>
+        <style>tokenize masque_custom</style>
         <allownew>true</allownew>
         <help>DNS servers used inside the MASQUE tunnel (IP addresses only).</help>
     </field>

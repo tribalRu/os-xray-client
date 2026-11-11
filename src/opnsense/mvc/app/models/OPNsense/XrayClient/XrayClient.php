@@ -167,6 +167,36 @@ class XrayClient extends BaseModel
             }
         }
 
+        // MASQUE in Cloudflare WARP mode: the core needs the device key and
+        // the assigned addresses, and either the edge public key or another
+        // way to pin/verify the edge certificate.
+        foreach ($this->nodes->node->iterateItems() as $node) {
+            if ((string)$node->enabled !== '1' || (string)$node->protocol !== 'masque'
+                || (string)$node->masque_mode !== 'warp') {
+                continue;
+            }
+            $required = [
+                'masque_warp_private_key' => gettext('WARP Private Key'),
+                'masque_warp_address' => gettext('WARP Device Addresses'),
+            ];
+            foreach ($required as $name => $label) {
+                if (trim((string)$node->$name) === '') {
+                    $messages->appendMessage(new Message(
+                        sprintf(gettext('%s is required for MASQUE in Cloudflare WARP mode.'), $label),
+                        $node->$name->__reference
+                    ));
+                }
+            }
+            if (trim((string)$node->masque_warp_public_key) === ''
+                && trim((string)$node->tls_pinned_peer_cert_sha256) === ''
+                && trim((string)$node->tls_verify_peer_cert_by_name) === '') {
+                $messages->appendMessage(new Message(
+                    gettext('Set the WARP Edge Public Key, or pin the edge certificate with Pinned Peer Cert SHA-256 or Verify Peer Cert By Name.'),
+                    $node->masque_warp_public_key->__reference
+                ));
+            }
+        }
+
         // Raw JSON fields are spliced into config.json by the template, so a
         // malformed value would only surface as an `xray run -test` failure.
         $rawFields = [
