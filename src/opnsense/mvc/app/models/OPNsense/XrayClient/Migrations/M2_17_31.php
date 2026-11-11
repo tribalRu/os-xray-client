@@ -20,6 +20,7 @@
  *    ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  *    CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  *    SOFTWARE.
+ */
 
 namespace OPNsense\XrayClient\Migrations;
 
@@ -45,11 +46,20 @@ class M2_17_31 extends BaseModelMigration
         if ($name === '') {
             return $name;
         }
-        if (strpos($name, 'tun_') === 0 && strlen($name) >= 5) {
+        // Already valid: tun_ plus 1..11 letters, digits or underscores.
+        if (preg_match('/^tun_[a-zA-Z0-9_]{1,11}$/', $name)) {
             return $name;
         }
-        $clean = preg_replace('/[^a-zA-Z0-9_]/', '_', $name);
-        return substr('tun_' . $clean, 0, 15);
+        // Drop a leading tun_ so the prefix is never doubled, replace
+        // characters an interface name cannot carry, and keep the total
+        // within the 15-character FreeBSD limit (tun_ + up to 11).
+        $base = strpos($name, 'tun_') === 0 ? substr($name, 4) : $name;
+        $base = preg_replace('/[^a-zA-Z0-9_]/', '_', $base);
+        $base = substr($base, 0, 11);
+        if ($base === '') {
+            return 'tun_xray0';
+        }
+        return 'tun_' . $base;
     }
 
     public function run($model)
