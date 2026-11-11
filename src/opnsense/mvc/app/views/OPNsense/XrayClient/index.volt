@@ -168,20 +168,18 @@
     .actionBar #nodes_toolbar #live_traffic_wrap {
         margin-left: 6px !important;
     }
-    /* Total traffic under the nodes table: a fixed-width, left-aligned box
-       placed at the right edge with an offset, so growing numbers extend
-       into free space instead of shifting the text start on every refresh. */
+    /* Total traffic under the nodes table: left edge shared with the hint
+       below, so the lines do not form a staircase. The box has a fixed
+       min-width so the line does not jump while the numbers change. */
     #telemetry_total_row {
-        text-align: right;
-        padding-right: 1.5em;
+        text-align: left;
         margin-top: 8px;
         min-height: 1.6em;
     }
     #telemetry_total {
         display: inline-block;
-        width: 36em;
+        min-width: 36em;
         max-width: 100%;
-        text-align: left;
         font-variant-numeric: tabular-nums;
         white-space: nowrap;
     }
