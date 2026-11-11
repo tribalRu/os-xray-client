@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>2.17.29</version>
+    <version>2.17.30</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -53,7 +53,7 @@
                 <default>tun_xray0</default>
                 <Required>Y</Required>
                 <Mask>/^tun_[a-zA-Z0-9_]{1,11}$/</Mask>
-                <ValidationMessage>Must start with "tun_" and be 5-15 characters long (letters, digits, underscore).</ValidationMessage>
+                <ValidationMessage>Must start with "tun_" (OPNsense does not see other TUN interface names) and be 5-15 characters long: letters, digits, underscore.</ValidationMessage>
             </tun_iface>
             <tun_address type="TextField">
                 <default>10.255.0.1/30</default>
@@ -1254,4 +1254,3 @@
         </maintenance>
     </items>
 </model>
-

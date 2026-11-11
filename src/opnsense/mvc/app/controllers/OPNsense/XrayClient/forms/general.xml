@@ -59,7 +59,7 @@
         <id>xrayclient.general.tun_iface</id>
         <label>TUN Interface Name</label>
         <type>text</type>
-        <help>System interface name Xray creates for the TUN inbound. Must start with "tun_" (default: tun_xray0). Visible in Interfaces -&gt; Assignments while Xray is running.</help>
+        <help>System interface name Xray creates for the TUN inbound. Must start with "tun_" (default: tun_xray0): OPNsense only recognises TUN interfaces with that prefix, so Xray would create one that never shows up in Interfaces -&gt; Assignments otherwise. 5-15 characters. Visible in Interfaces -&gt; Assignments while Xray is running.</help>
     </field>
     <field>
         <id>xrayclient.general.tun_address</id>
