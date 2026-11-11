@@ -79,6 +79,15 @@
 {%-   set v = node.fm_udp_salamander_packet_size | default('') | string | trim -%}
 {%-   if v != '' -%}{%- do s.append('"packetSize": ' ~ (v | tojson)) -%}{%- endif -%}
 {%-   do udp_masks.append('{"type": "salamander", "settings": { ' ~ (s | join(', ')) ~ ' } }') -%}
+{%- elif udp == 'gecko' -%}
+{#- Gecko is Salamander with packet fragmentation (UDP): the core builds a
+    GeckoConfig when packetSize is set, with From > 0 and To <= 2048. -#}
+{%-   set s = [] -%}
+{%-   set v = node.fm_udp_gecko_password | default('') | string | trim -%}
+{%-   if v != '' -%}{%- do s.append('"password": ' ~ (v | tojson)) -%}{%- endif -%}
+{%-   set v = node.fm_udp_gecko_packet_size | default('') | string | trim -%}
+{%-   if v != '' -%}{%- do s.append('"packetSize": ' ~ (v | tojson)) -%}{%- endif -%}
+{%-   do udp_masks.append('{"type": "salamander", "settings": { ' ~ (s | join(', ')) ~ ' } }') -%}
 {%- elif udp == 'sudoku' -%}
 {%-   do udp_masks.append('{"type": "sudoku", "settings": { ' ~ (fm_sudoku(node.fm_udp_sudoku_password, node.fm_udp_sudoku_ascii, node.fm_udp_sudoku_padding_min, node.fm_udp_sudoku_padding_max, node.fm_udp_sudoku_tables) | trim) ~ ' } }') -%}
 {%- elif udp == 'udphop' -%}
@@ -437,6 +446,13 @@
           "auth": {{ (node.hysteria_auth or '') | tojson }},
           "udpIdleTimeout": {{ (node.hysteria_udp_idle_timeout or '60') | int }}
         }
+{%- set _fm_raw = node.finalmask | default('') | string | trim %}
+{%- set _fm_struct = finalmask_block(node) | trim %}
+{%- if _fm_raw != '' %}
+        ,"finalmask": { {{ header_object(_fm_raw) }} }
+{%- elif _fm_struct != '' %}
+        ,"finalmask": {{ _fm_struct }}
+{%- endif %}
       }
 {%   elif proto == 'masque' %}
       },

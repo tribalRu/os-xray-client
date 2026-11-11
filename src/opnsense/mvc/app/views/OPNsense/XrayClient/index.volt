@@ -1020,14 +1020,17 @@
                 '.fm_tcp_fragment': hasStream && !fmRaw && fmTcp === 'fragment',
                 '.fm_tcp_sudoku': hasStream && !fmRaw && fmTcp === 'sudoku',
                 '.fm_tcp_json': hasStream && !fmRaw && (fmTcp === 'header-custom' || fmTcp === 'xmc'),
-                '.fm_udp': hasStream && !fmRaw,
-                '.fm_udp_salamander': hasStream && !fmRaw && fmUdp === 'salamander',
-                '.fm_udp_sudoku': hasStream && !fmRaw && fmUdp === 'sudoku',
-                '.fm_udp_udphop': hasStream && !fmRaw && fmUdp === 'udphop',
-                '.fm_udp_mkcp_legacy': hasStream && !fmRaw && fmUdp === 'mkcp-legacy',
-                '.fm_udp_xicmp': hasStream && !fmRaw && fmUdp === 'xicmp',
-                '.fm_udp_realm': hasStream && !fmRaw && fmUdp === 'realm',
-                '.fm_udp_json': hasStream && !fmRaw && ['noise', 'xdns', 'header-custom'].indexOf(fmUdp) !== -1,
+                // Hysteria2 (and XUDP/WireGuard) obfuscate over QUIC/UDP
+                // and honor FinalMask like any UDP transport.
+                '.fm_udp': (hasStream || isHysteria) && !fmRaw,
+                '.fm_udp_salamander': (hasStream || isHysteria) && !fmRaw && fmUdp === 'salamander',
+                '.fm_udp_gecko': (hasStream || isHysteria) && !fmRaw && fmUdp === 'gecko',
+                '.fm_udp_sudoku': (hasStream || isHysteria) && !fmRaw && fmUdp === 'sudoku',
+                '.fm_udp_udphop': (hasStream || isHysteria) && !fmRaw && fmUdp === 'udphop',
+                '.fm_udp_mkcp_legacy': (hasStream || isHysteria) && !fmRaw && fmUdp === 'mkcp-legacy',
+                '.fm_udp_xicmp': (hasStream || isHysteria) && !fmRaw && fmUdp === 'xicmp',
+                '.fm_udp_realm': (hasStream || isHysteria) && !fmRaw && fmUdp === 'realm',
+                '.fm_udp_json': (hasStream || isHysteria) && !fmRaw && ['noise', 'xdns', 'header-custom'].indexOf(fmUdp) !== -1,
                 '.fm_quic': hasStream && !fmRaw,
                 '.fm_quic_bbr': hasStream && !fmRaw && fmQuic === 'bbr',
                 '.fm_quic_brutal': hasStream && !fmRaw && (fmQuic === 'brutal' || fmQuic === 'force-brutal'),
@@ -1610,6 +1613,7 @@
                 'fm_tcp_sudoku_password', 'fm_tcp_sudoku_ascii', 'fm_tcp_sudoku_padding_min',
                 'fm_tcp_sudoku_padding_max', 'fm_tcp_sudoku_tables', 'fm_tcp_extra_json',
                 'fm_udp_salamander_password', 'fm_udp_salamander_packet_size',
+                'fm_udp_gecko_password', 'fm_udp_gecko_packet_size',
                 'fm_udp_sudoku_password', 'fm_udp_sudoku_ascii', 'fm_udp_sudoku_padding_min',
                 'fm_udp_sudoku_padding_max', 'fm_udp_sudoku_tables',
                 'fm_udp_udphop_interval', 'fm_udp_udphop_remote_ips', 'fm_udp_udphop_remote_ports',
@@ -3182,3 +3186,4 @@
         </div>
     </div>
 </div>
+

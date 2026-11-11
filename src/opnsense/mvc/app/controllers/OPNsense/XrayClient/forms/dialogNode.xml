@@ -869,7 +869,7 @@
     </field>
     <field>
         <type>header</type>
-        <label>FinalMask — UDP</label>
+        <label>FinalMask - UDP</label>
         <style>fm_udp</style>
     </field>
     <field>
@@ -877,7 +877,7 @@
         <label>UDP Mask</label>
         <type>dropdown</type>
         <style>fm_udp</style>
-        <help>Last-stage camouflage for outgoing UDP. Salamander (Hysteria 2), UDP Hop and mKCP Legacy are the common choices; Noise, XDNS and Header Custom take their settings as JSON below. Only one mask can be configured here — use the raw FinalMask JSON to chain several masks.</help>
+        <help>Last-stage camouflage for outgoing UDP, used by Hysteria 2, XUDP, WireGuard and mKCP. Salamander (Hysteria 2) and Gecko (Salamander with packet fragmentation) are password-based; UDP Hop and mKCP Legacy are the common non-password choices; Noise, XDNS and Header Custom take their settings as JSON below. Only one mask can be configured here - use the raw FinalMask JSON to chain several masks.</help>
     </field>
     <field>
         <id>node.fm_udp_salamander_password</id>
@@ -891,7 +891,21 @@
         <label>Salamander Packet Size</label>
         <type>text</type>
         <style>fm_udp_salamander</style>
-        <help>Optional fragment size or range (upper bound 2048), which enables Gecko obfuscation on QUIC long-header packets. Example: 512-1200.</help>
+        <help>Legacy alias of Gecko: when this is set, Xray enables Gecko obfuscation (Salamander with packet fragmentation). Prefer the Gecko mask below.</help>
+    </field>
+    <field>
+        <id>node.fm_udp_gecko_password</id>
+        <label>Gecko Password</label>
+        <type>text</type>
+        <style>fm_udp_gecko</style>
+        <help>Obfuscation password shared with the server, identical to Salamander but with fragmentation on top. Required for the Gecko mask.</help>
+    </field>
+    <field>
+        <id>node.fm_udp_gecko_packet_size</id>
+        <label>Gecko Packet Size</label>
+        <type>text</type>
+        <style>fm_udp_gecko</style>
+        <help>Fragment size or range in bytes, upper bound 2048. Required for Gecko. Example: 512 or 512-1200.</help>
     </field>
     <field>
         <id>node.fm_udp_sudoku_password</id>

@@ -219,6 +219,40 @@ class XrayClient extends BaseModel
                     ));
                 }
             }
+            $geckoSize = trim((string)$node->fm_udp_gecko_packet_size);
+            if ($udp === 'gecko') {
+                if (trim((string)$node->fm_udp_gecko_password) === '') {
+                    $messages->appendMessage(new Message(
+                        gettext('Gecko requires an obfuscation password shared with the server.'),
+                        $node->fm_udp_gecko_password->__reference
+                    ));
+                }
+                if ($geckoSize === '') {
+                    $messages->appendMessage(new Message(
+                        gettext('Gecko requires a packet size or range, e.g. 512 or 512-1200.'),
+                        $node->fm_udp_gecko_packet_size->__reference
+                    ));
+                } elseif (preg_match('/^(\d+)(?:-(\d+))?$/', $geckoSize, $m)) {
+                    $low = (int)$m[1];
+                    $high = isset($m[2]) ? (int)$m[2] : (int)$m[1];
+                    if ($low <= 0) {
+                        $messages->appendMessage(new Message(
+                            gettext('Gecko packet size must be at least 1 byte.'),
+                            $node->fm_udp_gecko_packet_size->__reference
+                        ));
+                    } elseif ($high > 2048) {
+                        $messages->appendMessage(new Message(
+                            gettext('Gecko packet size must not exceed 2048 bytes.'),
+                            $node->fm_udp_gecko_packet_size->__reference
+                        ));
+                    } elseif ($low > $high) {
+                        $messages->appendMessage(new Message(
+                            gettext('Gecko packet size range must be ascending, e.g. 512-1200.'),
+                            $node->fm_udp_gecko_packet_size->__reference
+                        ));
+                    }
+                }
+            }
             $interval = trim((string)$node->fm_udp_udphop_interval);
             if ($udp === 'udphop' && $interval !== '' && preg_match('/^(\d+)/', $interval, $m) && (int)$m[1] < 5) {
                 $messages->appendMessage(new Message(
