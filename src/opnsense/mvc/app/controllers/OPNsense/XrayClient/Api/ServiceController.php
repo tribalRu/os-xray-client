@@ -546,6 +546,37 @@ class ServiceController extends ApiMutableServiceControllerBase
     }
 
     /**
+     * Public key of a Cloudflare WARP MASQUE edge certificate, for the
+     * "Fetch edge key" button of the node dialog (MASQUE, WARP mode).
+     */
+    public function warpEdgeKeyAction()
+    {
+        if (!$this->request->isPost()) {
+            return ['status' => 'error', 'message' => 'POST required'];
+        }
+        $address = trim((string)$this->request->getPost('address', 'string', ''));
+        $port = trim((string)$this->request->getPost('port', 'string', ''));
+        $sni = trim((string)$this->request->getPost('sni', 'string', ''));
+        if ($sni === '') {
+            $sni = 'consumer-masque.cloudflareclient.com';
+        }
+        if ($port === '') {
+            $port = '443';
+        }
+        // configd splits its parameters on spaces and the script re-validates
+        // them, but reject anything odd here first.
+        if (!filter_var(trim($address, '[]'), FILTER_VALIDATE_IP)
+            || !ctype_digit($port) || (int)$port < 1 || (int)$port > 65535
+            || !preg_match('/^[A-Za-z0-9][A-Za-z0-9.-]{0,251}$/', $sni)) {
+            return ['status' => 'error', 'message' => 'Enter a valid endpoint IP address, port and SNI first.'];
+        }
+        $backend = new Backend();
+        $response = $backend->configdpRun('xrayclient warp_edge_key', [trim($address, '[]'), $port, $sni]);
+        $data = json_decode(trim($response), true);
+        return is_array($data) ? $data : ['status' => 'error', 'message' => 'The edge key lookup returned no result.'];
+    }
+
+    /**
      * Branches of the plugin repository, for the branch picker on the
      * Maintenance tab (default branch first).
      */
