@@ -2240,21 +2240,17 @@
         var latencyTimer = null;
         var LATENCY_AUTO_INTERVAL = 300; // seconds (5 min), hardcoded
 
+        // The automatic refresh intervals are shown as a tooltip of the manual
+        // refresh button instead of a badge in the toolbar.
         function telemetryStatus(trafficActive, trafficInterval, latencyActive) {
-            var $s = $('#telemetry_status');
             var parts = [];
-            if (trafficActive) parts.push('traffic: ' + trafficInterval + ' s');
-            if (latencyActive) parts.push('latency: ' + LATENCY_AUTO_INTERVAL + ' s');
-            var text = parts.length ? 'Auto: ' + parts.join('; ') : '';
-            if ($s.length === 0) {
-                if (text) {
-                    $s = $('<span id="telemetry_status" class="label label-info" style="margin-left:8px;"></span>')
-                        .insertAfter('#btn_check_nodes');
-                }
-            }
-            if ($s.length) {
-                if (text) { $s.text(text).show(); } else { $s.remove(); }
-            }
+            if (trafficActive) parts.push('traffic every ' + trafficInterval + ' s');
+            if (latencyActive) parts.push('latency every ' + LATENCY_AUTO_INTERVAL + ' s');
+            var tip = parts.length
+                ? 'Measure now. Automatic refresh: ' + parts.join(', ') + '.'
+                : 'Measure now. Automatic refresh is off (General Settings \u2192 Telemetry & Statistics).';
+            $('#btn_check_nodes').attr('title', tip);
+            $('#telemetry_status').remove();
         }
 
         function refreshNodeLatency() {
