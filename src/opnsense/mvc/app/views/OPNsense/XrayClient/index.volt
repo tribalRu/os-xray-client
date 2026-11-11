@@ -168,17 +168,15 @@
     .actionBar #nodes_toolbar #live_traffic_wrap {
         margin-left: 6px !important;
     }
-    /* Total traffic under the nodes table: left edge shared with the hint
-       below, so the lines do not form a staircase. The box has a fixed
-       min-width so the line does not jump while the numbers change. */
+    /* Total traffic under the nodes table: right edge shared with the pager
+       and the action buttons, so they form one right-hand column. */
     #telemetry_total_row {
-        text-align: left;
+        text-align: right;
         margin-top: 8px;
         min-height: 1.6em;
     }
     #telemetry_total {
         display: inline-block;
-        min-width: 36em;
         max-width: 100%;
         font-variant-numeric: tabular-nums;
         white-space: nowrap;
