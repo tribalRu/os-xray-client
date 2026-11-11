@@ -168,6 +168,23 @@
     .actionBar #nodes_toolbar #live_traffic_wrap {
         margin-left: 6px !important;
     }
+    /* Total traffic under the nodes table: a fixed-width, left-aligned box
+       placed at the right edge with an offset, so growing numbers extend
+       into free space instead of shifting the text start on every refresh. */
+    #telemetry_total_row {
+        text-align: right;
+        padding-right: 1.5em;
+        margin-top: 8px;
+        min-height: 1.6em;
+    }
+    #telemetry_total {
+        display: inline-block;
+        width: 36em;
+        max-width: 100%;
+        text-align: left;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
     .live-traffic-dot {
         display: none;
         width: 9px;
@@ -2456,32 +2473,7 @@
             } else {
                 text = 'Total traffic: ↓ ' + formatBytes(totalDown) + ' / ↑ ' + formatBytes(totalUp);
             }
-            var $t = $('#telemetry_total');
-            if ($t.length === 0) {
-                $t = $('<span id="telemetry_total" style="margin-left:12px;"></span>')
-                    .insertAfter('#live_traffic_wrap');
-            }
-            $t.text(text);
-            placeTotalInFooter($t);
-        }
-
-        // The total belongs to the table, so show it next to the grid's
-        // "Showing x to y of z entries" line when that line can be found;
-        // otherwise it stays in the toolbar. The grid redraws its footer on
-        // every reload, so this runs on each update.
-        function placeTotalInFooter($t) {
-            var $host = null;
-            ['.infos', '.tabulator-footer-contents', '.tabulator-footer'].some(function (sel) {
-                var $h = $('#tab_nodes').find(sel).first();
-                if ($h.length) {
-                    $host = $h;
-                    return true;
-                }
-                return false;
-            });
-            if ($host && !$.contains($host[0], $t[0])) {
-                $t.addClass('text-muted').css({ 'margin-left': '12px', 'white-space': 'nowrap' }).appendTo($host);
-            }
+            $('#telemetry_total').text(text);
         }
 
         function startTelemetryAutoRefresh() {
@@ -2857,6 +2849,9 @@
             </tfoot>
         </table>
         <div class="col-md-12" style="padding-bottom: 15px;">
+        <div id="telemetry_total_row">
+            <span id="telemetry_total" class="text-muted"></span>
+        </div>
         <div style="margin: 14px 0 8px 0;">
             <span class="text-muted" style="font-size: 15px; line-height: 1.5;">Entries here are saved immediately on every add/edit/delete/toggle. <b>Apply &amp; Restart Xray</b> rebuilds config.json and restarts Xray.</span>
         </div>
