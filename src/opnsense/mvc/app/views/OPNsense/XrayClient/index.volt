@@ -2772,6 +2772,30 @@
         }
         // MASQUEWARP_END
 
+        // Fills the node dialog from the answer of the WARP registration.
+        function warpApplyGenerated(data) {
+            $('#node\\.masque_warp_private_key').val(data.private_key || '');
+            $('#node\\.masque_warp_public_key').val(data.edge_public_key || '');
+            if (data.addresses && data.addresses.length) {
+                setTokens('masque_warp_address', data.addresses);
+            }
+            if (data.endpoint) {
+                $('#node\\.address').val(data.endpoint);
+                $('#node\\.port').val(String(data.port || 443));
+            }
+            if ($.trim($('#node\\.sni').val() || '') === '') {
+                $('#node\\.sni').val(data.sni || WARP_MASQUE_SNI);
+            }
+            var alpn = $('#node\\.alpn').val() || [];
+            if (alpn.length === 0 && $('#node\\.alpn').length) {
+                $('#node\\.alpn').val(['h2']);
+                if ($.fn.selectpicker) {
+                    $('#node\\.alpn').selectpicker('refresh');
+                }
+                $('#node\\.alpn').trigger('change');
+            }
+        }
+
         (function installMasqueWarpTools() {
             var $row = $('#node\\.masque_warp_address').closest('tr, .form-group');
             if ($row.length === 0 || $('#masque_warp_tools').length > 0) {
@@ -2781,6 +2805,8 @@
             var $tools = $(isTr ? '<tr id="masque_warp_tools" class="masque_warp"><td colspan="3"></td></tr>'
                                 : '<div id="masque_warp_tools" class="form-group masque_warp"></div>');
             var $cell = isTr ? $tools.find('td') : $tools;
+            var $gen = $('<button id="btn_masque_warp_generate" type="button" class="btn btn-xs btn-primary" style="margin-right: 8px;">' +
+                '<i class="fa fa-cloud-download"></i> <b>Generate WARP config</b></button>');
             var $acc = $('<select id="masque_warp_account" class="form-control" style="width: auto; display: inline-block;"></select>')
                 .append('<option value="">Endpoint for account type…</option>')
                 .append('<option value="warp">WARP</option>')
@@ -2793,12 +2819,35 @@
                 'placeholder="Paste the config.json written by usque register here"></textarea>');
             var $impBtn = $('<button id="btn_masque_warp_import" type="button" class="btn btn-xs btn-default" style="margin-top: 6px;">' +
                 '<i class="fa fa-download"></i> Import from usque config</button>');
-            $cell.append($acc).append($fetch).append($status).append($imp).append($impBtn);
+            $cell.append($gen).append($acc).append($fetch).append($status).append($imp).append($impBtn);
             $row.after($tools);
 
             function say(cls, text) {
                 $status.removeClass('text-muted text-danger text-success').addClass(cls).text(text);
             }
+
+            $gen.on('click', function () {
+                $gen.prop('disabled', true);
+                say('text-muted', 'Registering a WARP device with Cloudflare…');
+                $.ajax({
+                    url: '/api/xrayclient/service/warpMasqueGenerate',
+                    type: 'POST',
+                    timeout: 60000,
+                    success: function (data) {
+                        $gen.prop('disabled', false);
+                        if (!data || data.status !== 'ok') {
+                            say('text-danger', 'Failed: ' + (data && data.message ? data.message : 'unknown error') + ' No node fields were changed.');
+                            return;
+                        }
+                        warpApplyGenerated(data);
+                        say('text-success', 'WARP device registered and the fields are filled in. Save the node to apply.');
+                    },
+                    error: function (xhr, status) {
+                        $gen.prop('disabled', false);
+                        say('text-danger', (status === 'timeout' ? 'Request timed out (Cloudflare API unreachable).' : 'Request failed.') + ' No node fields were changed.');
+                    }
+                });
+            });
 
             $acc.on('change', function () {
                 var ep = WARP_MASQUE_ENDPOINTS[this.value];
