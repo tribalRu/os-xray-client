@@ -546,6 +546,25 @@ class ServiceController extends ApiMutableServiceControllerBase
     }
 
     /**
+     * Register a Cloudflare WARP device with MASQUE support and return the
+     * fields of the node dialog (MASQUE, WARP mode): P-256 key, edge public
+     * key, device addresses and endpoint.
+     */
+    public function warpMasqueGenerateAction()
+    {
+        if (!$this->request->isPost()) {
+            return ['status' => 'error', 'message' => 'POST required'];
+        }
+        $backend = new Backend();
+        $response = $backend->configdRun('xrayclient warp_masque');
+        $data = json_decode(trim($response), true);
+        return is_array($data) ? $data : [
+            'status' => 'error',
+            'message' => 'The WARP registration returned no result.',
+        ];
+    }
+
+    /**
      * Public key of a Cloudflare WARP MASQUE edge certificate, for the
      * "Fetch edge key" button of the node dialog (MASQUE, WARP mode).
      */

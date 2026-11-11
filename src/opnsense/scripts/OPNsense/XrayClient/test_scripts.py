@@ -934,5 +934,86 @@ class TestConfigShellTest(unittest.TestCase):
         self.assertNotIn('XDRIVE', res['message'])
 
 
+class TestWarpMasque(unittest.TestCase):
+    """warp_masque.py against a local stand-in for the Cloudflare API."""
+
+    def setUp(self):
+        import base64
+        import subprocess
+        import tempfile
+        import threading
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+        import warp_masque
+        self.wm, self.seen = warp_masque, {}
+        seen = self.seen
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *args):
+                pass
+
+            def _send(self, code, obj):
+                raw = json.dumps(obj).encode()
+                self.send_response(code)
+                self.send_header('Content-Length', str(len(raw)))
+                self.end_headers()
+                self.wfile.write(raw)
+
+            def _body(self):
+                return json.loads(self.rfile.read(int(self.headers['Content-Length'])))
+
+            def do_POST(self):
+                seen['post'] = (self.path, self._body())
+                self._send(200, {'result': {'id': 'dev-1', 'token': 'tok-1'}})
+
+            def do_PATCH(self):
+                seen['patch'] = (self.path, self._body(), self.headers.get('Authorization'))
+                self._send(200, {'success': True, 'result': {'config': {
+                    'peers': [{'public_key': '-----BEGIN PUBLIC KEY-----\nMFkwEwYH\nKoZIzj0C\n-----END PUBLIC KEY-----\n',
+                               'endpoint': {'v4': '162.159.198.2:0'}}],
+                    'interface': {'addresses': {'v4': '172.16.0.2', 'v6': '2606:4700:110:8a36::2'}}}}})
+
+        self.server = HTTPServer(('127.0.0.1', 0), Handler)
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.cfg = dict(warp_masque._DEFAULTS,
+                        masque_api_base='http://127.0.0.1:%d/v0a4471' % self.server.server_port)
+        self.base64, self.subprocess, self.tempfile = base64, subprocess, tempfile
+
+    def tearDown(self):
+        self.server.shutdown()
+
+    def test_registration_and_enrollment(self):
+        res = self.wm.build_result(self.cfg)
+        self.assertEqual(res['status'], 'ok')
+        self.assertEqual(res['edge_public_key'], 'MFkwEwYHKoZIzj0C')
+        self.assertEqual(res['addresses'], ['172.16.0.2/32', '2606:4700:110:8a36::2/128'])
+        self.assertEqual(res['endpoint'], '162.159.198.2')
+        self.assertEqual(self.seen['post'][0], '/v0a4471/reg')
+        path, body, auth = self.seen['patch']
+        self.assertEqual(path, '/v0a4471/reg/dev-1')
+        self.assertEqual((body['key_type'], body['tunnel_type']), ('secp256r1', 'masque'))
+        self.assertEqual(auth, 'Bearer tok-1')
+
+    def test_enrolled_key_belongs_to_returned_private_key(self):
+        res = self.wm.build_result(self.cfg)
+        path = self.tempfile.mktemp()
+        with open(path, 'wb') as fh:
+            fh.write(self.base64.b64decode(res['private_key']))
+        try:
+            pub = self.subprocess.run(['openssl', 'ec', '-inform', 'DER', '-in', path, '-pubout', '-outform', 'DER'],
+                                      capture_output=True, check=True).stdout
+        finally:
+            os.unlink(path)
+        self.assertEqual(self.base64.b64encode(pub).decode(), self.seen['patch'][1]['key'])
+
+    def test_unreachable_api_is_reported(self):
+        cfg = dict(self.cfg, masque_api_base='http://127.0.0.1:1/x')
+        with self.assertRaises(self.wm.WarpError):
+            self.wm.build_result(cfg)
+
+    def test_answer_without_addresses_is_an_error(self):
+        with self.assertRaises(self.wm.WarpError):
+            self.wm.extract({'peers': [{'public_key': 'AAAA'}], 'interface': {}})
+
+
 if __name__ == '__main__':
     unittest.main()
