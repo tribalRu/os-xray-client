@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>2.19.0</version>
+    <version>2.19.1</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -401,7 +401,7 @@
                 </http_headers>
                 <flow type="OptionField">
                     <default>xtls-rprx-vision</default>
-                    <Required>N</Required>
+                    <Required>Y</Required>
                     <OptionValues>
                         <none>None (Standard)</none>
                         <xtls-rprx-vision>xtls-rprx-vision</xtls-rprx-vision>
@@ -433,7 +433,7 @@
                 </ss_method>
                 <vmess_security type="OptionField">
                     <default>auto</default>
-                    <Required>N</Required>
+                    <Required>Y</Required>
                     <OptionValues>
                         <auto>auto</auto>
                         <aes-128-gcm>aes-128-gcm</aes-128-gcm>
@@ -633,7 +633,7 @@
                 </grpc_initial_windows_size>
                 <xhttp_mode type="OptionField">
                     <default>auto</default>
-                    <Required>N</Required>
+                    <Required>Y</Required>
                     <OptionValues>
                         <auto>auto</auto>
                         <packet-up>packet-up</packet-up>
@@ -864,7 +864,7 @@
                      and every type that has nested arrays possible. -->
                 <fm_tcp_type type="OptionField">
                     <default>none</default>
-                    <Required>N</Required>
+                    <Required>Y</Required>
                     <OptionValues>
                         <none>None</none>
                         <fragment>Fragment</fragment>
@@ -934,7 +934,7 @@
                 </fm_tcp_extra_json>
                 <fm_udp_type type="OptionField">
                     <default>none</default>
-                    <Required>N</Required>
+                    <Required>Y</Required>
                     <OptionValues>
                         <none>None</none>
                         <salamander>Salamander</salamander>
@@ -1019,7 +1019,7 @@
                 </fm_udp_udphop_remote_ports>
                 <fm_udp_mkcp_header type="OptionField">
                     <default>none</default>
-                    <Required>N</Required>
+                    <Required>Y</Required>
                     <OptionValues>
                         <none>None (AES-128-GCM / XOR)</none>
                         <dns>DNS</dns>
@@ -1070,7 +1070,7 @@
                 </fm_udp_extra_json>
                 <fm_quic_congestion type="OptionField">
                     <default>auto</default>
-                    <Required>N</Required>
+                    <Required>Y</Required>
                     <OptionValues>
                         <auto>Default</auto>
                         <reno>Reno</reno>
@@ -1081,7 +1081,7 @@
                 </fm_quic_congestion>
                 <fm_quic_bbr_profile type="OptionField">
                     <default>auto</default>
-                    <Required>N</Required>
+                    <Required>Y</Required>
                     <OptionValues>
                         <auto>Default</auto>
                         <conservative>Conservative</conservative>
@@ -1245,7 +1245,7 @@
                 </freedom_final_rules>
                 <blackhole_response type="OptionField">
                     <default>none</default>
-                    <Required>N</Required>
+                    <Required>Y</Required>
                     <OptionValues>
                         <none>Close immediately (none)</none>
                         <http>Return HTTP 403</http>
