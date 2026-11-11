@@ -22,7 +22,7 @@ Then open **VPN > Xray Client**, configure nodes/rules under **General**, and cl
 
 Xray-core **creates the TUN interface itself** while the service runs (FreeBSD `tun(4)`); it does not exist otherwise, and the plugin deliberately never pre-creates it (a pre-created interface makes Xray fail with `interface already exists`).
 
-1. In **General > TUN Interface**, enable *Enable Native TUN Inbound* (default interface `tun_xray0`, gateway prefix `10.255.0.1/30`, MTU `1500`).
+1. In **General > TUN Interface**, enable *Enable Native TUN Inbound* (default interface `tun_xray0`; the name must start with `tun_`, because OPNsense does not see TUN interfaces named otherwise; gateway prefix `10.255.0.1/30`, MTU `1500`).
    - `TUN Tunnel Subnet` is the **gateway prefix** Xray uses for the tunnel: Xray keeps the gateway address (`10.255.0.1`) as the in-tunnel endpoint and assigns the next address to the interface (`10.255.0.2` for a `/30`). CIDR must be `1..31` so a local address exists inside the prefix.
 2. Click **Apply & Restart Xray**. The prestart hook removes a stale interface left by an older plugin version / an unclean Xray crash, then Xray creates `tun_xray0` itself.
 3. Assign it under **Interfaces > Assignments**, save, enable it (e.g. `opt5`), and create a gateway pointing at `10.255.0.1` **with gateway monitoring disabled** (the far end has no real host to ping).
