@@ -198,6 +198,18 @@ class XrayClient extends BaseModel
             if (trim((string)$node->finalmask) !== '') {
                 continue; // the raw override supersedes the rows
             }
+            // UDP masks and the QUIC parameters only apply to QUIC-based
+            // transports (Hysteria, MASQUE over HTTP/3, XHTTP over h3); the
+            // dialog hides them elsewhere, so a stale hidden value must not
+            // block the save.
+            $alpn = array_map('trim', explode(',', (string)$node->alpn));
+            $proto = (string)$node->protocol;
+            $quicBased = $proto === 'hysteria'
+                || ($proto === 'masque' && !in_array('h2', $alpn, true))
+                || ($proto !== 'masque' && (string)$node->network === 'xhttp' && in_array('h3', $alpn, true));
+            if (!$quicBased) {
+                continue;
+            }
             $udp = (string)$node->fm_udp_type;
             if ($udp === 'realm') {
                 foreach (['fm_udp_realm_url', 'fm_udp_realm_stun_servers'] as $name) {
@@ -259,6 +271,25 @@ class XrayClient extends BaseModel
                     gettext('UDP Hop interval must be at least 5 seconds.'),
                     $node->fm_udp_udphop_interval->__reference
                 ));
+            }
+            if ($udp === 'udphop') {
+                $modes = array_filter(array_map('trim', explode(',', (string)$node->fm_udp_udphop_mode)));
+                if (count(array_intersect($modes, ['intervalremote', 'perconnremote'])) > 0) {
+                    foreach (['fm_udp_udphop_remote_ips', 'fm_udp_udphop_remote_ports'] as $name) {
+                        if (trim((string)$node->$name) === '') {
+                            $messages->appendMessage(new Message(
+                                gettext('The remote UDP Hop modes need both Remote IPs and Remote Ports.'),
+                                $node->$name->__reference
+                            ));
+                        }
+                    }
+                }
+                if ($interval !== '' && preg_match('/^(\d+)-(\d+)$/', $interval, $m) && (int)$m[1] > (int)$m[2]) {
+                    $messages->appendMessage(new Message(
+                        gettext('UDP Hop interval range must be ascending, e.g. 5-10.'),
+                        $node->fm_udp_udphop_interval->__reference
+                    ));
+                }
             }
             $limits = [
                 'fm_quic_max_idle_timeout' => [4, 120, gettext('Max idle timeout must be between 4 and 120 seconds.')],

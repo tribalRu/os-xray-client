@@ -975,6 +975,14 @@
             var fmTcp = $('#node\\.fm_tcp_type').val() || 'none';
             var fmUdp = $('#node\\.fm_udp_type').val() || 'none';
             var fmQuic = $('#node\\.fm_quic_congestion').val() || 'auto';
+            // TCP masks belong to TCP-based transports, UDP masks and the QUIC
+            // parameters to QUIC-based ones: Hysteria, MASQUE over HTTP/3
+            // (no h2 in ALPN) and XHTTP over h3.
+            var alpnVal = $('#node\\.alpn').val() || [];
+            var alpnList = Array.isArray(alpnVal) ? alpnVal : String(alpnVal).split(',');
+            var fmQuicBased = isHysteria || (isMasque && alpnList.indexOf('h2') === -1)
+                || (hasStream && effNet === 'xhttp' && alpnList.indexOf('h3') !== -1);
+            var fmTcpBased = !fmQuicBased && (hasStream || isMasque);
 
             // Field visibility table: selector -> condition
             var view = {
@@ -1016,25 +1024,25 @@
                 // FinalMask rows: one mask per direction, built by the
                 // config template. Hidden entirely while the raw override
                 // is filled.
-                '.fm_tcp': hasStream && !fmRaw,
-                '.fm_tcp_fragment': hasStream && !fmRaw && fmTcp === 'fragment',
-                '.fm_tcp_sudoku': hasStream && !fmRaw && fmTcp === 'sudoku',
-                '.fm_tcp_json': hasStream && !fmRaw && (fmTcp === 'header-custom' || fmTcp === 'xmc'),
+                '.fm_tcp': fmTcpBased && !fmRaw,
+                '.fm_tcp_fragment': fmTcpBased && !fmRaw && fmTcp === 'fragment',
+                '.fm_tcp_sudoku': fmTcpBased && !fmRaw && fmTcp === 'sudoku',
+                '.fm_tcp_json': fmTcpBased && !fmRaw && (fmTcp === 'header-custom' || fmTcp === 'xmc'),
                 // Hysteria2 (and XUDP/WireGuard) obfuscate over QUIC/UDP
                 // and honor FinalMask like any UDP transport.
-                '.fm_udp': (hasStream || isHysteria) && !fmRaw,
-                '.fm_udp_salamander': (hasStream || isHysteria) && !fmRaw && fmUdp === 'salamander',
-                '.fm_udp_gecko': (hasStream || isHysteria) && !fmRaw && fmUdp === 'gecko',
-                '.fm_udp_sudoku': (hasStream || isHysteria) && !fmRaw && fmUdp === 'sudoku',
-                '.fm_udp_udphop': (hasStream || isHysteria) && !fmRaw && fmUdp === 'udphop',
-                '.fm_udp_mkcp_legacy': (hasStream || isHysteria) && !fmRaw && fmUdp === 'mkcp-legacy',
-                '.fm_udp_xicmp': (hasStream || isHysteria) && !fmRaw && fmUdp === 'xicmp',
-                '.fm_udp_realm': (hasStream || isHysteria) && !fmRaw && fmUdp === 'realm',
-                '.fm_udp_json': (hasStream || isHysteria) && !fmRaw && ['noise', 'xdns', 'header-custom'].indexOf(fmUdp) !== -1,
-                '.fm_quic': hasStream && !fmRaw,
-                '.fm_quic_bbr': hasStream && !fmRaw && fmQuic === 'bbr',
-                '.fm_quic_brutal': hasStream && !fmRaw && (fmQuic === 'brutal' || fmQuic === 'force-brutal'),
-                '.fm_quic_window': hasStream && !fmRaw
+                '.fm_udp': fmQuicBased && !fmRaw,
+                '.fm_udp_salamander': fmQuicBased && !fmRaw && fmUdp === 'salamander',
+                '.fm_udp_gecko': fmQuicBased && !fmRaw && fmUdp === 'gecko',
+                '.fm_udp_sudoku': fmQuicBased && !fmRaw && fmUdp === 'sudoku',
+                '.fm_udp_udphop': fmQuicBased && !fmRaw && fmUdp === 'udphop',
+                '.fm_udp_mkcp_legacy': fmQuicBased && !fmRaw && fmUdp === 'mkcp-legacy',
+                '.fm_udp_xicmp': fmQuicBased && !fmRaw && fmUdp === 'xicmp',
+                '.fm_udp_realm': fmQuicBased && !fmRaw && fmUdp === 'realm',
+                '.fm_udp_json': fmQuicBased && !fmRaw && ['noise', 'xdns', 'header-custom'].indexOf(fmUdp) !== -1,
+                '.fm_quic': fmQuicBased && !fmRaw,
+                '.fm_quic_bbr': fmQuicBased && !fmRaw && fmQuic === 'bbr',
+                '.fm_quic_brutal': fmQuicBased && !fmRaw && (fmQuic === 'brutal' || fmQuic === 'force-brutal'),
+                '.fm_quic_window': fmQuicBased && !fmRaw
             };
             for (var sel in view) {
                 if (Object.prototype.hasOwnProperty.call(view, sel)) {
@@ -1066,7 +1074,7 @@
             }
         }
 
-        $('#node\\.protocol, #node\\.network, #node\\.security, #node\\.encryption, #node\\.xdrive_service').on('change', toggleNodeDialogFields);
+        $('#node\\.protocol, #node\\.network, #node\\.security, #node\\.encryption, #node\\.xdrive_service, #node\\.alpn').on('change', toggleNodeDialogFields);
         $('#node\\.fm_tcp_type, #node\\.fm_udp_type, #node\\.fm_quic_congestion').on('change', toggleNodeDialogFields);
         // Typing into the raw override hides the structured FinalMask rows,
         // so react to every keystroke (and to a programmatic .val() change).
@@ -1631,7 +1639,7 @@
             clearTokenizeField('#node\\.fm_tcp_fragment_lengths');
             clearTokenizeField('#node\\.fm_tcp_fragment_delays');
             setSelectValue($('#node\\.fm_tcp_fragment_packets'), 'tlshello');
-            $('#node\\.fm_udp_udphop_mode').val('intervallocal');
+            setMultiSelectValue('#node\\.fm_udp_udphop_mode', 'intervallocal');
             $('#node\\.fm_udp_xicmp_dgram').prop('checked', false);
             $('#node\\.fm_quic_disable_pmtud').prop('checked', false);
             setSelectValue($('#node\\.fm_tcp_type'), 'none');

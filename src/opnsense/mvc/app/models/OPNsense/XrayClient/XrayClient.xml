@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>2.19.1</version>
+    <version>2.19.2</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -993,11 +993,15 @@
                     <default></default>
                     <Required>N</Required>
                 </fm_udp_sudoku_tables>
-                <fm_udp_udphop_mode type="TextField">
+                <fm_udp_udphop_mode type="OptionField">
                     <default>intervallocal</default>
                     <Required>N</Required>
-                    <Mask>/^$|^[A-Za-z]+(\s*,\s*[A-Za-z]+)*$/</Mask>
-                    <ValidationMessage>Comma-separated modes: intervallocal, intervalremote, perconnremote.</ValidationMessage>
+                    <Multiple>Y</Multiple>
+                    <OptionValues>
+                        <intervallocal>intervallocal</intervallocal>
+                        <intervalremote>intervalremote</intervalremote>
+                        <perconnremote>perconnremote</perconnremote>
+                    </OptionValues>
                 </fm_udp_udphop_mode>
                 <fm_udp_udphop_interval type="TextField">
                     <default></default>
