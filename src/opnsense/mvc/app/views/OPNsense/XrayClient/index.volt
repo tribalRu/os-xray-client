@@ -2428,6 +2428,26 @@
                     .insertAfter('#live_traffic_wrap');
             }
             $t.text(text);
+            placeTotalInFooter($t);
+        }
+
+        // The total belongs to the table, so show it next to the grid's
+        // "Showing x to y of z entries" line when that line can be found;
+        // otherwise it stays in the toolbar. The grid redraws its footer on
+        // every reload, so this runs on each update.
+        function placeTotalInFooter($t) {
+            var $host = null;
+            ['.infos', '.tabulator-footer-contents', '.tabulator-footer'].some(function (sel) {
+                var $h = $('#tab_nodes').find(sel).first();
+                if ($h.length) {
+                    $host = $h;
+                    return true;
+                }
+                return false;
+            });
+            if ($host && !$.contains($host[0], $t[0])) {
+                $t.addClass('text-muted').css({ 'margin-left': '12px', 'white-space': 'nowrap' }).appendTo($host);
+            }
         }
 
         function startTelemetryAutoRefresh() {
