@@ -153,6 +153,21 @@
     .xray-help-legend .icon-optional { color: #5bc0de; }
     .xray-help-legend .icon-advanced { color: #9a9a9a; }
     /* Pulsing dot shown while the Live traffic mode is active. */
+    /* Toolbar of the nodes tab once it has been moved into the grid's own
+       action bar (left of the search box and the grid tools). */
+    .actionBar #nodes_toolbar {
+        float: left;
+        width: auto;
+        margin: 0 !important;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .actionBar #nodes_toolbar #live_traffic_wrap {
+        margin-left: 6px !important;
+    }
     .live-traffic-dot {
         display: none;
         width: 9px;
@@ -2231,6 +2246,25 @@
                 $btn.prop('disabled', false).find('i').removeClass('fa-spin');
             }, 2000);
         });
+
+        // Put the nodes toolbar into the grid's own action bar so the tab has
+        // one header row (our actions left, search and grid tools right). The
+        // grid builds its bar asynchronously; if it never shows up, or has
+        // another structure, the toolbar simply stays above the table.
+        (function mergeNodesToolbar() {
+            var tries = 0;
+            var timer = setInterval(function () {
+                tries++;
+                var $bar = $('#tab_nodes .actionBar').first();
+                var $tb = $('#nodes_toolbar');
+                if ($bar.length && $tb.length) {
+                    $tb.removeClass('col-md-12').prependTo($bar);
+                    clearInterval(timer);
+                } else if (tries >= 40) {
+                    clearInterval(timer);
+                }
+            }, 250);
+        })();
 
         // --- Automatic telemetry (background refresh) ---
         // Traffic is refreshed at the user-configured interval. Latency is a
