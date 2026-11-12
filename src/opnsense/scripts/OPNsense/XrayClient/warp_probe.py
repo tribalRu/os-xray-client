@@ -47,6 +47,9 @@ DOWNLOAD_MIN = 200000
 BAD_TTL = 6 * 3600
 GOOD_KEEP = 20
 CONCURRENCY = 4
+# MASQUE sessions are tied to the device identity: parallel tunnels of one
+# account seem to push each other out, so MASQUE candidates run one by one.
+MASQUE_CONCURRENCY = 1
 PROBE_TIMEOUT = 5
 CONFIRM_REQUESTS = 3
 MAX_ATTEMPTS_LIMIT = 300
@@ -596,9 +599,10 @@ class Search:
                                              bool(self.req.get('wide')))
         self.save_state()
         pending, submitted = set(), 0
-        with ThreadPoolExecutor(max_workers=CONCURRENCY) as pool:
+        workers = CONCURRENCY if self.mode == 'wg' else MASQUE_CONCURRENCY
+        with ThreadPoolExecutor(max_workers=workers) as pool:
             while True:
-                while (len(pending) < CONCURRENCY and submitted < self.max_attempts
+                while (len(pending) < workers and submitted < self.max_attempts
                        and (explicit or self.state['verified'] < self.want) and not self.cancelled()):
                     try:
                         host, port = next(candidates)

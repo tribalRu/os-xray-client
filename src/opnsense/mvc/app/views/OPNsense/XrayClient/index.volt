@@ -52,6 +52,12 @@
         margin-bottom: 10px;
     }
     /* The import dialog shows very long vless:// links; give it room. */
+    /* The result list of the endpoint search scrolls inside the dialog. */
+    #DialogWarpProbe_wg .modal-body,
+    #DialogWarpProbe_masque .modal-body {
+        max-height: calc(100vh - 230px);
+        overflow-y: auto;
+    }
     #DialogImportLink .modal-dialog {
         width: 95%;
         max-width: 1100px;
@@ -3136,7 +3142,7 @@
                     '<th>Endpoint</th><th>Latency</th><th>Speed</th><th>Checks</th><th>Verified</th><th></th></tr></thead><tbody></tbody></table>' +
                     '<div class="wp-empty text-muted" style="display:none;">Nothing has answered yet.</div></div>' +
                     '<div class="modal-footer"><button type="button" class="btn btn-default wp-recheck-all" style="display:none;"><i class="fa fa-refresh"></i> Re-check all</button> ' +
-                    '<button type="button" class="btn btn-default wp-cancel" style="display:none;"><i class="fa fa-stop"></i> Cancel search</button> ' +
+                    '<button type="button" class="btn btn-default wp-cancel" style="display:none;">Cancel search</button> ' +
                     '<button type="button" class="btn btn-primary" data-dismiss="modal">Close</button></div>' +
                     '</div></div></div>').appendTo('body');
                 var $status = $wrap.find('.wp-status');
@@ -3170,6 +3176,7 @@
                     }
                 });
                 var polling = null;
+                var running = false;
 
                 function mode() {
                     return kind === 'wg' ? 'wg' : $wrap.find('input[name=warp_probe_mode]:checked').val();
@@ -3209,7 +3216,7 @@
                         $tb.append($tr);
                     });
                     $dlg.find('.wp-table').toggle(rows.length > 0);
-                    $dlg.find('.wp-recheck-all').toggle(rows.length > 0);
+                    $dlg.find('.wp-recheck-all').toggle(rows.length > 0 && !running);
                     $dlg.find('.wp-empty').toggle(rows.length === 0 && !!(state && state.status && state.status !== 'running'));
                     $wrap.find('.wp-show').toggle(rows.length > 0);
                     $wrap.data('rows', rows);
@@ -3273,8 +3280,9 @@
                         polling = setInterval(poll, 1000);
                     }
                     $wrap.find('.wp-start').prop('disabled', true);
+                    running = true;
                     $dlg.find('.wp-cancel').show().prop('disabled', false);
-                    $dlg.find('.wp-recheck-all').prop('disabled', true);
+                    $dlg.find('.wp-recheck-all').hide();
                 }
                 function stop() {
                     if (polling !== null) {
@@ -3282,8 +3290,9 @@
                         polling = null;
                     }
                     $wrap.find('.wp-start').prop('disabled', false);
+                    running = false;
                     $dlg.find('.wp-cancel').hide();
-                    $dlg.find('.wp-recheck-all').prop('disabled', false);
+                    $dlg.find('.wp-recheck-all').toggle(($wrap.data('rows') || []).length > 0);
                 }
 
                 function start(endpoints) {
