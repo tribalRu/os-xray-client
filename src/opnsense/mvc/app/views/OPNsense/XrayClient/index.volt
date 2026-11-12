@@ -3107,8 +3107,8 @@
                     '<label class="radio-inline"><input type="radio" name="warp_probe_mode" value="masque_h3"> HTTP/3 (UDP)</label>';
                 $wrap.html(
                     '<button type="button" class="btn btn-xs btn-primary wp-start"><i class="fa fa-search"></i> <b>Find working endpoint</b></button> ' +
-                    '<button type="button" class="btn btn-xs btn-default wp-cancel" style="display:none;"><i class="fa fa-stop"></i> Cancel</button> ' +
                     '<a href="#" class="wp-opts-toggle" style="margin-left: 8px; font-size: 12px;">Options</a>' +
+                    '<a href="#" class="wp-show" style="margin-left: 8px; font-size: 12px; display:none;">Results</a>' +
                     '<span class="wp-status text-muted" style="margin-left: 8px; font-size: 12px;"></span>' +
                     '<div class="wp-opts" style="display:none; margin-top: 6px;">' + modeHtml +
                     ' <label class="checkbox-inline"><input type="checkbox" class="wp-zt"> Zero Trust ranges</label>' +
@@ -3118,11 +3118,55 @@
                     '<div style="margin-top: 4px;">Stop after <input type="number" class="wp-want form-control" style="width: 5em; display: inline-block;" value="5" min="1" max="20"> verified, at most ' +
                     '<input type="number" class="wp-max form-control" style="width: 6em; display: inline-block;" value="80" min="1" max="300"> attempts</div>' +
                     '<div class="text-muted" style="font-size: 12px; margin-top: 4px;">Each candidate is tested with this node\'s keys through a temporary Xray on the router; FinalMask is not applied.</div></div>' +
-                    '<table class="table table-condensed wp-table" style="display:none; margin-top: 8px; width: auto;"><thead><tr>' +
-                    '<th>Endpoint</th><th>Latency</th><th>Speed</th><th>Checks</th><th>Verified</th><th></th></tr></thead><tbody></tbody></table>' +
-                    '<div class="wp-recheck-all" style="display:none;"><button type="button" class="btn btn-xs btn-default"><i class="fa fa-refresh"></i> Re-check all</button></div>');
+                    '</div>');
                 $anchorRow.after($row);
+                // The progress and the results live in their own dialog above the node dialog.
+                var dlgId = 'DialogWarpProbe_' + kind;
+                $('#' + dlgId).remove();
+                var $dlg = $('<div class="modal fade" id="' + dlgId + '" tabindex="-1" role="dialog"><div class="modal-dialog modal-lg"><div class="modal-content">' +
+                    '<div class="modal-header"><button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>' +
+                    '<h4 class="modal-title">Find working endpoint</h4></div>' +
+                    '<div class="modal-body">' +
+                    '<div class="wp-m-status text-muted"></div>' +
+                    '<div class="progress" style="margin: 10px 0;"><div class="progress-bar wp-bar" style="width: 0%;"></div></div>' +
+                    '<div class="wp-m-src text-muted" style="font-size: 12px; margin-bottom: 8px;"></div>' +
+                    '<table class="table table-condensed wp-table" style="display:none;"><thead><tr>' +
+                    '<th>Endpoint</th><th>Latency</th><th>Speed</th><th>Checks</th><th>Verified</th><th></th></tr></thead><tbody></tbody></table>' +
+                    '<div class="wp-empty text-muted" style="display:none;">Nothing has answered yet.</div></div>' +
+                    '<div class="modal-footer"><button type="button" class="btn btn-default wp-recheck-all" style="display:none;"><i class="fa fa-refresh"></i> Re-check all</button> ' +
+                    '<button type="button" class="btn btn-default wp-cancel" style="display:none;"><i class="fa fa-stop"></i> Cancel search</button> ' +
+                    '<button type="button" class="btn btn-primary" data-dismiss="modal">Close</button></div>' +
+                    '</div></div></div>').appendTo('body');
                 var $status = $wrap.find('.wp-status');
+                function openDialog() {
+                    if ($.fn.modal) {
+                        $dlg.modal('show');
+                    } else {
+                        $dlg.show();
+                    }
+                }
+                function closeDialog() {
+                    if ($.fn.modal) {
+                        $dlg.modal('hide');
+                    } else {
+                        $dlg.hide();
+                    }
+                }
+                // Stack above the node dialog; Bootstrap 3 removes modal-open from
+                // the body when any dialog closes, so put it back for the node dialog.
+                $dlg.on('shown.bs.modal', function () {
+                    $dlg.css('z-index', 1070);
+                    $('.modal-backdrop').last().css('z-index', 1065);
+                });
+                $dlg.on('hidden.bs.modal', function () {
+                    if ($('#DialogNode').hasClass('in')) {
+                        $('body').addClass('modal-open');
+                        var node = $('#DialogNode').data('bs.modal');
+                        if (node && node.enforceFocus) {
+                            node.enforceFocus();
+                        }
+                    }
+                });
                 var polling = null;
 
                 function mode() {
@@ -3130,11 +3174,22 @@
                 }
                 function say(cls, text) {
                     $status.removeClass('text-muted text-danger text-success').addClass(cls).text(text);
+                    $dlg.find('.wp-m-status').removeClass('text-muted text-danger text-success').addClass(cls).text(text);
+                }
+                function progress(st) {
+                    var max = st && st.max_attempts ? st.max_attempts : 0;
+                    var pct = max ? Math.min(100, Math.round(100 * (st.attempts || 0) / max)) : 0;
+                    var done = st && st.status && st.status !== 'running';
+                    $dlg.find('.wp-bar').css('width', (done ? (st.status === 'done' && st.verified >= (st.want || 1) ? 100 : pct) : pct) + '%')
+                        .toggleClass('active progress-bar-striped', !done)
+                        .toggleClass('progress-bar-success', !!done && (st.verified || 0) > 0)
+                        .toggleClass('progress-bar-danger', !!done && !(st.verified || 0));
+                    $dlg.find('.wp-m-src').text(warpSourcesText(st && st.sources));
                 }
 
                 function render(state) {
                     var rows = warpProbeRows(state, mode());
-                    var $tb = $wrap.find('.wp-table tbody').empty();
+                    var $tb = $dlg.find('.wp-table tbody').empty();
                     rows.forEach(function (r) {
                         var label = r.status === 'verified' ? '<span class="label label-success">verified</span>'
                                   : (r.status === 'unstable' ? '<span class="label label-warning">unstable</span>'
@@ -3151,8 +3206,10 @@
                         $tr.append($('<td/>').append($use).append($re)).data('row', r);
                         $tb.append($tr);
                     });
-                    $wrap.find('.wp-table').toggle(rows.length > 0);
-                    $wrap.find('.wp-recheck-all').toggle(rows.length > 0);
+                    $dlg.find('.wp-table').toggle(rows.length > 0);
+                    $dlg.find('.wp-recheck-all').toggle(rows.length > 0);
+                    $dlg.find('.wp-empty').toggle(rows.length === 0 && !!(state && state.status && state.status !== 'running'));
+                    $wrap.find('.wp-show').toggle(rows.length > 0);
                     $wrap.data('rows', rows);
                 }
 
@@ -3174,6 +3231,7 @@
                             $('#node\\.masque_warp_public_key').val(r.edge_key);
                         }
                     }
+                    closeDialog();
                     say('text-success', 'Endpoint ' + r.host + ':' + r.port + ' filled in. Save the node to apply.');
                 }
 
@@ -3181,6 +3239,7 @@
                     $.ajax({ url: '/api/xrayclient/service/warpProbeStatus', type: 'GET', cache: false,
                         success: function (st) {
                             render(st);
+                            progress(st);
                             if (st.status === 'running') {
                                 if (st.mode && st.mode !== mode()) {
                                     say('text-muted', 'Another search (' + st.mode + ') is running.');
@@ -3212,7 +3271,8 @@
                         polling = setInterval(poll, 1000);
                     }
                     $wrap.find('.wp-start').prop('disabled', true);
-                    $wrap.find('.wp-cancel').show();
+                    $dlg.find('.wp-cancel').show().prop('disabled', false);
+                    $dlg.find('.wp-recheck-all').prop('disabled', true);
                 }
                 function stop() {
                     if (polling !== null) {
@@ -3220,7 +3280,8 @@
                         polling = null;
                     }
                     $wrap.find('.wp-start').prop('disabled', false);
-                    $wrap.find('.wp-cancel').hide();
+                    $dlg.find('.wp-cancel').hide();
+                    $dlg.find('.wp-recheck-all').prop('disabled', false);
                 }
 
                 function start(endpoints) {
@@ -3241,6 +3302,11 @@
                         data.endpoints = endpoints;
                     }
                     say('text-muted', 'Starting...');
+                    progress(null);
+                    $dlg.find('.wp-table tbody').empty();
+                    $dlg.find('.wp-table, .wp-empty').hide();
+                    $dlg.find('.modal-title').text('Find working endpoint: ' + (endpoints && endpoints.length ? 'checking ' + endpoints.length + ' saved' : (kind === 'wg' ? 'WireGuard' : 'MASQUE')));
+                    openDialog();
                     startPolling();
                     $.ajax({ url: '/api/xrayclient/service/warpProbeStart', type: 'POST', data: data, timeout: 30000,
                         success: function (res) {
@@ -3262,12 +3328,17 @@
                     } catch (e) { /* ignore */ }
                 });
                 $wrap.find('.wp-start').on('click', function () { start(null); });
-                $wrap.find('.wp-recheck-all button').on('click', function () {
+                $wrap.find('.wp-show').on('click', function (e) {
+                    e.preventDefault();
+                    openDialog();
+                });
+                $dlg.find('.wp-recheck-all').on('click', function () {
                     var rows = ($wrap.data('rows') || []).filter(function (r) { return r.status !== 'failed'; });
                     start(rows.map(function (r) { return { host: r.host, port: r.port }; }));
                 });
-                $wrap.find('.wp-cancel').on('click', function () {
+                $dlg.find('.wp-cancel').on('click', function () {
                     $.ajax({ url: '/api/xrayclient/service/warpProbeCancel', type: 'POST' });
+                    $(this).prop('disabled', true);
                     say('text-muted', 'Cancelling...');
                 });
                 $wrap.find('.wp-opts-toggle').on('click', function (e) {
@@ -3284,6 +3355,7 @@
                     $.ajax({ url: '/api/xrayclient/service/warpProbeStatus', type: 'GET', cache: false,
                         success: function (st) {
                             render(st);
+                            progress(st);
                             var mine = kind === 'wg' ? st.mode === 'wg' : /^masque_/.test(st.mode || '');
                             if (st.status === 'running' && mine) {
                                 startPolling();
