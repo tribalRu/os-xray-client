@@ -2916,6 +2916,15 @@
                 });
             });
 
+            // The choice only fills the endpoint; it is not saved with the node,
+            // so every time the dialog opens the list starts empty again.
+            $('#DialogNode').on('show.bs.modal', function () {
+                $acc.val('');
+                if ($.fn.selectpicker) {
+                    $acc.selectpicker('refresh');
+                }
+            });
+
             $acc.on('change', function () {
                 var ep = WARP_MASQUE_ENDPOINTS[this.value];
                 if (!ep) {
@@ -2933,10 +2942,6 @@
                         $('#node\\.alpn').selectpicker('refresh');
                     }
                     $('#node\\.alpn').trigger('change');
-                }
-                this.value = '';
-                if ($.fn.selectpicker) {
-                    $(this).selectpicker('refresh');
                 }
                 say('text-muted', 'Endpoint set to ' + ep.v4 + ':443 (IPv6 ' + ep.v6 + '). The edge key belongs to this IP: fetch it again after any change.');
             });
