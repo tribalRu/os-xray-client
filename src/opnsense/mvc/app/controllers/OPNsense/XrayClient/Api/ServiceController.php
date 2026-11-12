@@ -563,7 +563,7 @@ class ServiceController extends ApiMutableServiceControllerBase
         $in = $this->request->getPost('credentials');
         $in = is_array($in) ? $in : [];
         $b64 = '/^[A-Za-z0-9+\/]{43}=$/';
-        $cidr = '/^([0-9]{1,3}(\.[0-9]{1,3}){3}\/[0-9]{1,2}|[0-9A-Fa-f:]+\/[0-9]{1,3})$/';
+        $cidr = '/^([0-9]{1,3}(\.[0-9]{1,3}){3}(\/[0-9]{1,2})?|[0-9A-Fa-f:]*:[0-9A-Fa-f:.]*(\/[0-9]{1,3})?)$/';
         $host = '/^[A-Za-z0-9][A-Za-z0-9.-]{0,251}$/';
         $list = function ($v, $re) {
             $items = is_array($v) ? $v : explode(',', (string)$v);
