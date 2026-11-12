@@ -13,7 +13,12 @@ class SettingsController extends ApiMutableModelControllerBase
     // --- Outbound Nodes CRUD ---
     public function searchNodeAction()
     {
-        return $this->searchBase('nodes.node', ['enabled', 'name', 'protocol', 'address', 'port', 'security', 'network']);
+        // wg_endpoint and alpn are not columns: the grid shows the WireGuard
+        // endpoint instead of the (unused) address, and tells HTTP/2 from
+        // HTTP/3 for MASQUE.
+        return $this->searchBase('nodes.node', [
+            'enabled', 'name', 'protocol', 'address', 'port', 'security', 'network', 'wg_endpoint', 'alpn'
+        ]);
     }
 
     public function getNodeAction($uuid = null)
