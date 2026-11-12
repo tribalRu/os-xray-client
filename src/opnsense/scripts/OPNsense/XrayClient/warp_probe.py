@@ -18,9 +18,12 @@ Commands (all print JSON):
 
 Request: {"mode": "wg"|"masque_h2"|"masque_h3", "credentials": {...},
           "zero_trust": false, "want": 5, "max_attempts": 80,
-          "endpoints": [{"host": "...", "port": 443}]   # re-check only
-          "ignore_cache": false}
+          "endpoints": [{"host": "...", "port": 443}],   # re-check only
+          "ignore_cache": false,
+          "sources": ["https://..."],      # external lists (WireGuard only)
+          "any_address": false}            # probe non-Cloudflare entries too
 """
+import ipaddress
 import json
 import os
 import random
@@ -71,6 +74,20 @@ DOCUMENTED = {
     'masque_h3': [('162.159.198.2', 443), ('162.159.199.2', 443)],
 }
 MODES = ('wg', 'masque_h2', 'masque_h3')
+
+# External lists: only Cloudflare addresses are probed unless allowed otherwise
+# (a probe sends a WireGuard / TLS handshake carrying the device identity).
+CF_NETS = [ipaddress.ip_network(n) for n in (
+    '173.245.48.0/20', '103.21.244.0/22', '103.22.200.0/22', '103.31.4.0/22', '141.101.64.0/18',
+    '108.162.192.0/18', '190.93.240.0/20', '188.114.96.0/20', '197.234.240.0/22', '198.41.128.0/17',
+    '162.158.0.0/15', '104.16.0.0/13', '104.24.0.0/14', '172.64.0.0/13', '131.0.72.0/22',
+    # WARP ranges of the community list that are not in the published list
+    '8.6.112.0/24', '8.34.70.0/24', '8.34.146.0/24', '8.35.211.0/24', '8.39.125.0/24',
+    '8.39.204.0/24', '8.39.214.0/24', '8.47.69.0/24')]
+SOURCE_TTL = 24 * 3600
+SOURCE_MAX_BYTES = 2 * 1024 * 1024
+SOURCE_MAX_ENTRIES = 60000
+MAX_SOURCES = 10
 IP_RE = re.compile(r'^\d{1,3}(\.\d{1,3}){3}$')
 
 
@@ -80,7 +97,7 @@ def candidate_key(mode, host, port):
     return '%s|%s:%d' % ('wg' if mode == 'wg' else 'masque_' + mode[-2:], host, port)
 
 
-def generate_candidates(mode, zero_trust=False, rng=None, skip=()):
+def generate_candidates(mode, zero_trust=False, rng=None, skip=(), extra=()):
     """Endless generator of (host, port): documented defaults first, then a
     round robin over the ranges with random addresses and ports, so that a
     blocked range does not eat the whole budget."""
@@ -98,13 +115,18 @@ def generate_candidates(mode, zero_trust=False, rng=None, skip=()):
     for host, port in DOCUMENTED[mode]:
         if fresh(host, port):
             yield host, port
+    # entries of external lists: tested by others already, so they go before
+    # the blind sampling
+    for host, port in extra:
+        if fresh(host, port):
+            yield host, port
     ranges = [(prefix, range(0, 256)) for prefix in (WG_RANGES if mode == 'wg' else MASQUE_RANGES)]
     ports = WG_PORTS if mode == 'wg' else MASQUE_PORTS
     if zero_trust:
         prefix, octets = ZT_WG if mode == 'wg' else ZT_MASQUE
         ranges.append((prefix, octets))
     priority = list(WG_PRIORITY_PORTS if mode == 'wg' else MASQUE_PORTS)
-    total = sum(len(o) for _, o in ranges) * len(ports)
+    total = sum(len(o) for _, o in ranges) * len(ports) + len(seen)
     misses = 0
     round_no = 0
     while len(seen) < total and misses < 5000:
@@ -118,6 +140,119 @@ def generate_candidates(mode, zero_trust=False, rng=None, skip=()):
             else:
                 misses += 1
         round_no += 1
+
+
+# ----------------------------------------------------- external endpoint lists
+
+def valid_endpoint(ip, port):
+    try:
+        addr = ipaddress.ip_address(str(ip).strip())
+        port = int(port)
+    except (ValueError, TypeError):
+        return None
+    if addr.version != 4 or not 0 < port < 65536 or not addr.is_global:
+        return None
+    return str(addr), port
+
+
+def _from_json(node, out):
+    """Collect (ip, port) pairs from the shapes lists are published in."""
+    if isinstance(node, str):
+        m = re.match(r'^\s*(\d{1,3}(?:\.\d{1,3}){3}):(\d{1,5})\s*$', node)
+        if m:
+            out.append((m.group(1), m.group(2)))
+    elif isinstance(node, list):
+        for item in node:
+            _from_json(item, out)
+    elif isinstance(node, dict):
+        ip = node.get('ip') or node.get('address') or node.get('host')
+        ports = node.get('ports', node.get('port'))
+        if ip is not None and ports is not None:
+            for port in (ports if isinstance(ports, list) else [ports]):
+                out.append((ip, port))
+        else:
+            for key, value in node.items():          # {"8.6.112.0": [500, 939]}
+                if isinstance(key, str) and IP_RE.match(key) and value is not None:
+                    for port in (value if isinstance(value, list) else [value]):
+                        out.append((key, port))
+                else:
+                    _from_json(value, out)
+
+
+def parse_endpoint_list(text):
+    """Tolerant parser: JSON in the usual shapes, or text with ip:port pairs
+    and 'ip  500, 939, 8854' rows. Returns unique valid (ip, port) pairs."""
+    raw = []
+    try:
+        _from_json(json.loads(text), raw)
+    except ValueError:
+        for line in text.splitlines():
+            for ip, port in re.findall(r'(\d{1,3}(?:\.\d{1,3}){3}):(\d{1,5})', line):
+                raw.append((ip, port))
+            m = re.match(r'^[\s|*\-]*(\d{1,3}(?:\.\d{1,3}){3})\s*[|,;\t ]\s*([\d ,;|]+)$', line)
+            if m and ':' not in line:
+                for port in re.findall(r'\d{1,5}', m.group(2)):
+                    raw.append((m.group(1), port))
+    seen, out = set(), []
+    for ip, port in raw:
+        ep = valid_endpoint(ip, port)
+        if ep and ep not in seen:
+            seen.add(ep)
+            out.append(ep)
+        if len(out) >= SOURCE_MAX_ENTRIES:
+            break
+    return out
+
+
+def in_cloudflare(ip):
+    addr = ipaddress.ip_address(ip)
+    return any(addr in net for net in CF_NETS)
+
+
+def fetch_source(url, timeout=15):
+    """Download one list (https only, size capped); returns the text."""
+    if not str(url).startswith('https://'):
+        raise ValueError('only https:// sources are allowed')
+    req = urllib.request.Request(url, headers={'User-Agent': 'os-xray-client'})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        data = resp.read(SOURCE_MAX_BYTES + 1)
+    if len(data) > SOURCE_MAX_BYTES:
+        raise ValueError('the list is larger than %d MB' % (SOURCE_MAX_BYTES // 1048576))
+    return data.decode('utf-8', 'replace')
+
+
+def load_sources(urls, cache, any_address=False, fetch=fetch_source, now=None):
+    """Entries of all lists plus a report per list for the UI. A list that
+    cannot be fetched falls back to its cached copy."""
+    now = now or time.time()
+    entries, report, seen = [], [], set()
+    store = cache.data.setdefault('sources', {})
+    for url in list(urls)[:MAX_SOURCES]:
+        info = {'url': url}
+        cached = store.get(url)
+        if cached and now - cached.get('ts', 0) < SOURCE_TTL:
+            pairs = [tuple(p) for p in cached['entries']]
+            info['status'] = 'cached'
+        else:
+            try:
+                pairs = parse_endpoint_list(fetch(url))
+                store[url] = {'ts': now, 'entries': [list(p) for p in pairs]}
+                info['status'] = 'ok'
+            except (ValueError, OSError) as exc:
+                if cached:
+                    pairs = [tuple(p) for p in cached['entries']]
+                    info.update(status='stale', message='could not refresh: %s' % str(exc)[:80])
+                else:
+                    report.append(dict(info, status='error', message=str(exc)[:120], count=0, accepted=0))
+                    continue
+        accepted = [p for p in pairs if any_address or in_cloudflare(p[0])]
+        info.update(count=len(pairs), accepted=len(accepted), skipped=len(pairs) - len(accepted))
+        report.append(info)
+        for pair in accepted:
+            if pair not in seen:
+                seen.add(pair)
+                entries.append(pair)
+    return entries, report
 
 
 # ------------------------------------------------------------- xray config
@@ -385,7 +520,8 @@ class Cache:
 class Search:
     """One search (or re-check) run; probe is injectable for tests."""
 
-    def __init__(self, request, state_path, cache, probe=None, rng=None, cancel_path=None):
+    def __init__(self, request, state_path, cache, probe=None, rng=None, cancel_path=None, fetch=None):
+        self.fetch = fetch or fetch_source
         self.req = request
         self.mode = request['mode']
         self.state_path = state_path
@@ -433,7 +569,12 @@ class Search:
             self.state['max_attempts'] = len(explicit)
         else:
             skip = set() if self.req.get('ignore_cache') else self.cache.bad_keys()
-            candidates = generate_candidates(self.mode, bool(self.req.get('zero_trust')), self.rng, skip)
+            extra = []
+            if self.mode == 'wg' and self.req.get('sources'):
+                extra, self.state['sources'] = load_sources(self.req['sources'], self.cache,
+                                                            bool(self.req.get('any_address')), self.fetch)
+                self.rng.shuffle(extra)
+            candidates = generate_candidates(self.mode, bool(self.req.get('zero_trust')), self.rng, skip, extra)
         self.save_state()
         pending, submitted = set(), 0
         with ThreadPoolExecutor(max_workers=CONCURRENCY) as pool:
@@ -470,6 +611,10 @@ def validate_request(req):
     for name in need:
         if not cred.get(name):
             raise ValueError('%s is required' % name)
+    sources = req.get('sources') or []
+    if not isinstance(sources, list) or len(sources) > MAX_SOURCES or \
+            any(not str(u).startswith('https://') or re.search(r'\s', str(u)) for u in sources):
+        raise ValueError('invalid source list')
     for ep in req.get('endpoints') or []:
         if not IP_RE.match(str(ep.get('host', ''))) or not 0 < int(ep.get('port', 0)) < 65536:
             raise ValueError('invalid endpoint')

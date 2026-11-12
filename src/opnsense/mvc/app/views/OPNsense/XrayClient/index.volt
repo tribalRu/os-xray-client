@@ -3040,6 +3040,26 @@
                 return rank(a) - rank(b) || (a.ms || 1e9) - (b.ms || 1e9);
             });
         }
+
+        // One line about the external lists a search used (empty when none).
+        function warpSourcesText(sources) {
+            if (!sources || !sources.length) {
+                return '';
+            }
+            return 'External lists: ' + sources.map(function (r) {
+                if (r.status === 'error') {
+                    return 'could not load (' + (r.message || 'error') + ')';
+                }
+                var t = r.accepted + ' of ' + r.count + ' endpoints used';
+                if (r.skipped) {
+                    t += ', ' + r.skipped + ' outside Cloudflare ranges skipped';
+                }
+                if (r.status === 'stale') {
+                    t += ', old copy (' + (r.message || 'refresh failed') + ')';
+                }
+                return t;
+            }).join('; ') + '.';
+        }
         // WARPPROBE_END
 
         (function installWarpProbePanels() {
@@ -3093,6 +3113,8 @@
                     '<div class="wp-opts" style="display:none; margin-top: 6px;">' + modeHtml +
                     ' <label class="checkbox-inline"><input type="checkbox" class="wp-zt"> Zero Trust ranges</label>' +
                     ' <label class="checkbox-inline"><input type="checkbox" class="wp-ignore"> Retry endpoints that failed recently</label>' +
+                    (kind === 'wg' ? ' <label class="checkbox-inline" title="Endpoints from the lists set under Maintenance, WARP Endpoint Lists"><input type="checkbox" class="wp-src"> Use external lists</label>' +
+                    ' <label class="checkbox-inline" title="Normally only Cloudflare addresses are tested: a list could point the handshake at any host"><input type="checkbox" class="wp-any"> Also test addresses outside Cloudflare ranges</label>' : '') +
                     '<div style="margin-top: 4px;">Stop after <input type="number" class="wp-want form-control" style="width: 5em; display: inline-block;" value="5" min="1" max="20"> verified, at most ' +
                     '<input type="number" class="wp-max form-control" style="width: 6em; display: inline-block;" value="80" min="1" max="300"> attempts</div>' +
                     '<div class="text-muted" style="font-size: 12px; margin-top: 4px;">Each candidate is tested with this node\'s keys through a temporary Xray on the router; FinalMask is not applied.</div></div>' +
@@ -3166,7 +3188,8 @@
                                     say('text-muted', 'Starting...');
                                 } else {
                                     say('text-muted', 'Checked ' + (st.attempts || 0) + ' of at most ' + (st.max_attempts || '?') +
-                                        ', verified ' + (st.verified || 0) + '...');
+                                        ', verified ' + (st.verified || 0) + '...' +
+                                        (warpSourcesText(st.sources) ? ' ' + warpSourcesText(st.sources) : ''));
                                 }
                                 return;
                             }
@@ -3175,7 +3198,8 @@
                                 var n = st.verified || 0;
                                 say(n > 0 ? 'text-success' : 'text-danger', (st.status === 'cancelled' ? 'Cancelled. ' : '') +
                                     (st.recheck ? 'Re-check finished: ' : 'Search finished: ') + n + ' verified of ' + (st.attempts || 0) +
-                                    ' checked' + (n === 0 && !st.recheck ? '. Nothing answered; try another mode or more attempts.' : '.'));
+                                    ' checked' + (n === 0 && !st.recheck ? '. Nothing answered; try another mode or more attempts.' : '.') +
+                                    (warpSourcesText(st.sources) ? ' ' + warpSourcesText(st.sources) : ''));
                             } else if (st.status === 'error') {
                                 say('text-danger', st.message || 'The search failed.');
                             }
@@ -3209,6 +3233,10 @@
                     var data = { mode: mode(), credentials: cred, zero_trust: $wrap.find('.wp-zt').is(':checked') ? '1' : '0',
                                  ignore_cache: $wrap.find('.wp-ignore').is(':checked') ? '1' : '0',
                                  want: $wrap.find('.wp-want').val(), max_attempts: $wrap.find('.wp-max').val() };
+                    if (kind === 'wg' && $wrap.find('.wp-src').is(':checked')) {
+                        data.use_sources = '1';
+                        data.any_address = $wrap.find('.wp-any').is(':checked') ? '1' : '0';
+                    }
                     if (endpoints && endpoints.length) {
                         data.endpoints = endpoints;
                     }
@@ -3225,6 +3253,14 @@
                     });
                 }
 
+                try {
+                    $wrap.find('.wp-src').prop('checked', window.localStorage.getItem('osxray_warp_src') === '1');
+                } catch (e) { /* storage unavailable: the box simply starts unchecked */ }
+                $wrap.find('.wp-src').on('change', function () {
+                    try {
+                        window.localStorage.setItem('osxray_warp_src', this.checked ? '1' : '0');
+                    } catch (e) { /* ignore */ }
+                });
                 $wrap.find('.wp-start').on('click', function () { start(null); });
                 $wrap.find('.wp-recheck-all button').on('click', function () {
                     var rows = ($wrap.data('rows') || []).filter(function (r) { return r.status !== 'failed'; });

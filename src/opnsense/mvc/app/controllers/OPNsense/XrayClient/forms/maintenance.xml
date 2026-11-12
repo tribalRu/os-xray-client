@@ -44,4 +44,14 @@
         <type>text</type>
         <help>Branch of tribalRu/os-xray-client that "Update Plugin from GitHub" installs. Keep main for normal use; pick another branch only to try changes that have not been merged yet. The list is read from GitHub when this tab opens.</help>
     </field>
+    <field>
+        <type>header</type>
+        <label>WARP Endpoint Lists</label>
+    </field>
+    <field>
+        <id>xrayclient.maintenance.warp_sources</id>
+        <label>External Endpoint Lists</label>
+        <type>textbox</type>
+        <help>https:// URLs of third-party lists of WARP endpoints, one per line, used by "Find working endpoint" in WireGuard WARP nodes. The list is fetched by the router when a search starts and cached for a day. Accepted formats: JSON [{"ip": "8.6.112.0", "ports": [500, 939]}], JSON with ip:port strings or an ip-to-ports object, or text with ip:port lines. Every entry is still tested end to end, and only Cloudflare addresses are taken unless you allow others in the search options. Leave empty to use the built-in ranges only.</help>
+    </field>
 </form>

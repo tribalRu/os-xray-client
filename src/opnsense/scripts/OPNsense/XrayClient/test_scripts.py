@@ -1208,5 +1208,88 @@ class TestWarpProbe(unittest.TestCase):
         self.assertEqual(leak['status'], 'failed')
 
 
+class TestWarpSources(unittest.TestCase):
+    """External endpoint lists: parsing, filtering, caching, ordering."""
+
+    SAMPLE = ('[{"ip": "8.6.112.0", "ports": [939, 945, 987]}, {"ip": "8.6.112.1", "ports": [500]}, '
+              '{"ip": "93.184.216.34", "ports": [2408]}, {"ip": "10.0.0.1", "ports": [500]}]')
+
+    def setUp(self):
+        import tempfile
+        import warp_probe
+        self.wp = warp_probe
+        self.tmp = tempfile.mkdtemp()
+        self.cache = warp_probe.Cache(os.path.join(self.tmp, 'cache.json'))
+
+    def test_parse_collector_json(self):
+        got = self.wp.parse_endpoint_list(self.SAMPLE)
+        self.assertEqual(got[:4], [('8.6.112.0', 939), ('8.6.112.0', 945), ('8.6.112.0', 987), ('8.6.112.1', 500)])
+        self.assertIn(('93.184.216.34', 2408), got)
+        self.assertNotIn(('10.0.0.1', 500), got)          # private address is never valid
+
+    def test_parse_other_shapes(self):
+        wp = self.wp
+        self.assertEqual(wp.parse_endpoint_list('{"8.34.70.3": [500, 4500]}'), [('8.34.70.3', 500), ('8.34.70.3', 4500)])
+        self.assertEqual(wp.parse_endpoint_list('["162.159.192.1:2408", "bad", "162.159.192.1:2408"]'),
+                         [('162.159.192.1', 2408)])
+        self.assertEqual(wp.parse_endpoint_list('8.6.112.4:500\n188.114.97.2:1701 # note\n'),
+                         [('8.6.112.4', 500), ('188.114.97.2', 1701)])
+        self.assertEqual(wp.parse_endpoint_list('| 8.35.211.9 | 500, 939 |'), [('8.35.211.9', 500), ('8.35.211.9', 939)])
+        self.assertEqual(wp.parse_endpoint_list('<html>nothing</html>'), [])
+        self.assertEqual(wp.parse_endpoint_list('[{"ip": "8.6.112.0", "ports": [0, 70000, "x"]}]'), [])
+
+    def test_large_list_is_not_truncated_early(self):
+        import json
+        rows = [{'ip': '8.6.112.%d' % i, 'ports': [500 + n for n in range(1, 60)]} for i in range(256)]
+        self.assertEqual(len(self.wp.parse_endpoint_list(json.dumps(rows))), 256 * 59)
+
+    def test_cloudflare_filter_and_report(self):
+        entries, report = self.wp.load_sources(['https://a.example/x.json'], self.cache, fetch=lambda u: self.SAMPLE)
+        self.assertNotIn(('93.184.216.34', 2408), entries)
+        self.assertIn(('8.6.112.0', 939), entries)
+        self.assertEqual((report[0]['status'], report[0]['count'], report[0]['skipped']), ('ok', 5, 1))
+        self.assertEqual(report[0]['accepted'], 4)
+        entries, report = self.wp.load_sources(['https://a.example/x.json'], self.cache, any_address=True,
+                                               fetch=lambda u: self.SAMPLE)
+        self.assertIn(('93.184.216.34', 2408), entries)
+        self.assertEqual(report[0]['skipped'], 0)
+
+    def test_cache_stale_and_error(self):
+        calls = []
+
+        def ok(url):
+            calls.append(url)
+            return self.SAMPLE
+
+        def down(url):
+            raise OSError('network is down')
+
+        url = 'https://a.example/x.json'
+        self.wp.load_sources([url], self.cache, fetch=ok, now=1000)
+        _, rep = self.wp.load_sources([url], self.cache, fetch=ok, now=2000)
+        self.assertEqual((rep[0]['status'], len(calls)), ('cached', 1))
+        entries, rep = self.wp.load_sources([url], self.cache, fetch=down, now=1000 + self.wp.SOURCE_TTL + 1)
+        self.assertEqual(rep[0]['status'], 'stale')
+        self.assertIn(('8.6.112.0', 939), entries)
+        entries, rep = self.wp.load_sources(['https://b.example/y'], self.cache, fetch=down)
+        self.assertEqual((entries, rep[0]['status']), ([], 'error'))
+
+    def test_only_https_sources(self):
+        with self.assertRaises(ValueError):
+            self.wp.fetch_source('http://a.example/x.json')
+        with self.assertRaises(ValueError):
+            self.wp.fetch_source('file:///etc/passwd')
+
+    def test_extra_entries_come_after_documented_before_random(self):
+        import itertools
+        import random
+        extra = [('8.6.112.0', 939), ('8.6.112.0', 939), ('8.6.112.1', 500)]
+        got = list(itertools.islice(self.wp.generate_candidates('wg', rng=random.Random(1), extra=extra), 30))
+        n = len(self.wp.DOCUMENTED['wg'])
+        self.assertEqual(got[n:n + 2], [('8.6.112.0', 939), ('8.6.112.1', 500)])
+        self.assertEqual(len(set(got)), len(got))
+
+
+
 if __name__ == '__main__':
     unittest.main()

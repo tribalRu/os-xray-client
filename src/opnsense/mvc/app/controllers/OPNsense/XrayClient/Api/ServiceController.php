@@ -636,7 +636,17 @@ class ServiceController extends ApiMutableServiceControllerBase
             'max_attempts' => max(1, min(300, (int)$this->request->getPost('max_attempts', 'string', '80'))),
             'ignore_cache' => $this->request->getPost('ignore_cache', 'string', '0') === '1',
             'endpoints' => $endpoints,
+            'sources' => [],
+            'any_address' => $this->request->getPost('any_address', 'string', '0') === '1',
         ];
+        // External endpoint lists (WireGuard only) come from the plugin settings.
+        if ($mode === 'wg' && $this->request->getPost('use_sources', 'string', '0') === '1') {
+            $mdl = new XrayClient();
+            $urls = preg_split('/\s+/', trim((string)$mdl->maintenance->warp_sources), -1, PREG_SPLIT_NO_EMPTY);
+            $request['sources'] = array_values(array_filter(array_slice($urls, 0, 10), function ($u) {
+                return strpos($u, 'https://') === 0;
+            }));
+        }
         $file = tempnam(sys_get_temp_dir(), 'xwp');
         if ($file === false || file_put_contents($file, json_encode($request)) === false) {
             return ['status' => 'error', 'message' => 'Could not write the search request.'];
