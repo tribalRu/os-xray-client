@@ -1201,6 +1201,46 @@
             }, 0);
         });
 
+        // What a node row of the grid means. The model keeps defaults (tcp,
+        // reality, port 443) for fields a protocol does not use; showing them
+        // would be misleading, so the grid goes by the protocol.
+        //   none: no transport (freedom, blackhole, dns, loopback)
+        //   udp: WireGuard    quic: Hysteria 2    h2 / h3: MASQUE
+        //   stream: every other protocol (transport and security as saved)
+        function nodeRowKind(row) {
+            var proto = String(row.protocol || '').toLowerCase();
+            if (['freedom', 'blackhole', 'dns', 'loopback'].indexOf(proto) !== -1) {
+                return 'none';
+            }
+            if (proto === 'wireguard') {
+                return 'udp';
+            }
+            if (proto === 'hysteria') {
+                return 'quic';
+            }
+            if (proto === 'masque') {
+                // The same rule as the config template: no h2 in ALPN means HTTP/3.
+                var alpn = String(row.alpn || '').split(',').map(function (v) { return $.trim(v); });
+                return alpn.indexOf('h2') === -1 ? 'h3' : 'h2';
+            }
+            return 'stream';
+        }
+
+        // Endpoint shown in the Address and Port columns: WireGuard keeps it in
+        // wg_endpoint (host:port or [v6]:port), the protocols without an
+        // endpoint have none.
+        function nodeRowEndpoint(row) {
+            var proto = String(row.protocol || '').toLowerCase();
+            if (proto === 'wireguard') {
+                var m = /^(\[[^\]]+\]|[^:]+):(\d+)$/.exec($.trim(row.wg_endpoint || ''));
+                return m ? { host: m[1], port: m[2] } : { host: $.trim(row.wg_endpoint || ''), port: '' };
+            }
+            if (nodeRowKind(row) === 'none') {
+                return { host: '', port: '' };
+            }
+            return { host: String(row.address || ''), port: String(row.port || '') };
+        }
+
         $("#grid-nodes").UIBootgrid({
             search: '/api/xrayclient/settings/searchNode',
             get: '/api/xrayclient/settings/getNode/',
@@ -1223,6 +1263,15 @@
                         }
                     },
                     "transport": function (column, row) {
+                        var kind = nodeRowKind(row);
+                        var fixed = { quic: ['QUIC', 'Hysteria 2 over QUIC'], udp: ['UDP', 'WireGuard over UDP'],
+                                      h2: ['HTTP/2', 'MASQUE over HTTP/2'], h3: ['HTTP/3', 'MASQUE over HTTP/3 (QUIC)'] };
+                        if (kind === 'none') {
+                            return '<span class="text-muted">&mdash;</span>';
+                        }
+                        if (fixed[kind]) {
+                            return '<span class="bootgrid-tooltip" title="' + fixed[kind][1] + '">' + fixed[kind][0] + '</span>';
+                        }
                         var map = {
                             tcp: ['TCP', 'TCP (RAW)'],
                             ws: ['WS', 'WebSocket (WS)'],
@@ -1237,6 +1286,24 @@
                             return '' + $('<div/>').text(row.network || '').html();
                         }
                         return '<span class="bootgrid-tooltip" title="' + entry[1] + '">' + entry[0] + '</span>';
+                    },
+                    "nodeaddr": function (column, row) {
+                        var ep = nodeRowEndpoint(row);
+                        return ep.host === '' ? '<span class="text-muted">&mdash;</span>' : $('<div/>').text(ep.host).html();
+                    },
+                    "nodeport": function (column, row) {
+                        var ep = nodeRowEndpoint(row);
+                        return ep.port === '' ? '<span class="text-muted">&mdash;</span>' : $('<div/>').text(ep.port).html();
+                    },
+                    "nodesec": function (column, row) {
+                        var kind = nodeRowKind(row);
+                        if (kind === 'quic' || kind === 'h2' || kind === 'h3') {
+                            return 'TLS';
+                        }
+                        if (kind === 'udp' || kind === 'none') {
+                            return '<span class="text-muted">&mdash;</span>';
+                        }
+                        return $('<div/>').text(row.security || '').html();
                     },
                     "latency": function (column, row) {
                         var info = nodeLatencyCache[row.uuid];
@@ -3161,9 +3228,9 @@
                     <th data-column-id="name" data-min-width="8em" data-type="string">Server Name</th>
                     <th data-column-id="protocol" data-width="4.5em" data-type="string">Protocol</th>
                     <th data-column-id="network" data-width="6em" data-formatter="transport">Transport</th>
-                    <th data-column-id="address" data-min-width="12em" data-type="string">Address</th>
-                    <th data-column-id="port" data-width="3em" data-type="string">Port</th>
-                    <th data-column-id="security" data-width="5em" data-type="string">Security</th>
+                    <th data-column-id="address" data-min-width="12em" data-formatter="nodeaddr">Address</th>
+                    <th data-column-id="port" data-width="3em" data-formatter="nodeport">Port</th>
+                    <th data-column-id="security" data-width="5em" data-formatter="nodesec">Security</th>
                     <th data-column-id="latency" data-width="6em" data-formatter="latency" data-sortable="false">Latency</th>
                     <th data-column-id="traffic" data-width="10em" data-formatter="traffic" data-sortable="false">Traffic &#8595;/&#8593;</th>
                     <th data-column-id="commands" data-width="8em" data-formatter="commands" data-sortable="false">Actions</th>
