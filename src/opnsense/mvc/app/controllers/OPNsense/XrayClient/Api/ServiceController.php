@@ -546,6 +546,140 @@ class ServiceController extends ApiMutableServiceControllerBase
     }
 
     /**
+     * Start a search (or a re-check of given endpoints) for WARP endpoints
+     * that work from this router. The credentials of the node come from the
+     * dialog and are validated here; they reach the script through a
+     * temporary 0600 file, never through a command line.
+     */
+    public function warpProbeStartAction()
+    {
+        if (!$this->request->isPost()) {
+            return ['status' => 'error', 'message' => 'POST required'];
+        }
+        $mode = (string)$this->request->getPost('mode', 'string', '');
+        if (!in_array($mode, ['wg', 'masque_h2', 'masque_h3'], true)) {
+            return ['status' => 'error', 'message' => 'Unknown search mode.'];
+        }
+        $in = $this->request->getPost('credentials');
+        $in = is_array($in) ? $in : [];
+        $b64 = '/^[A-Za-z0-9+\/]{43}=$/';
+        $cidr = '/^([0-9]{1,3}(\.[0-9]{1,3}){3}(\/[0-9]{1,2})?|[0-9A-Fa-f:]*:[0-9A-Fa-f:.]*(\/[0-9]{1,3})?)$/';
+        $host = '/^[A-Za-z0-9][A-Za-z0-9.-]{0,251}$/';
+        $list = function ($v, $re) {
+            $items = is_array($v) ? $v : explode(',', (string)$v);
+            $items = array_values(array_filter(array_map('trim', $items), 'strlen'));
+            foreach ($items as $item) {
+                if (!preg_match($re, $item)) {
+                    return null;
+                }
+            }
+            return $items;
+        };
+        $cred = [];
+        if ($mode === 'wg') {
+            foreach (['wg_secret_key', 'wg_public_key', 'wg_preshared_key'] as $k) {
+                $v = trim((string)($in[$k] ?? ''));
+                if ($v !== '' && !preg_match($b64, $v)) {
+                    return ['status' => 'error', 'message' => 'The WireGuard keys must be 44 base64 characters.'];
+                }
+                $cred[$k] = $v;
+            }
+            $cred['wg_address'] = $list($in['wg_address'] ?? '', $cidr);
+            $cred['wg_allowed_ips'] = $list($in['wg_allowed_ips'] ?? '', $cidr);
+            if ($cred['wg_address'] === null || $cred['wg_allowed_ips'] === null) {
+                return ['status' => 'error', 'message' => 'Invalid WireGuard address list.'];
+            }
+            $cred['wg_mtu'] = max(576, min(1500, (int)($in['wg_mtu'] ?? 1280)));
+            $res = array_map('intval', explode(',', (string)($in['wg_reserved'] ?? '0,0,0')));
+            $cred['wg_reserved'] = count($res) === 3 ? array_map(function ($n) {
+                return max(0, min(255, $n));
+            }, $res) : [0, 0, 0];
+        } else {
+            $k = trim((string)($in['masque_warp_private_key'] ?? ''));
+            $p = trim((string)($in['masque_warp_public_key'] ?? ''));
+            if (!preg_match('/^[A-Za-z0-9+\/=]{40,2048}$/', $k) || ($p !== '' && !preg_match('/^[A-Za-z0-9+\/=]{80,400}$/', $p))) {
+                return ['status' => 'error', 'message' => 'Invalid MASQUE keys.'];
+            }
+            $cred['masque_warp_private_key'] = $k;
+            $cred['masque_warp_public_key'] = $p;
+            $cred['masque_warp_address'] = $list($in['masque_warp_address'] ?? '', $cidr);
+            if (empty($cred['masque_warp_address'])) {
+                return ['status' => 'error', 'message' => 'The WARP device addresses are required.'];
+            }
+            foreach (['sni', 'tls_verify_peer_cert_by_name'] as $k2) {
+                $v = trim((string)($in[$k2] ?? ''));
+                if ($v !== '' && !preg_match($host, $v)) {
+                    return ['status' => 'error', 'message' => 'Invalid host name in ' . $k2 . '.'];
+                }
+                $cred[$k2] = $v;
+            }
+            $fp = trim((string)($in['fingerprint'] ?? ''));
+            $cred['fingerprint'] = preg_match('/^[a-z0-9_]{1,32}$/', $fp) ? $fp : 'chrome';
+            $pin = trim((string)($in['tls_pinned_peer_cert_sha256'] ?? ''));
+            $cred['tls_pinned_peer_cert_sha256'] = preg_match('/^[A-Fa-f0-9:,]{64,200}$/', $pin) ? $pin : '';
+        }
+        $endpoints = [];
+        $raw = $this->request->getPost('endpoints');
+        foreach (is_array($raw) ? $raw : [] as $ep) {
+            $h = trim((string)($ep['host'] ?? ''));
+            $port = (int)($ep['port'] ?? 0);
+            if (!filter_var($h, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) || $port < 1 || $port > 65535) {
+                return ['status' => 'error', 'message' => 'Invalid endpoint in the re-check list.'];
+            }
+            $endpoints[] = ['host' => $h, 'port' => $port];
+        }
+        $request = [
+            'mode' => $mode,
+            'credentials' => $cred,
+            'zero_trust' => $this->request->getPost('zero_trust', 'string', '0') === '1',
+            'want' => max(1, min(20, (int)$this->request->getPost('want', 'string', '5'))),
+            'max_attempts' => max(1, min(300, (int)$this->request->getPost('max_attempts', 'string', '80'))),
+            'ignore_cache' => $this->request->getPost('ignore_cache', 'string', '0') === '1',
+            'endpoints' => $endpoints,
+            'sources' => [],
+            'any_address' => $this->request->getPost('any_address', 'string', '0') === '1',
+        ];
+        // External endpoint lists (WireGuard only) come from the plugin settings.
+        if ($mode === 'wg' && $this->request->getPost('use_sources', 'string', '0') === '1') {
+            $mdl = new XrayClient();
+            $urls = preg_split('/\s+/', trim((string)$mdl->maintenance->warp_sources), -1, PREG_SPLIT_NO_EMPTY);
+            $request['sources'] = array_values(array_filter(array_slice($urls, 0, 10), function ($u) {
+                return strpos($u, 'https://') === 0;
+            }));
+        }
+        $file = tempnam(sys_get_temp_dir(), 'xwp');
+        if ($file === false || file_put_contents($file, json_encode($request)) === false) {
+            return ['status' => 'error', 'message' => 'Could not write the search request.'];
+        }
+        chmod($file, 0600);
+        $backend = new Backend();
+        $response = $backend->configdpRun('xrayclient warp_probe_start', [$file]);
+        $data = json_decode(trim($response), true);
+        if (!is_array($data)) {
+            @unlink($file);
+            return ['status' => 'error', 'message' => 'The search did not start.'];
+        }
+        return $data;
+    }
+
+    public function warpProbeStatusAction()
+    {
+        $backend = new Backend();
+        $data = json_decode(trim($backend->configdRun('xrayclient warp_probe_status')), true);
+        return is_array($data) ? $data : ['status' => 'error', 'message' => 'No state available.'];
+    }
+
+    public function warpProbeCancelAction()
+    {
+        if (!$this->request->isPost()) {
+            return ['status' => 'error', 'message' => 'POST required'];
+        }
+        $backend = new Backend();
+        $data = json_decode(trim($backend->configdRun('xrayclient warp_probe_cancel')), true);
+        return is_array($data) ? $data : ['status' => 'error', 'message' => 'Could not cancel.'];
+    }
+
+    /**
      * Register a Cloudflare WARP device with MASQUE support and return the
      * fields of the node dialog (MASQUE, WARP mode): P-256 key, edge public
      * key, device addresses and endpoint.

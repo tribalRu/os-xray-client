@@ -3003,6 +3003,371 @@
             });
         })();
 
+        // ---- WARP endpoint search (WireGuard and MASQUE nodes) ----
+        // WARPPROBE_BEGIN
+        function warpAgeText(ts, now) {
+            var secs = Math.max(0, (now || Math.floor(Date.now() / 1000)) - (ts || 0));
+            if (!ts) {
+                return '';
+            }
+            if (secs < 90) {
+                return 'just now';
+            }
+            if (secs < 5400) {
+                return Math.round(secs / 60) + ' min ago';
+            }
+            if (secs < 129600) {
+                return Math.round(secs / 3600) + ' h ago';
+            }
+            return Math.round(secs / 86400) + ' d ago';
+        }
+
+        // Rows of the result table: what the current search found plus the
+        // endpoints verified earlier (kept on the router), best latency first.
+        function warpProbeRows(state, mode) {
+            var rows = {};
+            var cached = (state && state.cached && state.cached[mode]) || [];
+            cached.forEach(function (r) {
+                rows[r.host + ':' + r.port] = $.extend({ cached: true }, r);
+            });
+            if (state && state.mode === mode) {
+                (state.results || []).forEach(function (r) {
+                    rows[r.host + ':' + r.port] = $.extend({ cached: false }, r);
+                });
+            }
+            return Object.keys(rows).map(function (k) { return rows[k]; }).sort(function (a, b) {
+                var rank = function (r) { return r.status === 'verified' ? 0 : (r.status === 'unstable' ? 1 : 2); };
+                return rank(a) - rank(b) || (a.ms || 1e9) - (b.ms || 1e9);
+            });
+        }
+
+        // One line about the external lists a search used (empty when none).
+        function warpSourcesText(sources) {
+            if (!sources || !sources.length) {
+                return '';
+            }
+            return 'External lists: ' + sources.map(function (r) {
+                if (r.status === 'error') {
+                    return 'could not load (' + (r.message || 'error') + ')';
+                }
+                var t = r.accepted + ' of ' + r.count + ' endpoints used';
+                if (r.skipped) {
+                    t += ', ' + r.skipped + ' outside Cloudflare ranges skipped';
+                }
+                if (r.status === 'stale') {
+                    t += ', old copy (' + (r.message || 'refresh failed') + ')';
+                }
+                return t;
+            }).join('; ') + '.';
+        }
+        // WARPPROBE_END
+
+        (function installWarpProbePanels() {
+            function val(id) {
+                return $.trim($('#node\\.' + id).val() || '');
+            }
+            function listVal(id) {
+                var v = $('#node\\.' + id).val();
+                return $.isArray(v) ? v : String(v || '').split(',').filter(function (x) { return $.trim(x) !== ''; });
+            }
+
+            function credentials(kind) {
+                if (kind === 'wg') {
+                    return { wg_secret_key: val('wg_secret_key'), wg_public_key: val('wg_public_key'),
+                             wg_preshared_key: val('wg_preshared_key'), wg_address: listVal('wg_address').join(','),
+                             wg_allowed_ips: listVal('wg_allowed_ips').join(','), wg_mtu: val('wg_mtu'),
+                             wg_reserved: val('wg_reserved') };
+                }
+                return { masque_warp_private_key: val('masque_warp_private_key'),
+                         masque_warp_public_key: val('masque_warp_public_key'),
+                         masque_warp_address: listVal('masque_warp_address').join(','), sni: val('sni'),
+                         fingerprint: val('fingerprint'), tls_pinned_peer_cert_sha256: val('tls_pinned_peer_cert_sha256'),
+                         tls_verify_peer_cert_by_name: val('tls_verify_peer_cert_by_name') };
+            }
+
+            function missing(kind, cred) {
+                var need = kind === 'wg' ? ['wg_secret_key', 'wg_public_key', 'wg_address']
+                                          : ['masque_warp_private_key', 'masque_warp_address'];
+                var names = { wg_secret_key: 'Client Private Key', wg_public_key: 'Peer Public Key', wg_address: 'Addresses',
+                              masque_warp_private_key: 'WARP Private Key', masque_warp_address: 'WARP Device Addresses' };
+                return need.filter(function (k) { return cred[k] === ''; }).map(function (k) { return names[k]; });
+            }
+
+            function build(kind, $anchorRow) {
+                if ($anchorRow.length === 0 || $('#warp_probe_' + kind).length > 0) {
+                    return;
+                }
+                var isTr = $anchorRow.is('tr');
+                var $wrap = $('<div class="warp-probe" id="warp_probe_' + kind + '" style="margin-top: 8px;"></div>');
+                var $row = $(isTr ? '<tr class="' + ($anchorRow.attr('class') || '') + '"><td colspan="3"></td></tr>'
+                                  : '<div class="form-group ' + ($anchorRow.attr('class') || '') + '"></div>');
+                (isTr ? $row.find('td') : $row).append($wrap);
+                var modeHtml = kind === 'wg' ? '' :
+                    '<label class="radio-inline"><input type="radio" name="warp_probe_mode" value="masque_h2" checked> HTTP/2 (TCP)</label> ' +
+                    '<label class="radio-inline"><input type="radio" name="warp_probe_mode" value="masque_h3"> HTTP/3 (UDP)</label>';
+                $wrap.html(
+                    '<button type="button" class="btn btn-xs btn-primary wp-start"><i class="fa fa-search"></i> <b>Find working endpoint</b></button> ' +
+                    '<a href="#" class="wp-opts-toggle" style="margin-left: 8px; font-size: 12px;">Options</a>' +
+                    '<a href="#" class="wp-show" style="margin-left: 8px; font-size: 12px; display:none;">Results</a>' +
+                    '<span class="wp-status text-muted" style="margin-left: 8px; font-size: 12px;"></span>' +
+                    '<div class="wp-opts" style="display:none; margin-top: 6px;">' + modeHtml +
+                    ' <label class="checkbox-inline"><input type="checkbox" class="wp-zt"> Zero Trust ranges</label>' +
+                    ' <label class="checkbox-inline"><input type="checkbox" class="wp-ignore"> Retry endpoints that failed recently</label>' +
+                    (kind === 'wg' ? ' <label class="checkbox-inline" title="Endpoints from the lists set under Maintenance, WARP Endpoint Lists"><input type="checkbox" class="wp-src"> Use external lists</label>' +
+                    ' <label class="checkbox-inline" title="Normally only Cloudflare addresses are tested: a list could point the handshake at any host"><input type="checkbox" class="wp-any"> Also test addresses outside Cloudflare ranges</label>' : '') +
+                    '<div style="margin-top: 4px;">Stop after <input type="number" class="wp-want form-control" style="width: 5em; display: inline-block;" value="5" min="1" max="20"> verified, at most ' +
+                    '<input type="number" class="wp-max form-control" style="width: 6em; display: inline-block;" value="80" min="1" max="300"> attempts</div>' +
+                    '<div class="text-muted" style="font-size: 12px; margin-top: 4px;">Each candidate is tested with this node\'s keys through a temporary Xray on the router; FinalMask is not applied.</div></div>' +
+                    '</div>');
+                $anchorRow.after($row);
+                // The progress and the results live in their own dialog above the node dialog.
+                var dlgId = 'DialogWarpProbe_' + kind;
+                $('#' + dlgId).remove();
+                var $dlg = $('<div class="modal fade" id="' + dlgId + '" tabindex="-1" role="dialog"><div class="modal-dialog modal-lg"><div class="modal-content">' +
+                    '<div class="modal-header"><button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>' +
+                    '<h4 class="modal-title">Find working endpoint</h4></div>' +
+                    '<div class="modal-body">' +
+                    '<div class="wp-m-status text-muted"></div>' +
+                    '<div class="progress" style="margin: 10px 0;"><div class="progress-bar wp-bar" style="width: 0%;"></div></div>' +
+                    '<div class="wp-m-src text-muted" style="font-size: 12px; margin-bottom: 8px;"></div>' +
+                    '<table class="table table-condensed wp-table" style="display:none;"><thead><tr>' +
+                    '<th>Endpoint</th><th>Latency</th><th>Speed</th><th>Checks</th><th>Verified</th><th></th></tr></thead><tbody></tbody></table>' +
+                    '<div class="wp-empty text-muted" style="display:none;">Nothing has answered yet.</div></div>' +
+                    '<div class="modal-footer"><button type="button" class="btn btn-default wp-recheck-all" style="display:none;"><i class="fa fa-refresh"></i> Re-check all</button> ' +
+                    '<button type="button" class="btn btn-default wp-cancel" style="display:none;"><i class="fa fa-stop"></i> Cancel search</button> ' +
+                    '<button type="button" class="btn btn-primary" data-dismiss="modal">Close</button></div>' +
+                    '</div></div></div>').appendTo('body');
+                var $status = $wrap.find('.wp-status');
+                function openDialog() {
+                    if ($.fn.modal) {
+                        $dlg.modal('show');
+                    } else {
+                        $dlg.show();
+                    }
+                }
+                function closeDialog() {
+                    if ($.fn.modal) {
+                        $dlg.modal('hide');
+                    } else {
+                        $dlg.hide();
+                    }
+                }
+                // Stack above the node dialog; Bootstrap 3 removes modal-open from
+                // the body when any dialog closes, so put it back for the node dialog.
+                $dlg.on('shown.bs.modal', function () {
+                    $dlg.css('z-index', 1070);
+                    $('.modal-backdrop').last().css('z-index', 1065);
+                });
+                $dlg.on('hidden.bs.modal', function () {
+                    if ($('#DialogNode').hasClass('in')) {
+                        $('body').addClass('modal-open');
+                        var node = $('#DialogNode').data('bs.modal');
+                        if (node && node.enforceFocus) {
+                            node.enforceFocus();
+                        }
+                    }
+                });
+                var polling = null;
+
+                function mode() {
+                    return kind === 'wg' ? 'wg' : $wrap.find('input[name=warp_probe_mode]:checked').val();
+                }
+                function say(cls, text) {
+                    $status.removeClass('text-muted text-danger text-success').addClass(cls).text(text);
+                    $dlg.find('.wp-m-status').removeClass('text-muted text-danger text-success').addClass(cls).text(text);
+                }
+                function progress(st) {
+                    var max = st && st.max_attempts ? st.max_attempts : 0;
+                    var pct = max ? Math.min(100, Math.round(100 * (st.attempts || 0) / max)) : 0;
+                    var done = st && st.status && st.status !== 'running';
+                    $dlg.find('.wp-bar').css('width', (done ? (st.status === 'done' && st.verified >= (st.want || 1) ? 100 : pct) : pct) + '%')
+                        .toggleClass('active progress-bar-striped', !done)
+                        .toggleClass('progress-bar-success', !!done && (st.verified || 0) > 0)
+                        .toggleClass('progress-bar-danger', !!done && !(st.verified || 0));
+                    $dlg.find('.wp-m-src').text(warpSourcesText(st && st.sources));
+                }
+
+                function render(state) {
+                    var rows = warpProbeRows(state, mode());
+                    var $tb = $dlg.find('.wp-table tbody').empty();
+                    rows.forEach(function (r) {
+                        var label = r.status === 'verified' ? '<span class="label label-success">verified</span>'
+                                  : (r.status === 'unstable' ? '<span class="label label-warning">unstable</span>'
+                                  : '<span class="label label-danger">failed</span>');
+                        var $tr = $('<tr/>').append($('<td/>').text(r.host + ':' + r.port + ' ').append($(label)))
+                            .append($('<td/>').text(r.ms ? r.ms + ' ms' : '-'))
+                            .append($('<td/>').text(r.kbps ? (r.kbps >= 1000 ? (r.kbps / 1000).toFixed(1) + ' Mbit/s' : r.kbps + ' kbit/s') : '-'))
+                            .append($('<td/>').text(r.checks || '-'))
+                            .append($('<td/>').text(warpAgeText(r.ts)));
+                        var $use = $('<button type="button" class="btn btn-xs btn-default" style="margin-right: 4px;">Use</button>')
+                            .prop('disabled', r.status === 'failed').on('click', function () { use(r); });
+                        var $re = $('<button type="button" class="btn btn-xs btn-default">Re-check</button>')
+                            .on('click', function () { start([{ host: r.host, port: r.port }]); });
+                        $tr.append($('<td/>').append($use).append($re)).data('row', r);
+                        $tb.append($tr);
+                    });
+                    $dlg.find('.wp-table').toggle(rows.length > 0);
+                    $dlg.find('.wp-recheck-all').toggle(rows.length > 0);
+                    $dlg.find('.wp-empty').toggle(rows.length === 0 && !!(state && state.status && state.status !== 'running'));
+                    $wrap.find('.wp-show').toggle(rows.length > 0);
+                    $wrap.data('rows', rows);
+                }
+
+                function use(r) {
+                    if (kind === 'wg') {
+                        $('#node\\.wg_endpoint').val(r.host + ':' + r.port);
+                    } else {
+                        $('#node\\.address').val(r.host);
+                        $('#node\\.port').val(String(r.port));
+                        var $alpn = $('#node\\.alpn');
+                        if ($alpn.length) {
+                            $alpn.val([mode() === 'masque_h2' ? 'h2' : 'h3']);
+                            if ($.fn.selectpicker) {
+                                $alpn.selectpicker('refresh');
+                            }
+                            $alpn.trigger('change');
+                        }
+                        if (r.edge_key) {
+                            $('#node\\.masque_warp_public_key').val(r.edge_key);
+                        }
+                    }
+                    closeDialog();
+                    say('text-success', 'Endpoint ' + r.host + ':' + r.port + ' filled in. Save the node to apply.');
+                }
+
+                function poll() {
+                    $.ajax({ url: '/api/xrayclient/service/warpProbeStatus', type: 'GET', cache: false,
+                        success: function (st) {
+                            render(st);
+                            progress(st);
+                            if (st.status === 'running') {
+                                if (st.mode && st.mode !== mode()) {
+                                    say('text-muted', 'Another search (' + st.mode + ') is running.');
+                                } else if (st.starting) {
+                                    say('text-muted', 'Starting...');
+                                } else {
+                                    say('text-muted', 'Checked ' + (st.attempts || 0) + ' of at most ' + (st.max_attempts || '?') +
+                                        ', verified ' + (st.verified || 0) + '...' +
+                                        (warpSourcesText(st.sources) ? ' ' + warpSourcesText(st.sources) : ''));
+                                }
+                                return;
+                            }
+                            stop();
+                            if (st.status === 'done' || st.status === 'cancelled') {
+                                var n = st.verified || 0;
+                                say(n > 0 ? 'text-success' : 'text-danger', (st.status === 'cancelled' ? 'Cancelled. ' : '') +
+                                    (st.recheck ? 'Re-check finished: ' : 'Search finished: ') + n + ' verified of ' + (st.attempts || 0) +
+                                    ' checked' + (n === 0 && !st.recheck ? '. Nothing answered; try another mode or more attempts.' : '.') +
+                                    (warpSourcesText(st.sources) ? ' ' + warpSourcesText(st.sources) : ''));
+                            } else if (st.status === 'error') {
+                                say('text-danger', st.message || 'The search failed.');
+                            }
+                        },
+                        error: function () { stop(); say('text-danger', 'Could not read the search state.'); }
+                    });
+                }
+                function startPolling() {
+                    if (polling === null) {
+                        polling = setInterval(poll, 1000);
+                    }
+                    $wrap.find('.wp-start').prop('disabled', true);
+                    $dlg.find('.wp-cancel').show().prop('disabled', false);
+                    $dlg.find('.wp-recheck-all').prop('disabled', true);
+                }
+                function stop() {
+                    if (polling !== null) {
+                        clearInterval(polling);
+                        polling = null;
+                    }
+                    $wrap.find('.wp-start').prop('disabled', false);
+                    $dlg.find('.wp-cancel').hide();
+                    $dlg.find('.wp-recheck-all').prop('disabled', false);
+                }
+
+                function start(endpoints) {
+                    var cred = credentials(kind);
+                    var lack = missing(kind, cred);
+                    if (lack.length) {
+                        say('text-danger', 'Fill in first: ' + lack.join(', ') + '.');
+                        return;
+                    }
+                    var data = { mode: mode(), credentials: cred, zero_trust: $wrap.find('.wp-zt').is(':checked') ? '1' : '0',
+                                 ignore_cache: $wrap.find('.wp-ignore').is(':checked') ? '1' : '0',
+                                 want: $wrap.find('.wp-want').val(), max_attempts: $wrap.find('.wp-max').val() };
+                    if (kind === 'wg' && $wrap.find('.wp-src').is(':checked')) {
+                        data.use_sources = '1';
+                        data.any_address = $wrap.find('.wp-any').is(':checked') ? '1' : '0';
+                    }
+                    if (endpoints && endpoints.length) {
+                        data.endpoints = endpoints;
+                    }
+                    say('text-muted', 'Starting...');
+                    progress(null);
+                    $dlg.find('.wp-table tbody').empty();
+                    $dlg.find('.wp-table, .wp-empty').hide();
+                    $dlg.find('.modal-title').text('Find working endpoint: ' + (endpoints && endpoints.length ? 'checking ' + endpoints.length + ' saved' : (kind === 'wg' ? 'WireGuard' : 'MASQUE')));
+                    openDialog();
+                    startPolling();
+                    $.ajax({ url: '/api/xrayclient/service/warpProbeStart', type: 'POST', data: data, timeout: 30000,
+                        success: function (res) {
+                            if (!res || res.status !== 'ok') {
+                                stop();
+                                say('text-danger', (res && res.message) || 'The search did not start.');
+                            }
+                        },
+                        error: function () { stop(); say('text-danger', 'The request failed.'); }
+                    });
+                }
+
+                try {
+                    $wrap.find('.wp-src').prop('checked', window.localStorage.getItem('osxray_warp_src') === '1');
+                } catch (e) { /* storage unavailable: the box simply starts unchecked */ }
+                $wrap.find('.wp-src').on('change', function () {
+                    try {
+                        window.localStorage.setItem('osxray_warp_src', this.checked ? '1' : '0');
+                    } catch (e) { /* ignore */ }
+                });
+                $wrap.find('.wp-start').on('click', function () { start(null); });
+                $wrap.find('.wp-show').on('click', function (e) {
+                    e.preventDefault();
+                    openDialog();
+                });
+                $dlg.find('.wp-recheck-all').on('click', function () {
+                    var rows = ($wrap.data('rows') || []).filter(function (r) { return r.status !== 'failed'; });
+                    start(rows.map(function (r) { return { host: r.host, port: r.port }; }));
+                });
+                $dlg.find('.wp-cancel').on('click', function () {
+                    $.ajax({ url: '/api/xrayclient/service/warpProbeCancel', type: 'POST' });
+                    $(this).prop('disabled', true);
+                    say('text-muted', 'Cancelling...');
+                });
+                $wrap.find('.wp-opts-toggle').on('click', function (e) {
+                    e.preventDefault();
+                    $wrap.find('.wp-opts').toggle();
+                });
+                $wrap.find('input[name=warp_probe_mode]').on('change', function () { poll(); });
+                // show what is known when the dialog opens; resume a running search
+                $('#DialogNode').on('shown.bs.modal', function () {
+                    if (kind === 'masque') {
+                        var alpn = $('#node\\.alpn').val() || [];
+                        $wrap.find('input[name=warp_probe_mode][value=' + (alpn.length && alpn.indexOf('h2') === -1 ? 'masque_h3' : 'masque_h2') + ']').prop('checked', true);
+                    }
+                    $.ajax({ url: '/api/xrayclient/service/warpProbeStatus', type: 'GET', cache: false,
+                        success: function (st) {
+                            render(st);
+                            progress(st);
+                            var mine = kind === 'wg' ? st.mode === 'wg' : /^masque_/.test(st.mode || '');
+                            if (st.status === 'running' && mine) {
+                                startPolling();
+                            }
+                        } });
+                });
+            }
+
+            build('wg', $('#node\\.wg_endpoint').closest('tr, .form-group'));
+            build('masque', $('#masque_warp_tools'));
+        })();
+
         // Capture phase: runs before the bootgrid save handler; a bad raw
         // JSON field aborts the save and highlights the offending input.
         (function installNodeRawJsonGuard() {

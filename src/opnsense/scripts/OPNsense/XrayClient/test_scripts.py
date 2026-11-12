@@ -1034,5 +1034,262 @@ class TestModelMasks(unittest.TestCase):
         self.assertEqual(broken, [])
 
 
+class TestWarpProbe(unittest.TestCase):
+    """warp_probe.py: candidates, test config, search logic and the whole
+    pipeline against a fake xray."""
+
+    CRED_WG = {'wg_secret_key': 'S' * 43 + '=', 'wg_public_key': 'P' * 43 + '=', 'wg_address': ['172.16.0.2/32']}
+    CRED_MQ = {'masque_warp_private_key': 'K' * 60, 'masque_warp_address': ['172.16.0.2/32'],
+               'masque_warp_public_key': 'E' * 90}
+
+    def setUp(self):
+        import tempfile
+        import warp_probe
+        self.wp = warp_probe
+        self.tmp = tempfile.mkdtemp()
+        self.cache = warp_probe.Cache(os.path.join(self.tmp, 'cache.json'))
+
+    def take(self, mode, n, **kw):
+        import itertools
+        import random
+        return list(itertools.islice(self.wp.generate_candidates(mode, rng=random.Random(1), **kw), n))
+
+    def test_documented_defaults_come_first_then_all_ranges(self):
+        got = self.take('wg', 40)
+        self.assertEqual(got[0], ('162.159.192.1', 2408))
+        prefixes = {h.rsplit('.', 1)[0] for h, _ in got[:15]}
+        self.assertEqual(prefixes, set(self.wp.WG_RANGES))
+        self.assertEqual(len(set(got)), len(got))
+        self.assertTrue(all(p in self.wp.WG_PORTS for _, p in got))
+
+    def test_masque_candidates_and_zero_trust(self):
+        got = self.take('masque_h2', 60)
+        self.assertEqual(got[0], ('162.159.198.2', 443))
+        self.assertTrue(all(h.startswith(('162.159.198.', '162.159.199.')) for h, _ in got))
+        self.assertTrue(all(p in self.wp.MASQUE_PORTS for _, p in got))
+        self.assertFalse(any(h.startswith('162.159.197.') for h, _ in self.take('masque_h3', 200)))
+        zt = self.take('masque_h3', 300, zero_trust=True)
+        self.assertTrue(any(h.startswith('162.159.197.') and 1 <= int(h.split('.')[-1]) <= 10 for h, _ in zt))
+
+    def test_skip_list_is_honoured(self):
+        skip = {self.wp.candidate_key('wg', '162.159.192.1', 2408)}
+        self.assertNotIn(('162.159.192.1', 2408), self.take('wg', 50, skip=skip))
+
+    def test_wireguard_config_never_uses_a_kernel_tun(self):
+        cfg = self.wp.build_xray_config('wg', '8.6.112.5', 2408, self.CRED_WG, 12345)
+        out = cfg['outbounds'][0]
+        self.assertTrue(out['settings']['noKernelTun'])
+        self.assertEqual(out['settings']['peers'][0]['endpoint'], '8.6.112.5:2408')
+        self.assertEqual(cfg['inbounds'][0]['listen'], '127.0.0.1')
+
+    def test_masque_config_alpn_follows_the_mode(self):
+        for mode, alpn in (('masque_h2', ['h2']), ('masque_h3', ['h3'])):
+            out = self.wp.build_xray_config(mode, '162.159.198.2', 443, self.CRED_MQ, 1)['outbounds'][0]
+            self.assertEqual(out['streamSettings']['tlsSettings']['alpn'], alpn)
+            self.assertEqual(out['settings'], {'address': '162.159.198.2', 'port': 443})
+            self.assertEqual(out['streamSettings']['masqueSettings']['warp']['publicKey'], 'E' * 90)
+
+    def test_trace_must_be_warp_and_not_the_router_itself(self):
+        tr = self.wp.parse_trace('ip=104.28.1.1\nwarp=on\nloc=NL\n')
+        self.assertTrue(self.wp.trace_is_warp(tr))
+        self.assertTrue(self.wp.trace_is_warp(tr, '93.1.1.1'))
+        self.assertFalse(self.wp.trace_is_warp(tr, '104.28.1.1'))
+        self.assertFalse(self.wp.trace_is_warp(self.wp.parse_trace('ip=1.1.1.1\nwarp=off\n')))
+
+    def fake_probe(self, good):
+        calls = []
+
+        def probe(mode, host, port, cred, own_ip):
+            calls.append((host, port))
+            ok = (host, port) in good or len(calls) % 3 == 0
+            return {'host': host, 'port': port, 'status': 'verified' if ok else 'failed', 'ms': 50 + len(calls),
+                    'kbps': 1000, 'checks': '4/4'}
+        probe.calls = calls
+        return probe
+
+    def run_search(self, req, probe, tag='s'):
+        import random
+        state = os.path.join(self.tmp, tag + '.json')
+        cancel = os.path.join(self.tmp, tag + '.cancel')
+        search = self.wp.Search(req, state, self.cache, probe=probe, rng=random.Random(2), cancel_path=cancel)
+        return search.run(None)
+
+    def test_search_stops_when_enough_endpoints_are_verified(self):
+        probe = self.fake_probe(set())
+        st = self.run_search({'mode': 'wg', 'credentials': self.CRED_WG, 'want': 3, 'max_attempts': 80}, probe)
+        self.assertEqual(st['status'], 'done')
+        self.assertGreaterEqual(st['verified'], 3)
+        self.assertLess(st['attempts'], 20)
+        self.assertEqual([r['status'] for r in st['results']], ['verified'] * len(st['results']))
+
+    def test_search_respects_the_attempt_limit(self):
+        def never(mode, host, port, cred, own_ip):
+            return {'host': host, 'port': port, 'status': 'failed'}
+        st = self.run_search({'mode': 'wg', 'credentials': self.CRED_WG, 'want': 5, 'max_attempts': 12}, never)
+        self.assertEqual((st['attempts'], st['verified']), (12, 0))
+        self.assertEqual(st['results'], [])
+        self.assertEqual(len(self.cache.bad_keys()), 12)
+
+    def test_failed_endpoints_are_skipped_by_the_next_search(self):
+        def never(mode, host, port, cred, own_ip):
+            return {'host': host, 'port': port, 'status': 'failed'}
+        first = self.fake_probe(set())
+        self.run_search({'mode': 'wg', 'credentials': self.CRED_WG, 'want': 1, 'max_attempts': 10}, never, 'a')
+        tried = set(self.cache.bad_keys())
+        again = self.fake_probe(set())
+        self.run_search({'mode': 'wg', 'credentials': self.CRED_WG, 'want': 1, 'max_attempts': 10}, again, 'b')
+        keys = {self.wp.candidate_key('wg', h, p) for h, p in again.calls}
+        self.assertEqual(keys & tried, set())
+
+    def test_cancel_flag_stops_the_search(self):
+        open(os.path.join(self.tmp, 'c.cancel'), 'w').close()
+        st = self.run_search({'mode': 'wg', 'credentials': self.CRED_WG, 'want': 5, 'max_attempts': 50},
+                             self.fake_probe(set()), 'c')
+        self.assertEqual(st['status'], 'cancelled')
+        self.assertEqual(st['attempts'], 0)
+
+    def test_recheck_lists_failures_and_drops_them_from_the_good_list(self):
+        self.cache.remember_good('wg', [{'host': '8.6.112.1', 'port': 500, 'status': 'verified', 'ms': 80},
+                                         {'host': '8.6.112.2', 'port': 500, 'status': 'verified', 'ms': 90}])
+        probe = self.fake_probe({('8.6.112.1', 500)})
+        probe.calls.append(('x', 0))
+        probe.calls.append(('y', 0))   # so that the stand-in's every-third rule stays off for the two calls
+        req = {'mode': 'wg', 'credentials': self.CRED_WG, 'endpoints': [
+            {'host': '8.6.112.1', 'port': 500}, {'host': '8.6.112.2', 'port': 500}]}
+        st = self.run_search(req, probe, 'r')
+        by = {r['host']: r['status'] for r in st['results']}
+        self.assertEqual(by['8.6.112.1'], 'verified')
+        self.assertEqual(by['8.6.112.2'], 'failed')
+        self.assertEqual([r['host'] for r in self.cache.good('wg')], ['8.6.112.1'])
+
+    def test_request_validation(self):
+        ok = {'mode': 'wg', 'credentials': self.CRED_WG}
+        self.assertEqual(self.wp.validate_request(ok), ok)
+        for bad in ({'mode': 'x', 'credentials': {}}, {'mode': 'wg', 'credentials': {}},
+                    {'mode': 'masque_h3', 'credentials': {'masque_warp_private_key': 'k'}},
+                    {'mode': 'wg', 'credentials': self.CRED_WG, 'endpoints': [{'host': 'a;b', 'port': 1}]}):
+            with self.assertRaises(ValueError):
+                self.wp.validate_request(bad)
+
+    def test_full_pipeline_with_a_fake_xray(self):
+        import subprocess
+        import textwrap
+        fake = os.path.join(self.tmp, 'fakexray.py')
+        with open(fake, 'w') as fh:
+            fh.write(textwrap.dedent('''\
+                #!/usr/bin/env python3
+                import json, sys
+                from http.server import BaseHTTPRequestHandler, HTTPServer
+                cfg = json.load(open(sys.argv[sys.argv.index("-c") + 1]))
+                good = cfg["outbounds"][0]["settings"]["peers"][0]["endpoint"] == "8.6.112.9:500"
+                class H(BaseHTTPRequestHandler):
+                    def log_message(self, *a): pass
+                    def do_GET(self):
+                        if not good:
+                            self.send_response(502); self.end_headers(); return
+                        body = b"ip=104.1.1.1\\nwarp=on\\n" if "trace" in self.path else b"x" * 300000
+                        self.send_response(200); self.send_header("Content-Length", str(len(body))); self.end_headers()
+                        self.wfile.write(body)
+                HTTPServer(("127.0.0.1", cfg["inbounds"][0]["port"]), H).serve_forever()
+                '''))
+        os.chmod(fake, 0o755)
+        wp = self.wp
+        old = (wp.XRAY_BIN, wp.TRACE_URL, wp.DOWNLOAD_URL, wp.CONFIRM_REQUESTS)
+        wp.XRAY_BIN, wp.TRACE_URL, wp.DOWNLOAD_URL = fake, 'http://t.example/cdn-cgi/trace', 'http://t.example/dl'
+        try:
+            good = wp.probe_endpoint('wg', '8.6.112.9', 500, self.CRED_WG, '93.1.1.1')
+            bad = wp.probe_endpoint('wg', '8.6.112.8', 500, self.CRED_WG, '93.1.1.1')
+            leak = wp.probe_endpoint('wg', '8.6.112.9', 500, self.CRED_WG, '104.1.1.1')
+        finally:
+            wp.XRAY_BIN, wp.TRACE_URL, wp.DOWNLOAD_URL, wp.CONFIRM_REQUESTS = old
+        self.assertEqual((good['status'], good['checks']), ('verified', '4/4'))
+        self.assertGreater(good['kbps'], 0)
+        self.assertEqual(bad['status'], 'failed')
+        self.assertEqual(leak['status'], 'failed')
+
+
+class TestWarpSources(unittest.TestCase):
+    """External endpoint lists: parsing, filtering, caching, ordering."""
+
+    SAMPLE = ('[{"ip": "8.6.112.0", "ports": [939, 945, 987]}, {"ip": "8.6.112.1", "ports": [500]}, '
+              '{"ip": "93.184.216.34", "ports": [2408]}, {"ip": "10.0.0.1", "ports": [500]}]')
+
+    def setUp(self):
+        import tempfile
+        import warp_probe
+        self.wp = warp_probe
+        self.tmp = tempfile.mkdtemp()
+        self.cache = warp_probe.Cache(os.path.join(self.tmp, 'cache.json'))
+
+    def test_parse_collector_json(self):
+        got = self.wp.parse_endpoint_list(self.SAMPLE)
+        self.assertEqual(got[:4], [('8.6.112.0', 939), ('8.6.112.0', 945), ('8.6.112.0', 987), ('8.6.112.1', 500)])
+        self.assertIn(('93.184.216.34', 2408), got)
+        self.assertNotIn(('10.0.0.1', 500), got)          # private address is never valid
+
+    def test_parse_other_shapes(self):
+        wp = self.wp
+        self.assertEqual(wp.parse_endpoint_list('{"8.34.70.3": [500, 4500]}'), [('8.34.70.3', 500), ('8.34.70.3', 4500)])
+        self.assertEqual(wp.parse_endpoint_list('["162.159.192.1:2408", "bad", "162.159.192.1:2408"]'),
+                         [('162.159.192.1', 2408)])
+        self.assertEqual(wp.parse_endpoint_list('8.6.112.4:500\n188.114.97.2:1701 # note\n'),
+                         [('8.6.112.4', 500), ('188.114.97.2', 1701)])
+        self.assertEqual(wp.parse_endpoint_list('| 8.35.211.9 | 500, 939 |'), [('8.35.211.9', 500), ('8.35.211.9', 939)])
+        self.assertEqual(wp.parse_endpoint_list('<html>nothing</html>'), [])
+        self.assertEqual(wp.parse_endpoint_list('[{"ip": "8.6.112.0", "ports": [0, 70000, "x"]}]'), [])
+
+    def test_large_list_is_not_truncated_early(self):
+        import json
+        rows = [{'ip': '8.6.112.%d' % i, 'ports': [500 + n for n in range(1, 60)]} for i in range(256)]
+        self.assertEqual(len(self.wp.parse_endpoint_list(json.dumps(rows))), 256 * 59)
+
+    def test_cloudflare_filter_and_report(self):
+        entries, report = self.wp.load_sources(['https://a.example/x.json'], self.cache, fetch=lambda u: self.SAMPLE)
+        self.assertNotIn(('93.184.216.34', 2408), entries)
+        self.assertIn(('8.6.112.0', 939), entries)
+        self.assertEqual((report[0]['status'], report[0]['count'], report[0]['skipped']), ('ok', 5, 1))
+        self.assertEqual(report[0]['accepted'], 4)
+        entries, report = self.wp.load_sources(['https://a.example/x.json'], self.cache, any_address=True,
+                                               fetch=lambda u: self.SAMPLE)
+        self.assertIn(('93.184.216.34', 2408), entries)
+        self.assertEqual(report[0]['skipped'], 0)
+
+    def test_cache_stale_and_error(self):
+        calls = []
+
+        def ok(url):
+            calls.append(url)
+            return self.SAMPLE
+
+        def down(url):
+            raise OSError('network is down')
+
+        url = 'https://a.example/x.json'
+        self.wp.load_sources([url], self.cache, fetch=ok, now=1000)
+        _, rep = self.wp.load_sources([url], self.cache, fetch=ok, now=2000)
+        self.assertEqual((rep[0]['status'], len(calls)), ('cached', 1))
+        entries, rep = self.wp.load_sources([url], self.cache, fetch=down, now=1000 + self.wp.SOURCE_TTL + 1)
+        self.assertEqual(rep[0]['status'], 'stale')
+        self.assertIn(('8.6.112.0', 939), entries)
+        entries, rep = self.wp.load_sources(['https://b.example/y'], self.cache, fetch=down)
+        self.assertEqual((entries, rep[0]['status']), ([], 'error'))
+
+    def test_only_https_sources(self):
+        with self.assertRaises(ValueError):
+            self.wp.fetch_source('http://a.example/x.json')
+        with self.assertRaises(ValueError):
+            self.wp.fetch_source('file:///etc/passwd')
+
+    def test_extra_entries_come_after_documented_before_random(self):
+        import itertools
+        import random
+        extra = [('8.6.112.0', 939), ('8.6.112.0', 939), ('8.6.112.1', 500)]
+        got = list(itertools.islice(self.wp.generate_candidates('wg', rng=random.Random(1), extra=extra), 30))
+        n = len(self.wp.DOCUMENTED['wg'])
+        self.assertEqual(got[n:n + 2], [('8.6.112.0', 939), ('8.6.112.1', 500)])
+        self.assertEqual(len(set(got)), len(got))
+
+
+
 if __name__ == '__main__':
     unittest.main()
