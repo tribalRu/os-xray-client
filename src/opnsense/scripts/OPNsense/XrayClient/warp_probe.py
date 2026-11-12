@@ -64,6 +64,9 @@ WG_PORTS = [500, 854, 859, 864, 878, 880, 890, 891, 894, 903, 908, 928, 934, 939
 WG_PRIORITY_PORTS = [2408, 500, 4500, 1701]
 MASQUE_RANGES = ['162.159.198', '162.159.199']
 MASQUE_PORTS = [443, 500, 1701, 4500, 4443, 8443, 8095]
+# Experimental: other WARP ranges (consumer ranges of community scanners and the
+# WireGuard list), tried with the MASQUE ports only when asked for.
+MASQUE_WIDE_RANGES = ['162.159.192', '162.159.195'] + WG_RANGES[2:]
 # Zero Trust only (the account of the node must be a Zero Trust one).
 ZT_WG = ('162.159.193', range(1, 11))
 ZT_MASQUE = ('162.159.197', range(1, 11))
@@ -97,7 +100,7 @@ def candidate_key(mode, host, port):
     return '%s|%s:%d' % ('wg' if mode == 'wg' else 'masque_' + mode[-2:], host, port)
 
 
-def generate_candidates(mode, zero_trust=False, rng=None, skip=(), extra=()):
+def generate_candidates(mode, zero_trust=False, rng=None, skip=(), extra=(), wide=False):
     """Endless generator of (host, port): documented defaults first, then a
     round robin over the ranges with random addresses and ports, so that a
     blocked range does not eat the whole budget."""
@@ -120,7 +123,8 @@ def generate_candidates(mode, zero_trust=False, rng=None, skip=(), extra=()):
     for host, port in extra:
         if fresh(host, port):
             yield host, port
-    ranges = [(prefix, range(0, 256)) for prefix in (WG_RANGES if mode == 'wg' else MASQUE_RANGES)]
+    prefixes = WG_RANGES if mode == 'wg' else MASQUE_RANGES + (MASQUE_WIDE_RANGES if wide else [])
+    ranges = [(prefix, range(0, 256)) for prefix in prefixes]
     ports = WG_PORTS if mode == 'wg' else MASQUE_PORTS
     if zero_trust:
         prefix, octets = ZT_WG if mode == 'wg' else ZT_MASQUE
@@ -201,6 +205,18 @@ def parse_endpoint_list(text):
             out.append(ep)
         if len(out) >= SOURCE_MAX_ENTRIES:
             break
+    return out
+
+
+def masque_hosts(entries):
+    """No list of MASQUE endpoints is published, so the addresses of the
+    WireGuard lists are tried on the MASQUE default port (443); the probe
+    decides whether anything answers there."""
+    seen, out = set(), []
+    for host, _ in entries:
+        if host not in seen:
+            seen.add(host)
+            out.append((host, MASQUE_PORTS[0]))
     return out
 
 
@@ -570,11 +586,14 @@ class Search:
         else:
             skip = set() if self.req.get('ignore_cache') else self.cache.bad_keys()
             extra = []
-            if self.mode == 'wg' and self.req.get('sources'):
+            if self.req.get('sources'):
                 extra, self.state['sources'] = load_sources(self.req['sources'], self.cache,
                                                             bool(self.req.get('any_address')), self.fetch)
+                if self.mode != 'wg':
+                    extra = masque_hosts(extra)
                 self.rng.shuffle(extra)
-            candidates = generate_candidates(self.mode, bool(self.req.get('zero_trust')), self.rng, skip, extra)
+            candidates = generate_candidates(self.mode, bool(self.req.get('zero_trust')), self.rng, skip, extra,
+                                             bool(self.req.get('wide')))
         self.save_state()
         pending, submitted = set(), 0
         with ThreadPoolExecutor(max_workers=CONCURRENCY) as pool:

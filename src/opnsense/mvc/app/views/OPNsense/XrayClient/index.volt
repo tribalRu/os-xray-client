@@ -3113,8 +3113,10 @@
                     '<div class="wp-opts" style="display:none; margin-top: 6px;">' + modeHtml +
                     ' <label class="checkbox-inline"><input type="checkbox" class="wp-zt"> Zero Trust ranges</label>' +
                     ' <label class="checkbox-inline"><input type="checkbox" class="wp-ignore"> Retry endpoints that failed recently</label>' +
-                    (kind === 'wg' ? ' <label class="checkbox-inline" title="Endpoints from the lists set under Maintenance, WARP Endpoint Lists"><input type="checkbox" class="wp-src"> Use external lists</label>' +
-                    ' <label class="checkbox-inline" title="Normally only Cloudflare addresses are tested: a list could point the handshake at any host"><input type="checkbox" class="wp-any"> Also test addresses outside Cloudflare ranges</label>' : '') +
+                    ' <label class="checkbox-inline" title="' + (kind === 'wg' ? 'Endpoints from the lists set under Maintenance, WARP Endpoint Lists' :
+                        'No MASQUE list is published: the addresses of the WireGuard lists set under Maintenance, WARP Endpoint Lists are tried on port 443') + '"><input type="checkbox" class="wp-src"> Use external lists</label>' +
+                    ' <label class="checkbox-inline" title="Normally only Cloudflare addresses are tested: a list could point the handshake at any host"><input type="checkbox" class="wp-any"> Also test addresses outside Cloudflare ranges</label>' +
+                    (kind === 'wg' ? '' : ' <label class="checkbox-inline" title="Experimental: other WARP ranges (162.159.192.x, 162.159.195.x and the WireGuard ranges) with the MASQUE ports"><input type="checkbox" class="wp-wide"> Also try other WARP ranges</label>') +
                     '<div style="margin-top: 4px;">Stop after <input type="number" class="wp-want form-control" style="width: 5em; display: inline-block;" value="5" min="1" max="20"> verified, at most ' +
                     '<input type="number" class="wp-max form-control" style="width: 6em; display: inline-block;" value="80" min="1" max="300"> attempts</div>' +
                     '<div class="text-muted" style="font-size: 12px; margin-top: 4px;">Each candidate is tested with this node\'s keys through a temporary Xray on the router; FinalMask is not applied.</div></div>' +
@@ -3294,9 +3296,12 @@
                     var data = { mode: mode(), credentials: cred, zero_trust: $wrap.find('.wp-zt').is(':checked') ? '1' : '0',
                                  ignore_cache: $wrap.find('.wp-ignore').is(':checked') ? '1' : '0',
                                  want: $wrap.find('.wp-want').val(), max_attempts: $wrap.find('.wp-max').val() };
-                    if (kind === 'wg' && $wrap.find('.wp-src').is(':checked')) {
+                    if ($wrap.find('.wp-src').is(':checked')) {
                         data.use_sources = '1';
                         data.any_address = $wrap.find('.wp-any').is(':checked') ? '1' : '0';
+                    }
+                    if (kind !== 'wg' && $wrap.find('.wp-wide').is(':checked')) {
+                        data.wide = '1';
                     }
                     if (endpoints && endpoints.length) {
                         data.endpoints = endpoints;
@@ -3319,12 +3324,13 @@
                     });
                 }
 
+                var srcKey = kind === 'wg' ? 'osxray_warp_src' : 'osxray_warp_src_masque';
                 try {
-                    $wrap.find('.wp-src').prop('checked', window.localStorage.getItem('osxray_warp_src') === '1');
+                    $wrap.find('.wp-src').prop('checked', window.localStorage.getItem(srcKey) === '1');
                 } catch (e) { /* storage unavailable: the box simply starts unchecked */ }
                 $wrap.find('.wp-src').on('change', function () {
                     try {
-                        window.localStorage.setItem('osxray_warp_src', this.checked ? '1' : '0');
+                        window.localStorage.setItem(srcKey, this.checked ? '1' : '0');
                     } catch (e) { /* ignore */ }
                 });
                 $wrap.find('.wp-start').on('click', function () { start(null); });

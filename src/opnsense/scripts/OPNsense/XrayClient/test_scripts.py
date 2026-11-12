@@ -1290,6 +1290,34 @@ class TestWarpSources(unittest.TestCase):
         self.assertEqual(len(set(got)), len(got))
 
 
+    def test_masque_uses_hosts_of_lists_on_default_port(self):
+        import random
+        seen = []
+
+        def probe(mode, host, port, cred, own_ip):
+            seen.append((host, port))
+            return {'host': host, 'port': port, 'status': 'failed'}
+
+        req = {'mode': 'masque_h2', 'credentials': {}, 'max_attempts': 4, 'want': 5, 'sources': ['https://a.example/x'],
+               'ignore_cache': True}
+        search = self.wp.Search(req, os.path.join(self.tmp, 's.json'), self.cache, probe=probe,
+                                rng=random.Random(3), fetch=lambda u: self.SAMPLE)
+        search.run()
+        self.assertEqual(search.state['sources'][0]['status'], 'ok')
+        # two documented defaults first, then list hosts on 443 only (8.6.112.0 and .1)
+        self.assertEqual(sorted(seen[2:4]), [('8.6.112.0', 443), ('8.6.112.1', 443)])
+        self.assertEqual(self.wp.masque_hosts([('1.1.1.1', 500), ('1.1.1.1', 939)]), [('1.1.1.1', 443)])
+
+    def test_wide_ranges_only_when_asked(self):
+        import itertools
+        import random
+        plain = list(itertools.islice(self.wp.generate_candidates('masque_h3', rng=random.Random(1)), 300))
+        wide = list(itertools.islice(self.wp.generate_candidates('masque_h3', rng=random.Random(1), wide=True), 300))
+        self.assertFalse(any(not h.startswith(('162.159.198.', '162.159.199.')) for h, _ in plain))
+        self.assertTrue(any(h.startswith('162.159.192.') for h, _ in wide))
+        self.assertTrue(all(p in self.wp.MASQUE_PORTS for _, p in wide))
+        self.assertEqual(self.wp.generate_candidates.__defaults__[-1], False)
+
 
 if __name__ == '__main__':
     unittest.main()

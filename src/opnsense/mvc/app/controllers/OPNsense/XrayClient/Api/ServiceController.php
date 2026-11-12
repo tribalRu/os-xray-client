@@ -638,9 +638,10 @@ class ServiceController extends ApiMutableServiceControllerBase
             'endpoints' => $endpoints,
             'sources' => [],
             'any_address' => $this->request->getPost('any_address', 'string', '0') === '1',
+            'wide' => $mode !== 'wg' && $this->request->getPost('wide', 'string', '0') === '1',
         ];
-        // External endpoint lists (WireGuard only) come from the plugin settings.
-        if ($mode === 'wg' && $this->request->getPost('use_sources', 'string', '0') === '1') {
+        // External endpoint lists come from the plugin settings.
+        if ($this->request->getPost('use_sources', 'string', '0') === '1') {
             $mdl = new XrayClient();
             $urls = preg_split('/\s+/', trim((string)$mdl->maintenance->warp_sources), -1, PREG_SPLIT_NO_EMPTY);
             $request['sources'] = array_values(array_filter(array_slice($urls, 0, 10), function ($u) {
