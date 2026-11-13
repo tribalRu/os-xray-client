@@ -1726,6 +1726,14 @@
             setSelectValue($('#node\\.fm_udp_mkcp_header'), 'none');
             setSelectValue($('#node\\.fm_quic_congestion'), 'auto');
             setSelectValue($('#node\\.fm_quic_bbr_profile'), 'auto');
+            if (data.fm_udp_type) {
+                setSelectValue($('#node\\.fm_udp_type'), data.fm_udp_type);
+                $('#node\\.fm_udp_salamander_password').val(data.fm_udp_salamander_password || '');
+                setMultiSelectValue('#node\\.fm_udp_udphop_mode', data.fm_udp_udphop_mode || 'intervallocal');
+                $('#node\\.fm_udp_udphop_interval').val(data.fm_udp_udphop_interval || '');
+                $('#node\\.fm_udp_udphop_remote_ips').val(data.fm_udp_udphop_remote_ips || '');
+                $('#node\\.fm_udp_udphop_remote_ports').val(data.fm_udp_udphop_remote_ports || '');
+            }
             if (data.fm_tcp_type) {
                 // A link whose FinalMask fits the rows fills them (the raw field stays empty)
                 setSelectValue($('#node\\.fm_tcp_type'), data.fm_tcp_type);
@@ -2389,14 +2397,52 @@
             data.allow_insecure = (params.get('insecure') === '1' || params.get('allowInsecure') === '1') ? '1' : '0';
             data.alpn = params.get('alpn') || '';
             var w = [];
+            var masks = [];
+            // obfs=salamander is the Salamander FinalMask mask of the UDP direction
             if (params.get('obfs')) {
-                w.push('Obfuscation (obfs) is not imported: the plugin has no Hysteria obfuscation field; use a FinalMask Salamander mask.');
+                if (String(params.get('obfs')).toLowerCase() === 'salamander') {
+                    masks.push({type: 'salamander', settings: {password: params.get('obfs-password') || ''}});
+                } else {
+                    w.push('Obfuscation "' + params.get('obfs') + '" is not supported; Hysteria 2 knows only salamander.');
+                }
             }
-            if (params.get('pinSHA256')) {
-                w.push('pinSHA256 is not imported; the pin is a different format from the Pinned certificate SHA-256 field.');
-            }
+            // mport (port hopping): the remote ports of a UDP Hop mask, 30 s between hops like Hysteria
             if (params.get('mport')) {
-                w.push('Port hopping (mport) is not imported; use the UDP hop FinalMask mask.');
+                var ports = String(params.get('mport')).replace(/:/g, '-').replace(/\s+/g, '');
+                if (/^\d{1,5}(-\d{1,5})?(,\d{1,5}(-\d{1,5})?)*$/.test(ports)) {
+                    var isIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(url.hostname);
+                    var hop = {mode: 'intervalremote', interval: '30', remotePorts: ports};
+                    if (isIp) {
+                        hop.remoteIPs = [url.hostname];
+                    } else {
+                        w.push('Port hopping needs the server IP in the Remote IPs of the UDP Hop mask (the link has a host name).');
+                    }
+                    masks.push({type: 'udphop', settings: hop});
+                } else {
+                    w.push('Port hopping (mport) "' + params.get('mport') + '" could not be read and was not imported.');
+                }
+            }
+            if (masks.length === 1 && masks[0].type === 'salamander') {
+                data.fm_udp_type = 'salamander';
+                data.fm_udp_salamander_password = masks[0].settings.password;
+            } else if (masks.length === 1) {
+                var h = masks[0].settings;
+                data.fm_udp_type = 'udphop';
+                data.fm_udp_udphop_mode = h.mode;
+                data.fm_udp_udphop_interval = h.interval;
+                data.fm_udp_udphop_remote_ips = (h.remoteIPs || []).join(',');
+                data.fm_udp_udphop_remote_ports = h.remotePorts;
+            } else if (masks.length > 1) {
+                data.finalmask = JSON.stringify({udp: masks}, null, 2);
+            }
+            // pinSHA256 comes as hex with colons; the field takes 64 plain hex digits
+            if (params.get('pinSHA256')) {
+                var pin = String(params.get('pinSHA256')).replace(/[:\s]/g, '').toLowerCase();
+                if (/^[0-9a-f]{64}$/.test(pin)) {
+                    data.tls_pinned_peer_cert_sha256 = pin;
+                } else {
+                    w.push('pinSHA256 is not a SHA-256 digest and was not imported.');
+                }
             }
             data.import_warnings = w;
             return data;
