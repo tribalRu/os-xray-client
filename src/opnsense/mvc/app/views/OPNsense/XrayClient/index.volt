@@ -89,6 +89,8 @@
        row, not glued to the top (Bootstrap defaults td to vertical-align:
        top, which leaves labels hovering in the upper part of the input). */
     #frm_general td,
+    #frm_general_dns td,
+    #frm_general_obs td,
     #frm_maintenance td,
     #frm_DialogNode td,
     #frm_DialogRule td,
@@ -223,7 +225,11 @@
     /* Same collapse for Optional knobs on the General Settings tab. The raw
        JSON rows carry .expert_only on their textarea, so they follow it. */
     #tab_general.optional-hidden tr:has(.expert_only),
-    #tab_general.optional-hidden div.form-group:has(.expert_only) {
+    #tab_general.optional-hidden div.form-group:has(.expert_only),
+    #tab_dns.optional-hidden tr:has(.expert_only),
+    #tab_dns.optional-hidden div.form-group:has(.expert_only),
+    #tab_balancers.optional-hidden tr:has(.expert_only),
+    #tab_balancers.optional-hidden div.form-group:has(.expert_only) {
         display: none !important;
     }
     /* The OPNsense base_dialog partial renders a third, 35%-wide column
@@ -250,23 +256,25 @@
     #tab_expert pre,
     #tab_expert textarea,
     #raw_json_container textarea,
-    #frm_general textarea.json_section {
+    textarea.json_section {
         width: 100% !important;
         max-width: none !important;
     }
-    #frm_general textarea.json_section {
+    textarea.json_section {
         font-family: monospace;
         font-size: 12px;
     }
     /* Raw JSON examples live in the placeholder; keep them visibly "sample
        text", not something that looks like a stored value. */
-    #frm_general textarea.json_section::placeholder {
+    textarea.json_section::placeholder {
         opacity: 0.45;
         font-style: italic;
     }
     /* Dropdowns in the settings forms may use the width of the text inputs
        beside them instead of cutting long option labels. */
-    #frm_general .bootstrap-select > .dropdown-toggle .filter-option-inner-inner {
+    #frm_general .bootstrap-select > .dropdown-toggle,
+    #frm_general_dns .bootstrap-select > .dropdown-toggle,
+    #frm_general_obs .bootstrap-select > .dropdown-toggle .filter-option-inner-inner {
         white-space: normal;
     }
     #tab_expert .tab-pane,
@@ -406,6 +414,8 @@
 
         mapDataToFormUI({
             'frm_general': "/api/xrayclient/settings/get",
+            'frm_general_dns': "/api/xrayclient/settings/get",
+            'frm_general_obs': "/api/xrayclient/settings/get",
             'frm_maintenance': "/api/xrayclient/settings/get"
         }).done(function (data) {
             formatTokenizersUI();
@@ -727,9 +737,10 @@
 
         // The raw JSON sections are plain textareas that carry the model field
         // ids. Each one is moved into a table row at the end of the form
-        // section it belongs to (DNS, Observatory, Routing Policy), so it reads
-        // like every other field and, being .expert_only, only shows with
-        // "Show advanced fields". They stay inside #frm_general, so
+        // it belongs to (DNS settings on the DNS Servers tab; observatory and
+        // extra balancers on the Balancers tab), so it reads like every other
+        // field and, being .expert_only, only shows with "Show advanced
+        // fields". They end up inside the same form as their model fields, so
         // saveFormToEndpoint() keeps picking them up.
         (function placeJsonSections() {
             var rows = [
@@ -737,7 +748,7 @@
                 ['dns_json', 'Raw JSON: <code>dns</code>', 'dns_use_system_hosts'],
                 ['dns_hosts_json', 'Raw JSON: <code>dns.hosts</code>', 'dns_use_system_hosts'],
                 ['observatory_json', 'Raw JSON: observatory', 'observatory_concurrency'],
-                ['balancers_json', 'Raw JSON: <code>routing.balancers</code>', 'routing_domain_strategy']
+                ['balancers_json', 'Raw JSON: <code>routing.balancers</code>', 'observatory_concurrency']
             ];
             var after = {};
             rows.forEach(function (r) {
@@ -780,10 +791,10 @@
             var mode = $('#xrayclient\\.general\\.config_mode').val();
             if (mode === 'raw') {
                 $('#raw_json_container').show();
-                $('#frm_general tr.json_row').hide();
+                $('tr.json_row').hide();
             } else {
                 $('#raw_json_container').hide();
-                $('#frm_general tr.json_row').show();
+                $('tr.json_row').show();
             }
         }
         $('#xrayclient\\.general\\.config_mode').on('change', toggleConfigModeUI);
@@ -2170,12 +2181,20 @@
             generalExpertIds.forEach(function (id) {
                 $('[id="' + id + '"]').addClass('expert_only');
             });
-            var $tab = $('#tab_general');
-            var saved = localStorage.getItem('osxray_show_advanced_general') === '1';
-            $tab.toggleClass('optional-hidden', !saved);
-            mountNativeAdvancedToggle('#frm_general', 'advanced fields', saved, function (show) {
-                localStorage.setItem('osxray_show_advanced_general', show ? '1' : '0');
-                $tab.toggleClass('optional-hidden', !show);
+            // The DNS and observatory settings now live on their own tabs, each
+            // with its own switch; all of them share one stored choice and
+            // move together.
+            var $tabs = $('#tab_general, #tab_dns, #tab_balancers');
+            var saved = false;
+            try { saved = localStorage.getItem('osxray_show_advanced_general') === '1'; } catch (e) {}
+            $tabs.toggleClass('optional-hidden', !saved);
+            var toggles = [];
+            ['#frm_general', '#frm_general_dns', '#frm_general_obs'].forEach(function (formSel) {
+                toggles.push(mountNativeAdvancedToggle(formSel, 'advanced fields', saved, function (show) {
+                    try { localStorage.setItem('osxray_show_advanced_general', show ? '1' : '0'); } catch (e) {}
+                    $tabs.toggleClass('optional-hidden', !show);
+                    toggles.forEach(function (t) { t.set(show); });
+                }));
             });
         })();
 
@@ -3757,26 +3776,48 @@
             var $btn = $(this);
             var originalHtml = $btn.html();
             $btn.prop('disabled', true).find('.fa-spinner').show();
-            saveFormToEndpoint("/api/xrayclient/settings/set", 'frm_general', function () {
-                // (re)start background telemetry polling with the new interval
-                startTelemetryAutoRefresh();
-                saveFormToEndpoint("/api/xrayclient/settings/set", 'frm_maintenance', function () {
-                    ajaxCall("/api/xrayclient/service/reconfigure", {}, function (data) {
-                        updateServiceControlUI('xrayclient');
-                        if (data && data.status === 'ok') {
-                            $btn.html('<b>Applied <span class="fa fa-check"></span></b>');
-                            setTimeout(function () {
-                                $btn.html(originalHtml).prop('disabled', false);
-                            }, 1500);
-                        } else {
-                            $btn.html('<b>Failed — see logs</b>');
-                            setTimeout(function () {
-                                $btn.html(originalHtml).prop('disabled', false);
-                            }, 2500);
-                        }
-                    });
+            // General settings are spread over four forms (General, the DNS
+            // and Balancers tabs, Maintenance); they are saved one after the
+            // other and the first form with a validation error is brought to
+            // the front, so the error is not hidden on another tab.
+            var saveSteps = [
+                ['frm_general', '#tab_general'],
+                ['frm_general_dns', '#tab_dns'],
+                ['frm_general_obs', '#tab_balancers'],
+                ['frm_maintenance', '#tab_maintenance']
+            ];
+            function saveStep(i) {
+                if (i >= saveSteps.length) {
+                    return applyAfterSave();
+                }
+                saveFormToEndpoint("/api/xrayclient/settings/set", saveSteps[i][0], function () {
+                    if (i === 0) {
+                        // (re)start background telemetry polling with the new interval
+                        startTelemetryAutoRefresh();
+                    }
+                    saveStep(i + 1);
+                }, false, function () {
+                    $('a[href="' + saveSteps[i][1] + '"]').tab('show');
+                    $btn.html(originalHtml).prop('disabled', false);
                 });
-            });
+            }
+            saveStep(0);
+            function applyAfterSave() {
+                ajaxCall("/api/xrayclient/service/reconfigure", {}, function (data) {
+                    updateServiceControlUI('xrayclient');
+                    if (data && data.status === 'ok') {
+                        $btn.html('<b>Applied <span class="fa fa-check"></span></b>');
+                        setTimeout(function () {
+                            $btn.html(originalHtml).prop('disabled', false);
+                        }, 1500);
+                    } else {
+                        $btn.html('<b>Failed — see logs</b>');
+                        setTimeout(function () {
+                            $btn.html(originalHtml).prop('disabled', false);
+                        }, 2500);
+                    }
+                });
+            }
         });
 
         function loadVersionInfo() {
@@ -4043,8 +4084,9 @@
         <div class="col-md-12" id="balancer_info_output" style="display: none; margin-bottom: 6px;"></div>
         <div class="col-md-12" style="padding-bottom: 15px;">
         <div style="margin: 14px 0 8px 0;">
-            <span class="text-muted" style="font-size: 15px; line-height: 1.5;">A balancer groups nodes by tag prefix and picks one for every connection. Rules choose it from the &laquo;Balancers&raquo; group in Target Outbound. leastPing / leastLoad need an observatory (General Settings &rarr; Load Balancer Observatory). Entries save instantly &mdash; click <b>Apply &amp; Restart Xray</b>.</span>
+            <span class="text-muted" style="font-size: 15px; line-height: 1.5;">A balancer groups nodes by tag prefix and picks one for every connection. Rules choose it from the &laquo;Balancers&raquo; group in Target Outbound. leastPing / leastLoad need an observatory (Load Balancer Observatory below). Entries save instantly &mdash; click <b>Apply &amp; Restart Xray</b>.</span>
         </div>
+        {{ partial("layout_partials/base_form", ['fields': observatoryForm, 'id': 'frm_general_obs']) }}
             <hr/>
             <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves General + Maintenance settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
                 <b>Apply &amp; Restart Xray</b> <i class="fa fa-spinner fa-pulse" style="display: none;"></i>
@@ -4053,6 +4095,7 @@
     </div>
 
     <div id="tab_dns" class="tab-pane fade in">
+        {{ partial("layout_partials/base_form", ['fields': dnsForm, 'id': 'frm_general_dns']) }}
         <div id="dns_empty_state" class="alert alert-info" style="display:none; margin-top: 10px; padding-top: 12px; padding-bottom: 12px;">
             <b>No DNS servers yet.</b> The built-in DNS needs at least one resolver here. Use the <b>+</b> button above the table — the dialog offers built-in presets (Cloudflare / Google / AdGuard DoH, Yandex, system resolver) or a custom server.
         </div>
@@ -4081,7 +4124,7 @@
         </table>
         <div class="col-md-12" style="padding-bottom: 15px;">
         <div style="margin: 14px 0 8px 0;">
-            <span class="text-muted" style="font-size: 15px; line-height: 1.5;">Enable the built-in DNS in <b>General Settings &rarr; Built-in DNS server</b>, then list resolvers here. Servers with a domains list answer only those domains; the preset in the dialog fills typical setups. Entries save instantly &mdash; <b>Apply &amp; Restart Xray</b>.</span>
+            <span class="text-muted" style="font-size: 15px; line-height: 1.5;">Switch on <b>Enable Built-in DNS</b> above, then list resolvers here. Servers with a domains list answer only those domains; the preset in the dialog fills typical setups. Entries save instantly &mdash; <b>Apply &amp; Restart Xray</b>.</span>
         </div>
             <hr/>
             <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves General + Maintenance settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
