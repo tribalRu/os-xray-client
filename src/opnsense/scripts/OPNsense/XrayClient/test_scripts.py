@@ -1370,6 +1370,7 @@ class TestWarpSources(unittest.TestCase):
         self.assertIsNone(wp.build_finalmask(dict(fm, finalmask='{broken'), 'tcp'))
         self.assertIsNone(wp.build_finalmask({'fm_tcp_type': 'none'}, 'tcp'))
         self.assertNotIn('finalmask', wp.build_xray_config('masque_h2', '1.1.1.1', 443, mq, 1)['outbounds'][0]['streamSettings'])
+        self.assertEqual(wp.build_xray_config('masque_h2', '1.1.1.1', 443, mq, 1)['outbounds'][0]['targetStrategy'], 'UseIPv4')
         self.assertNotIn('finalmask', wp.build_xray_config('wg', '1.1.1.1', 500, {'wg_secret_key': 'S', 'wg_public_key': 'P'}, 1, None, fm)['outbounds'][0].get('streamSettings', {}))
         ok = {'mode': 'masque_h2', 'credentials': {'masque_warp_private_key': 'K', 'masque_warp_address': 'a'}, 'finalmask': fm}
         wp.validate_request(ok)

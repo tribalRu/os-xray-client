@@ -376,6 +376,11 @@ def build_xray_config(mode, host, port, cred, listen_port, logfile=None, finalma
         outbound = {
             'protocol': 'masque',
             'tag': 'probe',
+            # Names are resolved here and not inside the tunnel: the debug log
+            # of a real run showed the first flow going through and every later
+            # one stalling, and the in-tunnel resolver is the one thing the
+            # flows share besides the tunnel itself.
+            'targetStrategy': 'UseIPv4',
             'settings': {'address': host, 'port': port},
             'streamSettings': {'method': 'masque', 'security': 'tls', 'tlsSettings': tls,
                                'masqueSettings': {'warp': warp}},
