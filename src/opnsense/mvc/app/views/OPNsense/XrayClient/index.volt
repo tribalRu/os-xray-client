@@ -856,6 +856,20 @@
         }
         $('#xrayclient\\.general\\.enable_socks, #xrayclient\\.general\\.enable_http, #xrayclient\\.general\\.enable_tun, #xrayclient\\.general\\.enable_sniffing, #xrayclient\\.general\\.auto_telemetry, #xrayclient\\.general\\.dns_enabled, #xrayclient\\.general\\.socks_auth, #xrayclient\\.general\\.http_auth, #xrayclient\\.general\\.observatory_type').on('change', toggleGeneralRows);
 
+        // The update buttons sit at the end of the section they belong to.
+        (function placeMaintenanceButtons() {
+            [['btn_update_core', 'core_branch'], ['btn_update_geodata', 'custom_geosite_url'], ['btn_update_plugin', 'plugin_branch']].forEach(function (p) {
+                var $btn = $('#' + p[0]);
+                var $anchor = $('[id="xrayclient.maintenance.' + p[1] + '"]').closest('tr');
+                if ($btn.length === 0 || $anchor.length === 0) {
+                    return;
+                }
+                var $row = $('<tr class="maint_btn_row"><td></td><td></td><td></td></tr>');
+                $row.children('td').eq(1).append($btn);
+                $anchor.after($row);
+            });
+        })();
+
         function toggleGeoDataCustomUI() {
             var preset = $('#xrayclient\\.maintenance\\.geodata_preset').val();
             var $rows = $('.geodata_custom').closest('tr, .form-group');
@@ -3447,11 +3461,16 @@
                     '<div class="wp-opts" style="display:none; margin-top: 6px;">' + modeHtml +
                     ' <label class="checkbox-inline"><input type="checkbox" class="wp-zt"> Zero Trust ranges</label>' +
                     ' <label class="checkbox-inline"><input type="checkbox" class="wp-ignore"> Retry endpoints that failed recently</label>' +
-                    ' <label class="checkbox-inline" title="' + (kind === 'wg' ? 'Endpoints from the lists set under Maintenance, WARP Endpoint Lists' :
-                        'No MASQUE list is published: the addresses of the WireGuard lists set under Maintenance, WARP Endpoint Lists are tried on port 443') + '"><input type="checkbox" class="wp-src"> Use external lists</label>' +
+                    ' <label class="checkbox-inline" title="' + (kind === 'wg' ? 'Endpoints from the external lists below (one URL per line)' :
+                        'No MASQUE list is published: the addresses of the external lists below are tried on port 443') + '"><input type="checkbox" class="wp-src"> Use external lists</label>' +
                     ' <label class="checkbox-inline" title="Normally only Cloudflare addresses are tested: a list could point the handshake at any host"><input type="checkbox" class="wp-any"> Also test addresses outside Cloudflare ranges</label>' +
                     (kind === 'wg' ? '' : ' <label class="checkbox-inline" title="Send the probe the way this node would: the FinalMask rows of the dialog are applied. Needed where the connection is filtered"><input type="checkbox" class="wp-fm" checked> Apply this node\'s FinalMask</label>') +
                     (kind === 'wg' ? '' : ' <label class="checkbox-inline" title="Experimental: other WARP ranges (162.159.192.x, 162.159.195.x and the WireGuard ranges) with the MASQUE ports"><input type="checkbox" class="wp-wide"> Also try other WARP ranges</label>') +
+                    '<div class="wp-src-box" style="display:none; margin-top: 6px;">' +
+                    '<div class="text-muted" style="font-size: 12px; margin-bottom: 2px;">External endpoint lists, one https:// URL per line. Saved with the plugin settings, shared by WireGuard and MASQUE searches.</div>' +
+                    '<textarea class="form-control wp-src-urls" rows="3" spellcheck="false" style="max-width: none; font-family: monospace; font-size: 12px;" placeholder="https://example.com/warp-endpoints.json"></textarea>' +
+                    '<div class="wp-src-msg" style="font-size: 12px; margin-top: 2px;"></div>' +
+                    '<div class="text-muted" style="font-size: 12px; margin-top: 2px;">Accepted: JSON [{"ip": "8.6.112.0", "ports": [500, 939]}], JSON with ip:port strings or an ip-to-ports object, or text with ip:port lines. The router fetches the lists when a search starts and caches them for a day. Every entry is still tested end to end, and only Cloudflare addresses are used unless the option above allows others. Empty = built-in ranges only.</div></div>' +
                     '<div style="margin-top: 4px;">Stop after <input type="number" class="wp-want form-control" style="width: 5em; display: inline-block;" value="5" min="1" max="20"> verified, at most ' +
                     '<input type="number" class="wp-max form-control" style="width: 6em; display: inline-block;" value="80" min="1" max="300"> attempts</div>' +
                     '<div class="text-muted" style="font-size: 12px; margin-top: 4px;">Each candidate is tested with this node\'s keys through a temporary Xray on the router; FinalMask is applied when the option is ticked.</div></div>' +
@@ -3685,10 +3704,42 @@
                 try {
                     $wrap.find('.wp-src').prop('checked', window.localStorage.getItem(srcKey) === '1');
                 } catch (e) { /* storage unavailable: the box simply starts unchecked */ }
+                // The URL list is a plugin setting (xrayclient.maintenance.warp_sources),
+                // edited here, next to the search that uses it.
+                var srcLoaded = false;
+                function showSrcBox() {
+                    var on = $wrap.find('.wp-src').is(':checked');
+                    $wrap.find('.wp-src-box').toggle(on);
+                    if (on && !srcLoaded) {
+                        srcLoaded = true;
+                        ajaxCall('/api/xrayclient/settings/get', {}, function (res) {
+                            var m = res && res.xrayclient && res.xrayclient.maintenance;
+                            $wrap.find('.wp-src-urls').val((m && m.warp_sources) || '').data('saved', (m && m.warp_sources) || '');
+                        });
+                    }
+                }
+                showSrcBox();
                 $wrap.find('.wp-src').on('change', function () {
                     try {
                         window.localStorage.setItem(srcKey, this.checked ? '1' : '0');
                     } catch (e) { /* ignore */ }
+                    showSrcBox();
+                });
+                $wrap.find('.wp-src-urls').on('change', function () {
+                    var $ta = $(this);
+                    var $msg = $wrap.find('.wp-src-msg');
+                    var value = $.trim($ta.val() || '');
+                    $msg.attr('class', 'wp-src-msg text-muted').text('Saving...');
+                    ajaxCall('/api/xrayclient/settings/set', { xrayclient: { maintenance: { warp_sources: value } } }, function (res) {
+                        if (res && res.result === 'saved') {
+                            $ta.val(value).data('saved', value);
+                            $msg.attr('class', 'wp-src-msg text-success').text('Saved.');
+                        } else {
+                            var v = res && res.validations;
+                            var text = v ? Object.keys(v).map(function (k) { return v[k]; }).join(' ') : 'The list was not saved.';
+                            $msg.attr('class', 'wp-src-msg text-danger').text(text);
+                        }
+                    });
                 });
                 $wrap.find('.wp-start').on('click', function () { start(null); });
                 $wrap.find('.wp-show').on('click', function (e) {
@@ -4185,7 +4236,7 @@
             </div>
         </div>
         {{ partial("layout_partials/base_form", ['fields': maintenanceForm, 'id': 'frm_maintenance']) }}
-        <div class="col-md-12" style="padding-bottom: 15px;">
+        <div class="col-md-12">
             <button id="btn_update_core" type="button" class="btn btn-warning">
                 <i class="fa fa-cloud-download"></i> <b>Download &amp; Update Xray-core</b>
             </button>
@@ -4195,6 +4246,8 @@
             <button id="btn_update_plugin" type="button" class="btn btn-success">
                 <i class="fa fa-github"></i> <b>Update Plugin from GitHub</b>
             </button>
+        </div>
+        <div class="col-md-12" style="padding-bottom: 15px;">
             <pre id="maintenance_output" style="display:none; margin-top: 15px; max-height: 300px; overflow-y: auto;"></pre>
         </div>
     </div>
