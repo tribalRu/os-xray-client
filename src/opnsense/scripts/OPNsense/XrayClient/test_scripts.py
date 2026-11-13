@@ -1328,7 +1328,7 @@ class TestWarpSources(unittest.TestCase):
         mq = {'masque_warp_private_key': 'K' * 60, 'masque_warp_address': ['172.16.0.2/32'], 'masque_warp_public_key': 'E' * 90}
         wg = {'wg_secret_key': 'S' * 43 + '=', 'wg_public_key': 'P' * 43 + '=', 'wg_address': ['172.16.0.2/32']}
         cfg = self.wp.build_xray_config('masque_h3', '162.159.198.2', 443, mq, 1, '/tmp/l')
-        self.assertEqual(cfg['log'], {'loglevel': 'warning', 'error': '/tmp/l'})
+        self.assertEqual(cfg['log'], {'loglevel': 'debug', 'error': '/tmp/l'})
         self.assertEqual(self.wp.build_xray_config('wg', '8.6.112.5', 500, wg, 1)['log'], {'loglevel': 'none'})
 
 

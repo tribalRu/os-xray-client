@@ -319,7 +319,7 @@ def build_xray_config(mode, host, port, cred, listen_port, logfile=None):
                                'masqueSettings': {'warp': warp}},
         }
     return {
-        'log': {'loglevel': 'warning', 'error': logfile} if logfile else {'loglevel': 'none'},
+        'log': {'loglevel': 'debug', 'error': logfile} if logfile else {'loglevel': 'none'},
         'inbounds': [{'tag': 'in', 'listen': '127.0.0.1', 'port': listen_port, 'protocol': 'http'}],
         'outbounds': [outbound],
         'routing': {'rules': [{'type': 'field', 'inboundTag': ['in'], 'outboundTag': 'probe'}]},
@@ -461,7 +461,7 @@ def probe_endpoint(mode, host, port, cred, own_ip, confirm_only=False):
                 pass
 
 
-def read_log(path, cred, lines=14):
+def read_log(path, cred, lines=40):
     """Last lines of the Xray log of a probe, without anything key-like."""
     secrets = [v for k, v in cred.items() if 'key' in k and isinstance(v, str) and len(v) > 8]
     try:
