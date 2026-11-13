@@ -1638,6 +1638,7 @@
             setSelectValue($('#node\\.network'), data.network);
             setSelectValue($('#node\\.security'), data.security);
             $('#node\\.sni').val(data.sni);
+            $('#node\\.allow_insecure').prop('checked', data.allow_insecure === '1');
             setSelectValue($('#node\\.fingerprint'), data.fingerprint);
             setMultiSelectValue('#node\\.alpn', data.alpn);
             $('#node\\.tls_verify_peer_cert_by_name').val(data.tls_verify_peer_cert_by_name);
@@ -2343,6 +2344,10 @@
             if (fp && known.indexOf(fp) === -1) {
                 w.push('Fingerprint "' + fp + '" is not one of the options here; the node keeps its default (chrome).');
             }
+            var ht = params.get('headerType');
+            if (ht && ht !== 'none') {
+                w.push('Header type "' + ht + '" (obfuscation of the TCP stream) is not imported: the plugin has no such field.');
+            }
             if (params.get('cs')) {
                 w.push('Cipher suites (cs) are not imported: the plugin has no such field.');
             }
@@ -2359,6 +2364,91 @@
                 $n.append((i ? $('<br/>') : $()), document.createTextNode(t));
             });
             $('#DialogNode .modal-body').first().prepend($n);
+        }
+
+        // Fields every imported node starts from (the dialog keeps its defaults otherwise).
+        function importBase(proto, name, host, port) {
+            return {
+                name: name, protocol: proto, address: host, port: port,
+                user_uuid: '', flow: 'none', encryption: 'none', ss_method: 'x2022-blake3-aes-128-gcm',
+                network: 'tcp', security: 'none', sni: '', allow_insecure: '0', fingerprint: 'chrome', alpn: '',
+                reality_pubkey: '', reality_shortid: '', reality_spiderx: '/',
+                transport_host: '', transport_path: '', grpc_service_name: '', xhttp_mode: 'auto'
+            };
+        }
+
+        // hysteria2://auth@host:port?sni=..&insecure=1#name (also hy2://)
+        function parseHysteria2Link(url, knownFp) {
+            var params = url.searchParams;
+            var auth = safeDecode(url.username) + (url.password ? ':' + safeDecode(url.password) : '');
+            var data = importBase('hysteria', importName(url.hash ? safeDecode(url.hash.substring(1)) : '',
+                url.hostname + ':' + (url.port || '443')), url.hostname, url.port || '443');
+            data.security = 'tls';
+            data.hysteria_auth = auth;
+            data.sni = params.get('sni') || params.get('peer') || '';
+            data.allow_insecure = (params.get('insecure') === '1' || params.get('allowInsecure') === '1') ? '1' : '0';
+            data.alpn = params.get('alpn') || '';
+            var w = [];
+            if (params.get('obfs')) {
+                w.push('Obfuscation (obfs) is not imported: the plugin has no Hysteria obfuscation field; use a FinalMask Salamander mask.');
+            }
+            if (params.get('pinSHA256')) {
+                w.push('pinSHA256 is not imported; the pin is a different format from the Pinned certificate SHA-256 field.');
+            }
+            if (params.get('mport')) {
+                w.push('Port hopping (mport) is not imported; use the UDP hop FinalMask mask.');
+            }
+            data.import_warnings = w;
+            return data;
+        }
+
+        // vmess://base64(JSON) (v2rayN format)
+        function parseVmessLink(raw) {
+            var body = raw.replace(/^vmess:\/\//i, '');
+            var hash = body.indexOf('#');
+            var remark = hash !== -1 ? safeDecode(body.substring(hash + 1)) : '';
+            if (hash !== -1) {
+                body = body.substring(0, hash);
+            }
+            var j = JSON.parse(base64UrlDecode(body.trim()));
+            var w = [];
+            var net = String(j.net || 'tcp').toLowerCase();
+            if (net === 'raw') net = 'tcp';
+            if (net === 'splithttp') net = 'xhttp';
+            if (['tcp', 'ws', 'grpc', 'xhttp', 'httpupgrade'].indexOf(net) === -1) {
+                w.push('Transport "' + net + '" is not supported; the node was set to tcp.');
+                net = 'tcp';
+            }
+            var data = importBase('vmess', importName(j.ps || j.name || remark, j.add + ':' + (j.port || '443')),
+                String(j.add || ''), String(j.port || '443'));
+            data.user_uuid = String(j.id || '');
+            data.network = net;
+            data.security = String(j.tls || '').toLowerCase() === 'tls' ? 'tls' : 'none';
+            data.sni = j.sni || '';
+            data.alpn = j.alpn || '';
+            data.fingerprint = j.fp || 'chrome';
+            data.allow_insecure = (j.insecure === '1' || j.insecure === 1 || j.allowInsecure === true) ? '1' : '0';
+            data.transport_host = j.host || '';
+            if (net === 'grpc') {
+                data.grpc_service_name = j.path || '';
+            } else {
+                data.transport_path = j.path || '';
+            }
+            var scy = String(j.scy || 'auto');
+            if (['auto', 'aes-128-gcm', 'chacha20-poly1305'].indexOf(scy) !== -1) {
+                data.vmess_security = scy;
+            } else {
+                w.push('VMess security "' + scy + '" is not available; the node uses auto.');
+                data.vmess_security = 'auto';
+            }
+            if (j.aid && String(j.aid) !== '0') {
+                w.push('alterId ' + j.aid + ' is not imported (legacy VMess); Xray expects alterId 0.');
+            }
+            if (j.type && ['none', 'auto', '---'].indexOf(j.type) === -1) {
+                w.push('Header type "' + j.type + '" is not imported.');
+            }
+            data.import_warnings = w;
+            return data;
         }
 
         function base64UrlDecode(s) {
@@ -2439,8 +2529,29 @@
             }
 
             try {
+                var knownFpAll = $('#node\\.fingerprint option').map(function () { return $(this).val(); }).get();
+                if (/^vmess:\/\//i.test(raw)) {
+                    pendingImport = parseVmessLink(raw);
+                    if (pendingImport.fingerprint && knownFpAll.indexOf(pendingImport.fingerprint) === -1) {
+                        pendingImport.import_warnings.push('Fingerprint "' + pendingImport.fingerprint + '" is not one of the options here; the node keeps its default (chrome).');
+                    }
+                    $('#DialogImportLink').one('hidden.bs.modal', function () {
+                        $('#grid-nodes').parent().find('.command-add').trigger('click');
+                    });
+                    $('#DialogImportLink').modal('hide');
+                    return;
+                }
                 var url = new URL(raw);
                 var proto = url.protocol.replace(':', '').toLowerCase();
+
+                if (proto === 'hysteria2' || proto === 'hy2') {
+                    pendingImport = parseHysteria2Link(url, knownFpAll);
+                    $('#DialogImportLink').one('hidden.bs.modal', function () {
+                        $('#grid-nodes').parent().find('.command-add').trigger('click');
+                    });
+                    $('#DialogImportLink').modal('hide');
+                    return;
+                }
 
                 if (proto === 'ss') {
                     var fallback = url.hostname + ':' + (url.port || '8388');
@@ -2453,7 +2564,7 @@
                 }
 
                 if (proto !== 'vless' && proto !== 'trojan') {
-                    throw new Error('Supported URI schemes: vless://, trojan://, ss:// (or paste a full JSON object).');
+                    throw new Error('Supported URI schemes: vless://, vmess://, trojan://, ss://, hysteria2:// (or paste a full JSON object).');
                 }
 
                 var params = url.searchParams;
@@ -2462,6 +2573,7 @@
                 var netType = (params.get('type') || 'tcp').toLowerCase();
                 if (netType === 'splithttp') netType = 'xhttp';
                 if (netType === 'http') netType = 'httpupgrade';
+                if (netType === 'raw') netType = 'tcp';
 
                 var alpn = params.get('alpn') || '';
                 if (!alpn) {
@@ -2490,6 +2602,7 @@
                     network: netType,
                     security: (params.get('security') || 'none').toLowerCase(),
                     sni: params.get('sni') || params.get('serverName') || '',
+                    allow_insecure: (params.get('allowInsecure') === '1' || params.get('insecure') === '1') ? '1' : '0',
                     fingerprint: params.get('fp') || 'chrome',
                     alpn: alpn,
                     reality_pubkey: params.get('pbk') || '',
@@ -4025,7 +4138,7 @@
                 <h4 class="modal-title">Import VLESS / Trojan / Shadowsocks Link or Raw JSON</h4>
             </div>
             <div class="modal-body">
-                <p>Paste a <code>vless://...</code>, <code>trojan://...</code> or <code>ss://...</code> URI link below to automatically populate the server configuration fields, or paste a complete JSON configuration object:</p>
+                <p>Paste a <code>vless://...</code>, <code>vmess://...</code>, <code>trojan://...</code>, <code>ss://...</code> or <code>hysteria2://...</code> URI link below to automatically populate the server configuration fields, or paste a complete JSON configuration object:</p>
                 <textarea id="import_link_input" class="form-control" rows="6" style="font-family: monospace;" placeholder="vless://uuid@server:443?encryption=none&amp;flow=xtls-rprx-vision&amp;security=reality&amp;sni=...&amp;fp=chrome&amp;pbk=...&amp;sid=...&amp;type=tcp#MyServer"></textarea>
                 <div id="import_error_msg" class="alert alert-danger" style="display:none; margin-top: 10px;"></div>
             </div>
