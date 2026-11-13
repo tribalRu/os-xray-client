@@ -52,6 +52,12 @@
         margin-bottom: 10px;
     }
     /* The import dialog shows very long vless:// links; give it room. */
+    /* The result list of the endpoint search scrolls inside the dialog. */
+    #DialogWarpProbe_wg .modal-body,
+    #DialogWarpProbe_masque .modal-body {
+        max-height: calc(100vh - 230px);
+        overflow-y: auto;
+    }
     #DialogImportLink .modal-dialog {
         width: 95%;
         max-width: 1100px;
@@ -3085,6 +3091,20 @@
                          tls_verify_peer_cert_by_name: val('tls_verify_peer_cert_by_name') };
             }
 
+            // FinalMask rows of the node dialog as they stand (the server decides what is used).
+            function fmValues() {
+                var out = {};
+                $('#DialogNode [id^="node.fm_"]').each(function () {
+                    var v = $(this).val();
+                    out[this.id.replace('node.', '')] = $.isArray(v) ? v.join(',') : String(v === null || v === undefined ? '' : v);
+                });
+                var raw = $('#node\\.finalmask');
+                if (raw.length) {
+                    out.finalmask = $.trim(raw.val() || '');
+                }
+                return out;
+            }
+
             function missing(kind, cred) {
                 var need = kind === 'wg' ? ['wg_secret_key', 'wg_public_key', 'wg_address']
                                           : ['masque_warp_private_key', 'masque_warp_address'];
@@ -3113,11 +3133,14 @@
                     '<div class="wp-opts" style="display:none; margin-top: 6px;">' + modeHtml +
                     ' <label class="checkbox-inline"><input type="checkbox" class="wp-zt"> Zero Trust ranges</label>' +
                     ' <label class="checkbox-inline"><input type="checkbox" class="wp-ignore"> Retry endpoints that failed recently</label>' +
-                    (kind === 'wg' ? ' <label class="checkbox-inline" title="Endpoints from the lists set under Maintenance, WARP Endpoint Lists"><input type="checkbox" class="wp-src"> Use external lists</label>' +
-                    ' <label class="checkbox-inline" title="Normally only Cloudflare addresses are tested: a list could point the handshake at any host"><input type="checkbox" class="wp-any"> Also test addresses outside Cloudflare ranges</label>' : '') +
+                    ' <label class="checkbox-inline" title="' + (kind === 'wg' ? 'Endpoints from the lists set under Maintenance, WARP Endpoint Lists' :
+                        'No MASQUE list is published: the addresses of the WireGuard lists set under Maintenance, WARP Endpoint Lists are tried on port 443') + '"><input type="checkbox" class="wp-src"> Use external lists</label>' +
+                    ' <label class="checkbox-inline" title="Normally only Cloudflare addresses are tested: a list could point the handshake at any host"><input type="checkbox" class="wp-any"> Also test addresses outside Cloudflare ranges</label>' +
+                    (kind === 'wg' ? '' : ' <label class="checkbox-inline" title="Send the probe the way this node would: the FinalMask rows of the dialog are applied. Needed where the connection is filtered"><input type="checkbox" class="wp-fm" checked> Apply this node\'s FinalMask</label>') +
+                    (kind === 'wg' ? '' : ' <label class="checkbox-inline" title="Experimental: other WARP ranges (162.159.192.x, 162.159.195.x and the WireGuard ranges) with the MASQUE ports"><input type="checkbox" class="wp-wide"> Also try other WARP ranges</label>') +
                     '<div style="margin-top: 4px;">Stop after <input type="number" class="wp-want form-control" style="width: 5em; display: inline-block;" value="5" min="1" max="20"> verified, at most ' +
                     '<input type="number" class="wp-max form-control" style="width: 6em; display: inline-block;" value="80" min="1" max="300"> attempts</div>' +
-                    '<div class="text-muted" style="font-size: 12px; margin-top: 4px;">Each candidate is tested with this node\'s keys through a temporary Xray on the router; FinalMask is not applied.</div></div>' +
+                    '<div class="text-muted" style="font-size: 12px; margin-top: 4px;">Each candidate is tested with this node\'s keys through a temporary Xray on the router; FinalMask is applied when the option is ticked.</div></div>' +
                     '</div>');
                 $anchorRow.after($row);
                 // The progress and the results live in their own dialog above the node dialog.
@@ -3134,7 +3157,7 @@
                     '<th>Endpoint</th><th>Latency</th><th>Speed</th><th>Checks</th><th>Verified</th><th></th></tr></thead><tbody></tbody></table>' +
                     '<div class="wp-empty text-muted" style="display:none;">Nothing has answered yet.</div></div>' +
                     '<div class="modal-footer"><button type="button" class="btn btn-default wp-recheck-all" style="display:none;"><i class="fa fa-refresh"></i> Re-check all</button> ' +
-                    '<button type="button" class="btn btn-default wp-cancel" style="display:none;"><i class="fa fa-stop"></i> Cancel search</button> ' +
+                    '<button type="button" class="btn btn-default wp-cancel" style="display:none;">Cancel search</button> ' +
                     '<button type="button" class="btn btn-primary" data-dismiss="modal">Close</button></div>' +
                     '</div></div></div>').appendTo('body');
                 var $status = $wrap.find('.wp-status');
@@ -3168,6 +3191,7 @@
                     }
                 });
                 var polling = null;
+                var running = false;
 
                 function mode() {
                     return kind === 'wg' ? 'wg' : $wrap.find('input[name=warp_probe_mode]:checked').val();
@@ -3203,11 +3227,21 @@
                             .prop('disabled', r.status === 'failed').on('click', function () { use(r); });
                         var $re = $('<button type="button" class="btn btn-xs btn-default">Re-check</button>')
                             .on('click', function () { start([{ host: r.host, port: r.port }]); });
-                        $tr.append($('<td/>').append($use).append($re)).data('row', r);
+                        var $acts = $('<td/>').append($use).append($re);
+                        if (r.log && r.log.length) {
+                            var $logRow = $('<tr class="wp-log" style="display:none;"><td colspan="6"><pre style="margin: 0; font-size: 11px; white-space: pre-wrap;"></pre></td></tr>');
+                            $logRow.find('pre').text(r.log.join('\n'));
+                            $acts.append($('<button type="button" class="btn btn-xs btn-default" style="margin-left: 4px;">Log</button>')
+                                .on('click', function () { $logRow.toggle(); }));
+                            $tr.append($acts).data('row', r);
+                            $tb.append($tr).append($logRow);
+                            return;
+                        }
+                        $tr.append($acts).data('row', r);
                         $tb.append($tr);
                     });
                     $dlg.find('.wp-table').toggle(rows.length > 0);
-                    $dlg.find('.wp-recheck-all').toggle(rows.length > 0);
+                    $dlg.find('.wp-recheck-all').toggle(rows.length > 0 && !running);
                     $dlg.find('.wp-empty').toggle(rows.length === 0 && !!(state && state.status && state.status !== 'running'));
                     $wrap.find('.wp-show').toggle(rows.length > 0);
                     $wrap.data('rows', rows);
@@ -3271,8 +3305,9 @@
                         polling = setInterval(poll, 1000);
                     }
                     $wrap.find('.wp-start').prop('disabled', true);
+                    running = true;
                     $dlg.find('.wp-cancel').show().prop('disabled', false);
-                    $dlg.find('.wp-recheck-all').prop('disabled', true);
+                    $dlg.find('.wp-recheck-all').hide();
                 }
                 function stop() {
                     if (polling !== null) {
@@ -3280,8 +3315,9 @@
                         polling = null;
                     }
                     $wrap.find('.wp-start').prop('disabled', false);
+                    running = false;
                     $dlg.find('.wp-cancel').hide();
-                    $dlg.find('.wp-recheck-all').prop('disabled', false);
+                    $dlg.find('.wp-recheck-all').toggle(($wrap.data('rows') || []).length > 0);
                 }
 
                 function start(endpoints) {
@@ -3294,9 +3330,15 @@
                     var data = { mode: mode(), credentials: cred, zero_trust: $wrap.find('.wp-zt').is(':checked') ? '1' : '0',
                                  ignore_cache: $wrap.find('.wp-ignore').is(':checked') ? '1' : '0',
                                  want: $wrap.find('.wp-want').val(), max_attempts: $wrap.find('.wp-max').val() };
-                    if (kind === 'wg' && $wrap.find('.wp-src').is(':checked')) {
+                    if ($wrap.find('.wp-src').is(':checked')) {
                         data.use_sources = '1';
                         data.any_address = $wrap.find('.wp-any').is(':checked') ? '1' : '0';
+                    }
+                    if (kind !== 'wg' && $wrap.find('.wp-wide').is(':checked')) {
+                        data.wide = '1';
+                    }
+                    if (kind !== 'wg' && $wrap.find('.wp-fm').is(':checked')) {
+                        data.fm = fmValues();
                     }
                     if (endpoints && endpoints.length) {
                         data.endpoints = endpoints;
@@ -3319,12 +3361,13 @@
                     });
                 }
 
+                var srcKey = kind === 'wg' ? 'osxray_warp_src' : 'osxray_warp_src_masque';
                 try {
-                    $wrap.find('.wp-src').prop('checked', window.localStorage.getItem('osxray_warp_src') === '1');
+                    $wrap.find('.wp-src').prop('checked', window.localStorage.getItem(srcKey) === '1');
                 } catch (e) { /* storage unavailable: the box simply starts unchecked */ }
                 $wrap.find('.wp-src').on('change', function () {
                     try {
-                        window.localStorage.setItem('osxray_warp_src', this.checked ? '1' : '0');
+                        window.localStorage.setItem(srcKey, this.checked ? '1' : '0');
                     } catch (e) { /* ignore */ }
                 });
                 $wrap.find('.wp-start').on('click', function () { start(null); });

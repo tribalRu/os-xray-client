@@ -1298,6 +1298,94 @@ class TestWarpSources(unittest.TestCase):
         self.assertEqual(len(set(got)), len(got))
 
 
+    def test_masque_uses_hosts_of_lists_on_default_port(self):
+        import random
+        seen = []
+
+        def probe(mode, host, port, cred, own_ip):
+            seen.append((host, port))
+            return {'host': host, 'port': port, 'status': 'failed'}
+
+        req = {'mode': 'masque_h2', 'credentials': {}, 'max_attempts': 4, 'want': 5, 'sources': ['https://a.example/x'],
+               'ignore_cache': True}
+        search = self.wp.Search(req, os.path.join(self.tmp, 's.json'), self.cache, probe=probe,
+                                rng=random.Random(3), fetch=lambda u: self.SAMPLE)
+        search.run()
+        self.assertEqual(search.state['sources'][0]['status'], 'ok')
+        # two documented defaults first, then list hosts on 443 only (8.6.112.0 and .1)
+        self.assertEqual(sorted(seen[2:4]), [('8.6.112.0', 443), ('8.6.112.1', 443)])
+        self.assertEqual(self.wp.masque_hosts([('1.1.1.1', 500), ('1.1.1.1', 939)]), [('1.1.1.1', 443)])
+
+    def test_wide_ranges_only_when_asked(self):
+        import itertools
+        import random
+        plain = list(itertools.islice(self.wp.generate_candidates('masque_h3', rng=random.Random(1)), 300))
+        wide = list(itertools.islice(self.wp.generate_candidates('masque_h3', rng=random.Random(1), wide=True), 300))
+        self.assertFalse(any(not h.startswith(('162.159.198.', '162.159.199.')) for h, _ in plain))
+        self.assertTrue(any(h.startswith('162.159.192.') for h, _ in wide))
+        self.assertTrue(all(p in self.wp.MASQUE_PORTS for _, p in wide))
+        self.assertEqual(self.wp.generate_candidates.__defaults__[-1], False)
+
+    def test_read_log_hides_keys_and_keeps_tail(self):
+        path = os.path.join(self.tmp, 'x.log')
+        with open(path, 'w') as fh:
+            fh.write('\n'.join(['line %d' % i for i in range(30)] + ['secret ' + 'K' * 60, '']))
+        got = self.wp.read_log(path, {'masque_warp_private_key': 'K' * 60}, lines=5)
+        self.assertEqual(got, ['line 26', 'line 27', 'line 28', 'line 29'])
+        self.assertEqual(self.wp.read_log(os.path.join(self.tmp, 'none'), {}), [])
+        mq = {'masque_warp_private_key': 'K' * 60, 'masque_warp_address': ['172.16.0.2/32'], 'masque_warp_public_key': 'E' * 90}
+        wg = {'wg_secret_key': 'S' * 43 + '=', 'wg_public_key': 'P' * 43 + '=', 'wg_address': ['172.16.0.2/32']}
+        cfg = self.wp.build_xray_config('masque_h3', '162.159.198.2', 443, mq, 1, '/tmp/l')
+        self.assertEqual(cfg['log'], {'loglevel': 'debug', 'error': '/tmp/l'})
+        self.assertEqual(self.wp.build_xray_config('wg', '8.6.112.5', 500, wg, 1)['log'], {'loglevel': 'none'})
+
+    def test_masque_confirm_and_stalled_flows(self):
+        from unittest.mock import patch
+        wp = self.wp
+
+        class Inst:
+            port = 1
+
+        def good(url, port, timeout):
+            if 'trace' in url:
+                return b'ip=104.28.1.1\nwarp=on\n', 0.2
+            return b'x' * 300000, 1.0
+
+        def stalled(url, port, timeout):
+            raise OSError('timed out')
+
+        with patch.object(wp, 'http_get', good):
+            ok, times, kbps = wp._masque_confirm(Inst(), '93.1.1.1', [0.2])
+        self.assertEqual((ok, len(times)), (4, 4))
+        self.assertGreater(kbps, 0)
+        with patch.object(wp, 'http_get', stalled):
+            ok, times, kbps = wp._masque_confirm(Inst(), '93.1.1.1', [0.2])
+        self.assertEqual((ok, times, kbps), (1, [0.2], None))
+
+    def test_finalmask_of_the_node_in_probe_config(self):
+        wp = self.wp
+        mq = {'masque_warp_private_key': 'K' * 60, 'masque_warp_address': ['172.16.0.2/32'], 'masque_warp_public_key': 'E' * 90}
+        fm = {'fm_tcp_type': 'fragment', 'fm_tcp_fragment_packets': 'tlshello', 'fm_tcp_fragment_lengths': '100-200',
+              'fm_tcp_fragment_delays': '10-20', 'fm_udp_type': 'salamander', 'fm_udp_salamander_password': 'pw',
+              'finalmask': ''}
+        tcp = wp.build_xray_config('masque_h2', '162.159.198.2', 443, mq, 1, None, fm)['outbounds'][0]['streamSettings']
+        self.assertEqual(tcp['finalmask'], {'tcp': [{'type': 'fragment', 'settings': {
+            'packets': 'tlshello', 'lengths': ['100-200'], 'delays': ['10-20']}}]})
+        udp = wp.build_xray_config('masque_h3', '162.159.198.2', 443, mq, 1, None, fm)['outbounds'][0]['streamSettings']
+        self.assertEqual(udp['finalmask'], {'udp': [{'type': 'salamander', 'settings': {'password': 'pw'}}]})
+        raw = dict(fm, finalmask='{"tcp": [{"type": "fragment", "settings": {"packets": "1-3"}}]}')
+        self.assertEqual(wp.build_finalmask(raw, 'tcp')['tcp'][0]['settings'], {'packets': '1-3'})
+        self.assertIsNone(wp.build_finalmask(dict(fm, finalmask='{broken'), 'tcp'))
+        self.assertIsNone(wp.build_finalmask({'fm_tcp_type': 'none'}, 'tcp'))
+        self.assertNotIn('finalmask', wp.build_xray_config('masque_h2', '1.1.1.1', 443, mq, 1)['outbounds'][0]['streamSettings'])
+        self.assertEqual(wp.build_xray_config('masque_h2', '1.1.1.1', 443, mq, 1)['outbounds'][0]['targetStrategy'], 'UseIPv4')
+        self.assertNotIn('finalmask', wp.build_xray_config('wg', '1.1.1.1', 500, {'wg_secret_key': 'S', 'wg_public_key': 'P'}, 1, None, fm)['outbounds'][0].get('streamSettings', {}))
+        ok = {'mode': 'masque_h2', 'credentials': {'masque_warp_private_key': 'K', 'masque_warp_address': 'a'}, 'finalmask': fm}
+        wp.validate_request(ok)
+        for bad in ({'bad key': 'x'}, {'fm_x': 5}, {'fm_x': 'y' * 5000}):
+            with self.assertRaises(ValueError):
+                wp.validate_request(dict(ok, finalmask=bad))
+
 
 if __name__ == '__main__':
     unittest.main()

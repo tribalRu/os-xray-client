@@ -47,6 +47,9 @@ DOWNLOAD_MIN = 200000
 BAD_TTL = 6 * 3600
 GOOD_KEEP = 20
 CONCURRENCY = 4
+# MASQUE sessions are tied to the device identity: parallel tunnels of one
+# account seem to push each other out, so MASQUE candidates run one by one.
+MASQUE_CONCURRENCY = 1
 PROBE_TIMEOUT = 5
 CONFIRM_REQUESTS = 3
 MAX_ATTEMPTS_LIMIT = 300
@@ -64,6 +67,9 @@ WG_PORTS = [500, 854, 859, 864, 878, 880, 890, 891, 894, 903, 908, 928, 934, 939
 WG_PRIORITY_PORTS = [2408, 500, 4500, 1701]
 MASQUE_RANGES = ['162.159.198', '162.159.199']
 MASQUE_PORTS = [443, 500, 1701, 4500, 4443, 8443, 8095]
+# Experimental: other WARP ranges (consumer ranges of community scanners and the
+# WireGuard list), tried with the MASQUE ports only when asked for.
+MASQUE_WIDE_RANGES = ['162.159.192', '162.159.195'] + WG_RANGES[2:]
 # Zero Trust only (the account of the node must be a Zero Trust one).
 ZT_WG = ('162.159.193', range(1, 11))
 ZT_MASQUE = ('162.159.197', range(1, 11))
@@ -97,7 +103,7 @@ def candidate_key(mode, host, port):
     return '%s|%s:%d' % ('wg' if mode == 'wg' else 'masque_' + mode[-2:], host, port)
 
 
-def generate_candidates(mode, zero_trust=False, rng=None, skip=(), extra=()):
+def generate_candidates(mode, zero_trust=False, rng=None, skip=(), extra=(), wide=False):
     """Endless generator of (host, port): documented defaults first, then a
     round robin over the ranges with random addresses and ports, so that a
     blocked range does not eat the whole budget."""
@@ -120,7 +126,8 @@ def generate_candidates(mode, zero_trust=False, rng=None, skip=(), extra=()):
     for host, port in extra:
         if fresh(host, port):
             yield host, port
-    ranges = [(prefix, range(0, 256)) for prefix in (WG_RANGES if mode == 'wg' else MASQUE_RANGES)]
+    prefixes = WG_RANGES if mode == 'wg' else MASQUE_RANGES + (MASQUE_WIDE_RANGES if wide else [])
+    ranges = [(prefix, range(0, 256)) for prefix in prefixes]
     ports = WG_PORTS if mode == 'wg' else MASQUE_PORTS
     if zero_trust:
         prefix, octets = ZT_WG if mode == 'wg' else ZT_MASQUE
@@ -204,6 +211,18 @@ def parse_endpoint_list(text):
     return out
 
 
+def masque_hosts(entries):
+    """No list of MASQUE endpoints is published, so the addresses of the
+    WireGuard lists are tried on the MASQUE default port (443); the probe
+    decides whether anything answers there."""
+    seen, out = set(), []
+    for host, _ in entries:
+        if host not in seen:
+            seen.add(host)
+            out.append((host, MASQUE_PORTS[0]))
+    return out
+
+
 def in_cloudflare(ip):
     addr = ipaddress.ip_address(ip)
     return any(addr in net for net in CF_NETS)
@@ -257,7 +276,69 @@ def load_sources(urls, cache, any_address=False, fetch=fetch_source, now=None):
 
 # ------------------------------------------------------------- xray config
 
-def build_xray_config(mode, host, port, cred, listen_port):
+def _items(value):
+    return [t for t in re.split(r'[,;\s]+', str(value or '')) if t]
+
+
+def _json_settings(text):
+    try:
+        obj = json.loads('{' + str(text).strip().strip('{}') + '}')
+    except ValueError:
+        return None
+    return obj if isinstance(obj, dict) else None
+
+
+def build_finalmask(fm, kind):
+    """The node's FinalMask the way the config template writes it, for the
+    types that matter to a probe: fragment/sudoku/custom for TCP (HTTP/2) and
+    salamander/gecko/sudoku/custom for UDP (HTTP/3). The raw JSON wins."""
+    fm = fm or {}
+    raw = str(fm.get('finalmask', '')).strip()
+    if raw:
+        try:
+            obj = json.loads(raw)
+            return obj if isinstance(obj, dict) and obj else None
+        except ValueError:
+            return None
+    get = lambda k: str(fm.get(k, '') or '').strip()
+    masks = []
+    t = get('fm_tcp_type') if kind == 'tcp' else get('fm_udp_type')
+    p = 'fm_tcp_' if kind == 'tcp' else 'fm_udp_'
+    s = {}
+    if kind == 'tcp' and t == 'fragment':
+        s['packets'] = get('fm_tcp_fragment_packets') or 'tlshello'
+        if _items(get('fm_tcp_fragment_lengths')):
+            s['lengths'] = _items(get('fm_tcp_fragment_lengths'))
+        if _items(get('fm_tcp_fragment_delays')):
+            s['delays'] = _items(get('fm_tcp_fragment_delays'))
+        if get('fm_tcp_fragment_max_split'):
+            s['maxSplit'] = get('fm_tcp_fragment_max_split')
+        masks.append({'type': 'fragment', 'settings': s})
+    elif t in ('salamander', 'gecko'):
+        if get(p + t + '_password'):
+            s['password'] = get(p + t + '_password')
+        if get(p + t + '_packet_size'):
+            s['packetSize'] = get(p + t + '_packet_size')
+        masks.append({'type': 'salamander', 'settings': s})
+    elif t == 'sudoku':
+        if get(p + 'sudoku_password'):
+            s['password'] = get(p + 'sudoku_password')
+        if get(p + 'sudoku_ascii'):
+            s['ascii'] = get(p + 'sudoku_ascii')
+        for key, name in (('padding_min', 'paddingMin'), ('padding_max', 'paddingMax')):
+            if get(p + 'sudoku_' + key).isdigit():
+                s[name] = int(get(p + 'sudoku_' + key))
+        if _items(get(p + 'sudoku_tables')):
+            s['customTables'] = _items(get(p + 'sudoku_tables'))
+        masks.append({'type': 'sudoku', 'settings': s})
+    elif t in ('header-custom', 'xmc', 'noise', 'xdns'):
+        extra = _json_settings(get(p + 'extra_json')) if get(p + 'extra_json') else None
+        if extra is not None:
+            masks.append({'type': t, 'settings': extra})
+    return {kind: masks} if masks else None
+
+
+def build_xray_config(mode, host, port, cred, listen_port, logfile=None, finalmask=None):
     """Temporary test config: one local HTTP inbound, one outbound."""
     if mode == 'wg':
         peer = {
@@ -295,12 +376,20 @@ def build_xray_config(mode, host, port, cred, listen_port):
         outbound = {
             'protocol': 'masque',
             'tag': 'probe',
+            # Names are resolved here and not inside the tunnel: the debug log
+            # of a real run showed the first flow going through and every later
+            # one stalling, and the in-tunnel resolver is the one thing the
+            # flows share besides the tunnel itself.
+            'targetStrategy': 'UseIPv4',
             'settings': {'address': host, 'port': port},
             'streamSettings': {'method': 'masque', 'security': 'tls', 'tlsSettings': tls,
                                'masqueSettings': {'warp': warp}},
         }
+        mask = build_finalmask(finalmask, 'tcp' if mode == 'masque_h2' else 'udp')
+        if mask:
+            outbound['streamSettings']['finalmask'] = mask
     return {
-        'log': {'loglevel': 'none'},
+        'log': {'loglevel': 'debug', 'error': logfile} if logfile else {'loglevel': 'none'},
         'inbounds': [{'tag': 'in', 'listen': '127.0.0.1', 'port': listen_port, 'protocol': 'http'}],
         'outbounds': [outbound],
         'routing': {'rules': [{'type': 'field', 'inboundTag': ['in'], 'outboundTag': 'probe'}]},
@@ -411,7 +500,7 @@ def median(values):
     return values[len(values) // 2] if values else None
 
 
-def probe_endpoint(mode, host, port, cred, own_ip, confirm_only=False):
+def probe_endpoint(mode, host, port, cred, own_ip, confirm_only=False, finalmask=None):
     """Returns {'status': 'verified'|'unstable'|'failed', 'ms', 'kbps', 'checks', 'edge_key'?}."""
     cred = dict(cred)
     result = {'host': host, 'port': port}
@@ -421,7 +510,73 @@ def probe_endpoint(mode, host, port, cred, own_ip, confirm_only=False):
             return dict(result, status='failed', reason='no TLS answer')
         cred['edge_key'] = edge
         result['edge_key'] = edge
-    inst = XrayInstance(build_xray_config(mode, host, port, cred, free_port()))
+    # MASQUE: keep Xray's own log, so that an endpoint that answers once and
+    # then stalls can be explained (shown as the Log of that row)
+    logfile = None
+    if mode != 'wg':
+        logfile = os.path.join(tempfile.gettempdir(), 'xwp_log_%d_%d' % (os.getpid(), threading.get_ident()))
+        os.close(os.open(logfile, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600))
+    inst = XrayInstance(build_xray_config(mode, host, port, cred, free_port(), logfile, finalmask))
+    try:
+        res = _probe_instance(inst, mode, result, own_ip)
+        if logfile and res['status'] != 'verified':
+            res['log'] = read_log(logfile, cred)
+        return res
+    finally:
+        inst.close()
+        if logfile:
+            try:
+                os.unlink(logfile)
+            except OSError:
+                pass
+
+
+def read_log(path, cred, lines=40):
+    """Last lines of the Xray log of a probe, without anything key-like."""
+    secrets = [v for k, v in cred.items() if 'key' in k and isinstance(v, str) and len(v) > 8]
+    try:
+        with open(path, errors='replace') as fh:
+            rows = [r.rstrip()[:300] for r in fh.read().splitlines() if r.strip()]
+    except OSError:
+        return []
+    return [r for r in rows[-lines:] if not any(s in r for s in secrets)]
+
+
+def _masque_confirm(inst, own_ip, times):
+    """The follow-up requests of a MASQUE candidate run at the same time
+    (one flow after the other stalls on some Xray builds)."""
+    ok, kbps = 1, None
+
+    def trace():
+        body, secs = http_get(TRACE_URL, inst.port, 4)
+        if not trace_is_warp(parse_trace(body.decode('utf-8', 'replace')), own_ip):
+            raise ValueError('not WARP')
+        return secs
+
+    def download():
+        data, secs = http_get(DOWNLOAD_URL, inst.port, 8)
+        if len(data) < DOWNLOAD_MIN or secs <= 0:
+            raise ValueError('short')
+        return int(len(data) * 8 / 1000 / secs)
+
+    with ThreadPoolExecutor(max_workers=CONFIRM_REQUESTS + 1) as pool:
+        traces = [pool.submit(trace) for _ in range(CONFIRM_REQUESTS)]
+        dl = pool.submit(download)
+        for fut in traces:
+            try:
+                times.append(fut.result())
+                ok += 1
+            except Exception:
+                pass
+        try:
+            kbps = dl.result()
+        except Exception:
+            kbps = None
+    return ok, times, kbps
+
+
+def _probe_instance(inst, mode, result, own_ip):
+    host, port = result['host'], result['port']
     try:
         if not inst.wait_ready():
             return dict(result, status='failed', reason='xray did not start')
@@ -435,29 +590,38 @@ def probe_endpoint(mode, host, port, cred, own_ip, confirm_only=False):
             return dict(result, status='failed', reason='not through WARP')
         times.append(secs)
         ok = 1
-        # confirmation
-        for _ in range(CONFIRM_REQUESTS):
-            time.sleep(0.5)
+        total = 1 + CONFIRM_REQUESTS
+        kbps = None
+        if mode == 'wg':
+            # confirmation
+            for _ in range(CONFIRM_REQUESTS):
+                time.sleep(0.5)
+                try:
+                    body, secs = http_get(TRACE_URL, inst.port, PROBE_TIMEOUT)
+                    if trace_is_warp(parse_trace(body.decode('utf-8', 'replace')), own_ip):
+                        ok += 1
+                        times.append(secs)
+                except Exception:
+                    pass
             try:
-                body, secs = http_get(TRACE_URL, inst.port, PROBE_TIMEOUT)
-                if trace_is_warp(parse_trace(body.decode('utf-8', 'replace')), own_ip):
-                    ok += 1
-                    times.append(secs)
+                data, secs = http_get(DOWNLOAD_URL, inst.port, 10)
+                if len(data) >= DOWNLOAD_MIN and secs > 0:
+                    kbps = int(len(data) * 8 / 1000 / secs)
             except Exception:
                 pass
-        kbps = None
-        try:
-            data, secs = http_get(DOWNLOAD_URL, inst.port, 10)
-            if len(data) >= DOWNLOAD_MIN and secs > 0:
-                kbps = int(len(data) * 8 / 1000 / secs)
-        except Exception:
-            pass
-        total = 1 + CONFIRM_REQUESTS
+        else:
+            ok, times, kbps = _masque_confirm(inst, own_ip, times)
+            if ok == 1 and not kbps:
+                # The tunnel came up and the first request went through WARP,
+                # but a second flow is never answered (debug log: dispatched,
+                # nothing follows). Reported as it is, and not as verified.
+                return dict(result, status='unstable', ms=int(median(times) * 1000), kbps=None,
+                            checks='1/%d, tunnel up, later requests stalled' % total)
         status = 'verified' if ok == total and kbps else 'unstable'
         return dict(result, status=status, ms=int(median(times) * 1000), kbps=kbps,
                     checks='%d/%d%s' % (ok, total, '' if kbps else ', no data'))
-    finally:
-        inst.close()
+    except Exception as exc:  # keep the Log of the instance
+        return dict(result, status='failed', reason=str(exc)[:80])
 
 
 # -------------------------------------------------------------------- state
@@ -544,7 +708,10 @@ class Search:
 
     def _one(self, host, port, own_ip):
         try:
-            res = self.probe(self.mode, host, port, self.req['credentials'], own_ip)
+            if self.req.get('finalmask'):
+                res = self.probe(self.mode, host, port, self.req['credentials'], own_ip, finalmask=self.req['finalmask'])
+            else:
+                res = self.probe(self.mode, host, port, self.req['credentials'], own_ip)
         except Exception as exc:  # a broken probe must not kill the search
             res = {'host': host, 'port': port, 'status': 'failed', 'reason': str(exc)[:80]}
         with self.lock:
@@ -570,16 +737,20 @@ class Search:
         else:
             skip = set() if self.req.get('ignore_cache') else self.cache.bad_keys()
             extra = []
-            if self.mode == 'wg' and self.req.get('sources'):
+            if self.req.get('sources'):
                 extra, self.state['sources'] = load_sources(self.req['sources'], self.cache,
                                                             bool(self.req.get('any_address')), self.fetch)
+                if self.mode != 'wg':
+                    extra = masque_hosts(extra)
                 self.rng.shuffle(extra)
-            candidates = generate_candidates(self.mode, bool(self.req.get('zero_trust')), self.rng, skip, extra)
+            candidates = generate_candidates(self.mode, bool(self.req.get('zero_trust')), self.rng, skip, extra,
+                                             bool(self.req.get('wide')))
         self.save_state()
         pending, submitted = set(), 0
-        with ThreadPoolExecutor(max_workers=CONCURRENCY) as pool:
+        workers = CONCURRENCY if self.mode == 'wg' else MASQUE_CONCURRENCY
+        with ThreadPoolExecutor(max_workers=workers) as pool:
             while True:
-                while (len(pending) < CONCURRENCY and submitted < self.max_attempts
+                while (len(pending) < workers and submitted < self.max_attempts
                        and (explicit or self.state['verified'] < self.want) and not self.cancelled()):
                     try:
                         host, port = next(candidates)
@@ -615,6 +786,11 @@ def validate_request(req):
     if not isinstance(sources, list) or len(sources) > MAX_SOURCES or \
             any(not str(u).startswith('https://') or re.search(r'\s', str(u)) for u in sources):
         raise ValueError('invalid source list')
+    fm = req.get('finalmask') or {}
+    if not isinstance(fm, dict) or len(fm) > 80 or any(
+            not re.match(r'^(fm_[a-z0-9_]{1,40}|finalmask)$', str(k)) or not isinstance(v, str) or len(v) > 4000
+            for k, v in fm.items()):
+        raise ValueError('invalid finalmask')
     for ep in req.get('endpoints') or []:
         if not IP_RE.match(str(ep.get('host', ''))) or not 0 < int(ep.get('port', 0)) < 65536:
             raise ValueError('invalid endpoint')
