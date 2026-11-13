@@ -30,7 +30,11 @@ def check_node(node_data):
     host = node_data['address']
     port = node_data['port']
 
-    if node_data.get('protocol') in UDP_ONLY_PROTOCOLS + NO_REMOTE_PROTOCOLS:
+    proto = node_data.get('protocol')
+    # MASQUE over HTTP/2 (h2 in the ALPN) runs on a plain TCP connection, so
+    # the connect test means something there; over HTTP/3 it is UDP.
+    masque_tcp = proto == 'masque' and 'h2' in [a.strip() for a in str(node_data.get('alpn') or '').split(',')]
+    if proto in NO_REMOTE_PROTOCOLS or (proto in UDP_ONLY_PROTOCOLS and not masque_tcp):
         return uuid, {'status': 'n/a', 'ms': 0}
 
     if not host or not port:
@@ -47,7 +51,7 @@ def check_node(node_data):
 
 def _nodes_key(nodes):
     raw = json.dumps(
-        sorted((n['uuid'], n['address'], n['port'], n.get('protocol', '')) for n in nodes)
+        sorted((n['uuid'], n['address'], n['port'], n.get('protocol', ''), n.get('alpn', '')) for n in nodes)
     )
     return hashlib.sha1(raw.encode('utf-8')).hexdigest()
 
