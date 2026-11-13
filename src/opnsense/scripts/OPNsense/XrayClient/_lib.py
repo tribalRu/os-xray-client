@@ -38,6 +38,7 @@ def iter_nodes():
         address = (node_el.findtext('address') or '').strip()
         port = (node_el.findtext('port') or '443').strip()
         protocol = (node_el.findtext('protocol') or '').strip()
+        alpn = (node_el.findtext('alpn') or '').strip()
         if uuid:
             yield {
                 'uuid': uuid,
@@ -45,6 +46,7 @@ def iter_nodes():
                 'address': address,
                 'port': port,
                 'protocol': protocol,
+                'alpn': alpn,
             }
 
 

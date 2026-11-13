@@ -348,6 +348,58 @@ export default class XrayClient extends BaseWidget {
     }
 
     // Same thresholds as the plugin page: <150 ms good, <350 ms slow.
+    _kind(node) {
+        const proto = String(node.protocol || '').toLowerCase();
+        if (['freedom', 'blackhole', 'dns', 'loopback'].includes(proto)) {
+            return 'none';
+        }
+        if (proto === 'wireguard') {
+            return 'udp';
+        }
+        if (proto === 'hysteria') {
+            return 'quic';
+        }
+        if (proto === 'masque') {
+            // Same rule as the config template: no h2 in ALPN means HTTP/3.
+            const alpn = String(node.alpn || '').split(',').map(v => v.trim());
+            return alpn.includes('h2') ? 'h2' : 'h3';
+        }
+        return 'stream';
+    }
+
+    _tagList(node) {
+        const proto = node.protocol;
+        switch (this._kind(node)) {
+            case 'none':
+                return [proto];
+            case 'udp':
+                return [proto, 'udp'];
+            case 'quic':
+                return [proto, 'quic', 'tls'];
+            case 'h2':
+                return [proto, 'http/2', 'tls'];
+            case 'h3':
+                return [proto, 'http/3', 'tls'];
+            default:
+                return [proto, node.network, node.security]
+                    .filter(v => v !== undefined && v !== null && String(v) !== '');
+        }
+    }
+
+    // WireGuard keeps its endpoint in wg_endpoint (host:port or [v6]:port).
+    _endpoint(node) {
+        const proto = String(node.protocol || '').toLowerCase();
+        if (proto === 'wireguard') {
+            const raw = String(node.wg_endpoint || '').trim();
+            const m = /^(\[[^\]]+\]|[^:]+):(\d+)$/.exec(raw);
+            return m ? {host: m[1], port: m[2]} : {host: raw, port: ''};
+        }
+        if (this._kind(node) === 'none') {
+            return {host: '', port: ''};
+        }
+        return {host: String(node.address || ''), port: String(node.port || '')};
+    }
+
     _latencyClass(ms) {
         return ms < 150 ? 'success' : (ms < 350 ? 'warning' : 'danger');
     }
@@ -443,12 +495,14 @@ export default class XrayClient extends BaseWidget {
                 dotClass = this.running === false ? 'text-warning' : 'text-success';
             }
 
-            // Protocol, transport and security as one muted word group.
-            const tags = [node.protocol, node.network, node.security]
-                .filter(v => v !== undefined && v !== null && String(v) !== '')
+            // Protocol, transport and security as one muted word group; only
+            // what applies to the protocol (WireGuard has no TLS, MASQUE has
+            // no REALITY, freedom and blackhole have neither).
+            const tags = this._tagList(node)
                 .map(v => this._esc(String(v).toUpperCase()))
                 .join(' &middot; ');
-            const hostPort = this._esc(node.address) + (node.port ? ':' + this._esc(node.port) : '');
+            const ep = this._endpoint(node);
+            const hostPort = this._esc(ep.host) + (ep.port ? ':' + this._esc(ep.port) : '');
 
             // Rate once a second live sample exists; otherwise cumulative.
             const rate = this.nodeRates[node.uuid];
