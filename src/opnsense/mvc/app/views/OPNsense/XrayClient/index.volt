@@ -3047,6 +3047,26 @@
             });
         }
 
+        // Flag emoji of a two letter country code ('' when there is none).
+        function warpFlag(cc) {
+            if (!/^[A-Za-z]{2}$/.test(cc || '')) {
+                return '';
+            }
+            return String.fromCodePoint.apply(null, cc.toUpperCase().split('').map(function (c) {
+                return 0x1F1E6 + c.charCodeAt(0) - 65;
+            }));
+        }
+
+        // Tooltip of the flag: city, country name and the data center code.
+        function warpPlaceTitle(r) {
+            var name = r.cc || '';
+            try {
+                name = new Intl.DisplayNames(['en'], { type: 'region' }).of(r.cc) || name;
+            } catch (e) { /* older browser: the code stays */ }
+            return [r.city, name].filter(function (v) { return v; }).join(', ') +
+                (r.colo ? ' (Cloudflare data center ' + r.colo + ')' : '');
+        }
+
         // One line about the external lists a search used (empty when none).
         function warpSourcesText(sources) {
             if (!sources || !sources.length) {
@@ -3218,7 +3238,13 @@
                         var label = r.status === 'verified' ? '<span class="label label-success">verified</span>'
                                   : (r.status === 'unstable' ? '<span class="label label-warning">unstable</span>'
                                   : '<span class="label label-danger">failed</span>');
-                        var $tr = $('<tr/>').append($('<td/>').text(r.host + ':' + r.port + ' ').append($(label)))
+                        var $ep = $('<td/>');
+                        if (r.cc || r.colo) {
+                            $ep.append($('<span/>').css({ 'margin-right': '6px', cursor: 'help' })
+                                .attr('title', warpPlaceTitle(r)).text(warpFlag(r.cc) || r.colo));
+                        }
+                        $ep.append(document.createTextNode(r.host + ':' + r.port + ' ')).append($(label));
+                        var $tr = $('<tr/>').append($ep)
                             .append($('<td/>').text(r.ms ? r.ms + ' ms' : '-'))
                             .append($('<td/>').text(r.kbps ? (r.kbps >= 1000 ? (r.kbps / 1000).toFixed(1) + ' Mbit/s' : r.kbps + ' kbit/s') : '-'))
                             .append($('<td/>').text(r.checks || '-'))

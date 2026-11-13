@@ -1054,6 +1054,7 @@ class TestWarpProbe(unittest.TestCase):
         import tempfile
         import warp_probe
         self.wp = warp_probe
+        warp_probe.fetch_colos = lambda: {}      # no network in tests
         self.tmp = tempfile.mkdtemp()
         self.cache = warp_probe.Cache(os.path.join(self.tmp, 'cache.json'))
 
@@ -1226,6 +1227,7 @@ class TestWarpSources(unittest.TestCase):
         import tempfile
         import warp_probe
         self.wp = warp_probe
+        warp_probe.fetch_colos = lambda: {}      # no network in tests
         self.tmp = tempfile.mkdtemp()
         self.cache = warp_probe.Cache(os.path.join(self.tmp, 'cache.json'))
 
@@ -1385,6 +1387,44 @@ class TestWarpSources(unittest.TestCase):
         for bad in ({'bad key': 'x'}, {'fm_x': 5}, {'fm_x': 'y' * 5000}):
             with self.assertRaises(ValueError):
                 wp.validate_request(dict(ok, finalmask=bad))
+
+    def test_colo_countries_cached_with_fallback(self):
+        wp = self.wp
+        calls = []
+
+        def fetch():
+            calls.append(1)
+            return {'KJA': ['RU', 'Krasnoyarsk']}
+
+        got = wp.load_colos(self.cache, fetch, now=1000)
+        self.assertEqual(got, {'KJA': ['RU', 'Krasnoyarsk']})
+        wp.load_colos(self.cache, fetch, now=2000)
+        self.assertEqual(len(calls), 1)                 # cached
+        def down():
+            raise OSError('offline')
+        late = 1000 + wp.COLOS_TTL + 1
+        got = wp.load_colos(self.cache, down, now=late)
+        self.assertEqual(got['KJA'], ['RU', 'Krasnoyarsk'])     # stale copy kept
+        self.assertEqual(got['HEL'], ['FI', 'Helsinki'])        # plus the built-in table
+        empty = wp.Cache(os.path.join(self.tmp, 'other.json'))
+        self.assertEqual(wp.load_colos(empty, down)['DME'][0], 'RU')
+
+    def test_results_carry_country_of_the_data_center(self):
+        import random
+        wp = self.wp
+
+        def probe(mode, host, port, cred, own_ip):
+            return {'host': host, 'port': port, 'status': 'verified', 'ms': 50, 'kbps': 900, 'checks': '4/4',
+                    'colo': 'HEL' if port == 500 else 'ZZZ'}
+
+        req = {'mode': 'wg', 'credentials': {}, 'max_attempts': 2, 'want': 5, 'ignore_cache': True,
+               'endpoints': [{'host': '8.6.112.1', 'port': 500}, {'host': '8.6.112.2', 'port': 501}]}
+        search = wp.Search(req, os.path.join(self.tmp, 's.json'), self.cache, probe=probe, rng=random.Random(1),
+                           colo_fetch=lambda: {'HEL': ['FI', 'Helsinki']})
+        search.run()
+        by = {r['port']: r for r in search.state['results']}
+        self.assertEqual((by[500]['cc'], by[500]['city']), ('FI', 'Helsinki'))
+        self.assertNotIn('cc', by[501])
 
 
 if __name__ == '__main__':

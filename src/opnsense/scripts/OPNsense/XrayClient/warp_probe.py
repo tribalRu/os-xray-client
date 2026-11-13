@@ -96,6 +96,25 @@ SOURCE_MAX_ENTRIES = 60000
 MAX_SOURCES = 10
 IP_RE = re.compile(r'^\d{1,3}(\.\d{1,3}){3}$')
 
+# Data centers: the trace of a probe names the Cloudflare data center that
+# answered (colo, an airport code). Cloudflare publishes the list with the
+# countries; it is fetched by the router, kept for a week, and a short table of
+# common ones is used when it cannot be reached.
+COLOS_URL = 'https://speed.cloudflare.com/locations'
+COLOS_TTL = 7 * 24 * 3600
+FALLBACK_COLOS = {
+    'DME': ('RU', 'Moscow'), 'SVO': ('RU', 'Moscow'), 'LED': ('RU', 'Saint Petersburg'),
+    'HEL': ('FI', 'Helsinki'), 'ARN': ('SE', 'Stockholm'), 'OSL': ('NO', 'Oslo'), 'CPH': ('DK', 'Copenhagen'),
+    'FRA': ('DE', 'Frankfurt'), 'DUS': ('DE', 'Dusseldorf'), 'HAM': ('DE', 'Hamburg'), 'MUC': ('DE', 'Munich'),
+    'AMS': ('NL', 'Amsterdam'), 'LHR': ('GB', 'London'), 'LON': ('GB', 'London'), 'CDG': ('FR', 'Paris'),
+    'MAD': ('ES', 'Madrid'), 'MXP': ('IT', 'Milan'), 'WAW': ('PL', 'Warsaw'), 'PRG': ('CZ', 'Prague'),
+    'VIE': ('AT', 'Vienna'), 'BUD': ('HU', 'Budapest'), 'OTP': ('RO', 'Bucharest'), 'SOF': ('BG', 'Sofia'),
+    'RIX': ('LV', 'Riga'), 'VNO': ('LT', 'Vilnius'), 'TLL': ('EE', 'Tallinn'), 'KBP': ('UA', 'Kyiv'),
+    'IST': ('TR', 'Istanbul'), 'TBS': ('GE', 'Tbilisi'), 'EVN': ('AM', 'Yerevan'), 'ALA': ('KZ', 'Almaty'),
+    'DXB': ('AE', 'Dubai'), 'SIN': ('SG', 'Singapore'), 'HKG': ('HK', 'Hong Kong'), 'NRT': ('JP', 'Tokyo'),
+    'IAD': ('US', 'Ashburn'), 'EWR': ('US', 'Newark'), 'LAX': ('US', 'Los Angeles'), 'ORD': ('US', 'Chicago'),
+}
+
 
 # ---------------------------------------------------------------- candidates
 
@@ -221,6 +240,36 @@ def masque_hosts(entries):
             seen.add(host)
             out.append((host, MASQUE_PORTS[0]))
     return out
+
+
+def fetch_colos(timeout=6):
+    req = urllib.request.Request(COLOS_URL, headers={'User-Agent': 'os-xray-client'})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        data = json.loads(resp.read(1000000).decode('utf-8', 'replace'))
+    out = {}
+    for item in data if isinstance(data, list) else []:
+        if isinstance(item, dict) and re.match(r'^[A-Z]{3}$', str(item.get('iata', ''))) \
+                and re.match(r'^[A-Z]{2}$', str(item.get('cca2', ''))):
+            out[item['iata']] = [item['cca2'], str(item.get('city', ''))[:60]]
+    return out
+
+
+def load_colos(cache, fetch=fetch_colos, now=None):
+    """iata -> [country code, city]; cached, with the built-in table as the floor."""
+    now = now or time.time()
+    stored = cache.data.get('colos') or {}
+    if stored.get('map') and now - stored.get('ts', 0) < COLOS_TTL:
+        return stored['map']
+    try:
+        fresh = fetch()
+        if fresh:
+            cache.data['colos'] = {'ts': now, 'map': fresh}
+            return fresh
+    except (ValueError, OSError):
+        pass
+    merged = {k: list(v) for k, v in FALLBACK_COLOS.items()}
+    merged.update(stored.get('map') or {})
+    return merged
 
 
 def in_cloudflare(ip):
@@ -590,6 +639,9 @@ def _probe_instance(inst, mode, result, own_ip):
             return dict(result, status='failed', reason='not through WARP')
         times.append(secs)
         ok = 1
+        colo = parse_trace(body.decode('utf-8', 'replace')).get('colo', '')
+        if re.match(r'^[A-Z]{3}$', colo):
+            result['colo'] = colo
         total = 1 + CONFIRM_REQUESTS
         kbps = None
         if mode == 'wg':
@@ -684,8 +736,11 @@ class Cache:
 class Search:
     """One search (or re-check) run; probe is injectable for tests."""
 
-    def __init__(self, request, state_path, cache, probe=None, rng=None, cancel_path=None, fetch=None):
+    def __init__(self, request, state_path, cache, probe=None, rng=None, cancel_path=None, fetch=None,
+                 colo_fetch=None):
         self.fetch = fetch or fetch_source
+        self.colo_fetch = colo_fetch or fetch_colos
+        self.colos = {}
         self.req = request
         self.mode = request['mode']
         self.state_path = state_path
@@ -720,6 +775,9 @@ class Search:
             if res['status'] == 'failed':
                 self.cache.mark_bad(key)
             res['ts'] = int(time.time())
+            place = self.colos.get(res.get('colo') or '')
+            if place:
+                res['cc'], res['city'] = place[0], place[1]
             # a search lists only what answered; a re-check lists everything
             if res['status'] != 'failed' or self.state['recheck']:
                 self.state['results'].append(res)
@@ -729,6 +787,7 @@ class Search:
         return res
 
     def run(self, own_ip=None):
+        self.colos = load_colos(self.cache, self.colo_fetch)
         explicit = [(e['host'], int(e['port'])) for e in (self.req.get('endpoints') or [])]
         if explicit:
             candidates = iter(explicit)
