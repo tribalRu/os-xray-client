@@ -3091,6 +3091,20 @@
                          tls_verify_peer_cert_by_name: val('tls_verify_peer_cert_by_name') };
             }
 
+            // FinalMask rows of the node dialog as they stand (the server decides what is used).
+            function fmValues() {
+                var out = {};
+                $('#DialogNode [id^="node.fm_"]').each(function () {
+                    var v = $(this).val();
+                    out[this.id.replace('node.', '')] = $.isArray(v) ? v.join(',') : String(v === null || v === undefined ? '' : v);
+                });
+                var raw = $('#node\\.finalmask');
+                if (raw.length) {
+                    out.finalmask = $.trim(raw.val() || '');
+                }
+                return out;
+            }
+
             function missing(kind, cred) {
                 var need = kind === 'wg' ? ['wg_secret_key', 'wg_public_key', 'wg_address']
                                           : ['masque_warp_private_key', 'masque_warp_address'];
@@ -3122,10 +3136,11 @@
                     ' <label class="checkbox-inline" title="' + (kind === 'wg' ? 'Endpoints from the lists set under Maintenance, WARP Endpoint Lists' :
                         'No MASQUE list is published: the addresses of the WireGuard lists set under Maintenance, WARP Endpoint Lists are tried on port 443') + '"><input type="checkbox" class="wp-src"> Use external lists</label>' +
                     ' <label class="checkbox-inline" title="Normally only Cloudflare addresses are tested: a list could point the handshake at any host"><input type="checkbox" class="wp-any"> Also test addresses outside Cloudflare ranges</label>' +
+                    (kind === 'wg' ? '' : ' <label class="checkbox-inline" title="Send the probe the way this node would: the FinalMask rows of the dialog are applied. Needed where the connection is filtered"><input type="checkbox" class="wp-fm" checked> Apply this node\'s FinalMask</label>') +
                     (kind === 'wg' ? '' : ' <label class="checkbox-inline" title="Experimental: other WARP ranges (162.159.192.x, 162.159.195.x and the WireGuard ranges) with the MASQUE ports"><input type="checkbox" class="wp-wide"> Also try other WARP ranges</label>') +
                     '<div style="margin-top: 4px;">Stop after <input type="number" class="wp-want form-control" style="width: 5em; display: inline-block;" value="5" min="1" max="20"> verified, at most ' +
                     '<input type="number" class="wp-max form-control" style="width: 6em; display: inline-block;" value="80" min="1" max="300"> attempts</div>' +
-                    '<div class="text-muted" style="font-size: 12px; margin-top: 4px;">Each candidate is tested with this node\'s keys through a temporary Xray on the router; FinalMask is not applied.</div></div>' +
+                    '<div class="text-muted" style="font-size: 12px; margin-top: 4px;">Each candidate is tested with this node\'s keys through a temporary Xray on the router; FinalMask is applied when the option is ticked.</div></div>' +
                     '</div>');
                 $anchorRow.after($row);
                 // The progress and the results live in their own dialog above the node dialog.
@@ -3321,6 +3336,9 @@
                     }
                     if (kind !== 'wg' && $wrap.find('.wp-wide').is(':checked')) {
                         data.wide = '1';
+                    }
+                    if (kind !== 'wg' && $wrap.find('.wp-fm').is(':checked')) {
+                        data.fm = fmValues();
                     }
                     if (endpoints && endpoints.length) {
                         data.endpoints = endpoints;

@@ -1354,6 +1354,29 @@ class TestWarpSources(unittest.TestCase):
             ok, times, kbps = wp._masque_confirm(Inst(), '93.1.1.1', [0.2])
         self.assertEqual((ok, times, kbps), (1, [0.2], None))
 
+    def test_finalmask_of_the_node_in_probe_config(self):
+        wp = self.wp
+        mq = {'masque_warp_private_key': 'K' * 60, 'masque_warp_address': ['172.16.0.2/32'], 'masque_warp_public_key': 'E' * 90}
+        fm = {'fm_tcp_type': 'fragment', 'fm_tcp_fragment_packets': 'tlshello', 'fm_tcp_fragment_lengths': '100-200',
+              'fm_tcp_fragment_delays': '10-20', 'fm_udp_type': 'salamander', 'fm_udp_salamander_password': 'pw',
+              'finalmask': ''}
+        tcp = wp.build_xray_config('masque_h2', '162.159.198.2', 443, mq, 1, None, fm)['outbounds'][0]['streamSettings']
+        self.assertEqual(tcp['finalmask'], {'tcp': [{'type': 'fragment', 'settings': {
+            'packets': 'tlshello', 'lengths': ['100-200'], 'delays': ['10-20']}}]})
+        udp = wp.build_xray_config('masque_h3', '162.159.198.2', 443, mq, 1, None, fm)['outbounds'][0]['streamSettings']
+        self.assertEqual(udp['finalmask'], {'udp': [{'type': 'salamander', 'settings': {'password': 'pw'}}]})
+        raw = dict(fm, finalmask='{"tcp": [{"type": "fragment", "settings": {"packets": "1-3"}}]}')
+        self.assertEqual(wp.build_finalmask(raw, 'tcp')['tcp'][0]['settings'], {'packets': '1-3'})
+        self.assertIsNone(wp.build_finalmask(dict(fm, finalmask='{broken'), 'tcp'))
+        self.assertIsNone(wp.build_finalmask({'fm_tcp_type': 'none'}, 'tcp'))
+        self.assertNotIn('finalmask', wp.build_xray_config('masque_h2', '1.1.1.1', 443, mq, 1)['outbounds'][0]['streamSettings'])
+        self.assertNotIn('finalmask', wp.build_xray_config('wg', '1.1.1.1', 500, {'wg_secret_key': 'S', 'wg_public_key': 'P'}, 1, None, fm)['outbounds'][0].get('streamSettings', {}))
+        ok = {'mode': 'masque_h2', 'credentials': {'masque_warp_private_key': 'K', 'masque_warp_address': 'a'}, 'finalmask': fm}
+        wp.validate_request(ok)
+        for bad in ({'bad key': 'x'}, {'fm_x': 5}, {'fm_x': 'y' * 5000}):
+            with self.assertRaises(ValueError):
+                wp.validate_request(dict(ok, finalmask=bad))
+
 
 if __name__ == '__main__':
     unittest.main()

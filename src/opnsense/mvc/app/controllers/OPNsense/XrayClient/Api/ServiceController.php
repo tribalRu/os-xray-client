@@ -639,7 +639,19 @@ class ServiceController extends ApiMutableServiceControllerBase
             'sources' => [],
             'any_address' => $this->request->getPost('any_address', 'string', '0') === '1',
             'wide' => $mode !== 'wg' && $this->request->getPost('wide', 'string', '0') === '1',
+            'finalmask' => new \stdClass(),
         ];
+        // The node's FinalMask, so that a probe goes out the way the node would (MASQUE only).
+        $fm = $this->request->getPost('fm');
+        if ($mode !== 'wg' && is_array($fm)) {
+            $clean = [];
+            foreach ($fm as $k => $v) {
+                if (is_string($k) && is_string($v) && preg_match('/^(fm_[a-z0-9_]{1,40}|finalmask)$/', $k) && strlen($v) <= 4000) {
+                    $clean[$k] = $v;
+                }
+            }
+            $request['finalmask'] = $clean ?: new \stdClass();
+        }
         // External endpoint lists come from the plugin settings.
         if ($this->request->getPost('use_sources', 'string', '0') === '1') {
             $mdl = new XrayClient();

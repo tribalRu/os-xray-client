@@ -276,7 +276,69 @@ def load_sources(urls, cache, any_address=False, fetch=fetch_source, now=None):
 
 # ------------------------------------------------------------- xray config
 
-def build_xray_config(mode, host, port, cred, listen_port, logfile=None):
+def _items(value):
+    return [t for t in re.split(r'[,;\s]+', str(value or '')) if t]
+
+
+def _json_settings(text):
+    try:
+        obj = json.loads('{' + str(text).strip().strip('{}') + '}')
+    except ValueError:
+        return None
+    return obj if isinstance(obj, dict) else None
+
+
+def build_finalmask(fm, kind):
+    """The node's FinalMask the way the config template writes it, for the
+    types that matter to a probe: fragment/sudoku/custom for TCP (HTTP/2) and
+    salamander/gecko/sudoku/custom for UDP (HTTP/3). The raw JSON wins."""
+    fm = fm or {}
+    raw = str(fm.get('finalmask', '')).strip()
+    if raw:
+        try:
+            obj = json.loads(raw)
+            return obj if isinstance(obj, dict) and obj else None
+        except ValueError:
+            return None
+    get = lambda k: str(fm.get(k, '') or '').strip()
+    masks = []
+    t = get('fm_tcp_type') if kind == 'tcp' else get('fm_udp_type')
+    p = 'fm_tcp_' if kind == 'tcp' else 'fm_udp_'
+    s = {}
+    if kind == 'tcp' and t == 'fragment':
+        s['packets'] = get('fm_tcp_fragment_packets') or 'tlshello'
+        if _items(get('fm_tcp_fragment_lengths')):
+            s['lengths'] = _items(get('fm_tcp_fragment_lengths'))
+        if _items(get('fm_tcp_fragment_delays')):
+            s['delays'] = _items(get('fm_tcp_fragment_delays'))
+        if get('fm_tcp_fragment_max_split'):
+            s['maxSplit'] = get('fm_tcp_fragment_max_split')
+        masks.append({'type': 'fragment', 'settings': s})
+    elif t in ('salamander', 'gecko'):
+        if get(p + t + '_password'):
+            s['password'] = get(p + t + '_password')
+        if get(p + t + '_packet_size'):
+            s['packetSize'] = get(p + t + '_packet_size')
+        masks.append({'type': 'salamander', 'settings': s})
+    elif t == 'sudoku':
+        if get(p + 'sudoku_password'):
+            s['password'] = get(p + 'sudoku_password')
+        if get(p + 'sudoku_ascii'):
+            s['ascii'] = get(p + 'sudoku_ascii')
+        for key, name in (('padding_min', 'paddingMin'), ('padding_max', 'paddingMax')):
+            if get(p + 'sudoku_' + key).isdigit():
+                s[name] = int(get(p + 'sudoku_' + key))
+        if _items(get(p + 'sudoku_tables')):
+            s['customTables'] = _items(get(p + 'sudoku_tables'))
+        masks.append({'type': 'sudoku', 'settings': s})
+    elif t in ('header-custom', 'xmc', 'noise', 'xdns'):
+        extra = _json_settings(get(p + 'extra_json')) if get(p + 'extra_json') else None
+        if extra is not None:
+            masks.append({'type': t, 'settings': extra})
+    return {kind: masks} if masks else None
+
+
+def build_xray_config(mode, host, port, cred, listen_port, logfile=None, finalmask=None):
     """Temporary test config: one local HTTP inbound, one outbound."""
     if mode == 'wg':
         peer = {
@@ -318,6 +380,9 @@ def build_xray_config(mode, host, port, cred, listen_port, logfile=None):
             'streamSettings': {'method': 'masque', 'security': 'tls', 'tlsSettings': tls,
                                'masqueSettings': {'warp': warp}},
         }
+        mask = build_finalmask(finalmask, 'tcp' if mode == 'masque_h2' else 'udp')
+        if mask:
+            outbound['streamSettings']['finalmask'] = mask
     return {
         'log': {'loglevel': 'debug', 'error': logfile} if logfile else {'loglevel': 'none'},
         'inbounds': [{'tag': 'in', 'listen': '127.0.0.1', 'port': listen_port, 'protocol': 'http'}],
@@ -430,7 +495,7 @@ def median(values):
     return values[len(values) // 2] if values else None
 
 
-def probe_endpoint(mode, host, port, cred, own_ip, confirm_only=False):
+def probe_endpoint(mode, host, port, cred, own_ip, confirm_only=False, finalmask=None):
     """Returns {'status': 'verified'|'unstable'|'failed', 'ms', 'kbps', 'checks', 'edge_key'?}."""
     cred = dict(cred)
     result = {'host': host, 'port': port}
@@ -446,10 +511,10 @@ def probe_endpoint(mode, host, port, cred, own_ip, confirm_only=False):
     if mode != 'wg':
         logfile = os.path.join(tempfile.gettempdir(), 'xwp_log_%d_%d' % (os.getpid(), threading.get_ident()))
         os.close(os.open(logfile, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600))
-    inst = XrayInstance(build_xray_config(mode, host, port, cred, free_port(), logfile))
+    inst = XrayInstance(build_xray_config(mode, host, port, cred, free_port(), logfile, finalmask))
     try:
         res = _probe_instance(inst, mode, result, own_ip)
-        if logfile and (res['status'] != 'verified' or res.get('partial')):
+        if logfile and res['status'] != 'verified':
             res['log'] = read_log(logfile, cred)
         return res
     finally:
@@ -543,11 +608,9 @@ def _probe_instance(inst, mode, result, own_ip):
             ok, times, kbps = _masque_confirm(inst, own_ip, times)
             if ok == 1 and not kbps:
                 # The tunnel came up and the first request went through WARP,
-                # but this Xray build never answers a second flow (seen in the
-                # debug log: the request is dispatched, nothing follows). That
-                # is not a property of the endpoint, so it is reported as it is
-                # instead of failing every candidate.
-                return dict(result, status='verified', ms=int(median(times) * 1000), kbps=None, partial=True,
+                # but a second flow is never answered (debug log: dispatched,
+                # nothing follows). Reported as it is, and not as verified.
+                return dict(result, status='unstable', ms=int(median(times) * 1000), kbps=None,
                             checks='1/%d, tunnel up, later requests stalled' % total)
         status = 'verified' if ok == total and kbps else 'unstable'
         return dict(result, status=status, ms=int(median(times) * 1000), kbps=kbps,
@@ -640,7 +703,10 @@ class Search:
 
     def _one(self, host, port, own_ip):
         try:
-            res = self.probe(self.mode, host, port, self.req['credentials'], own_ip)
+            if self.req.get('finalmask'):
+                res = self.probe(self.mode, host, port, self.req['credentials'], own_ip, finalmask=self.req['finalmask'])
+            else:
+                res = self.probe(self.mode, host, port, self.req['credentials'], own_ip)
         except Exception as exc:  # a broken probe must not kill the search
             res = {'host': host, 'port': port, 'status': 'failed', 'reason': str(exc)[:80]}
         with self.lock:
@@ -715,6 +781,11 @@ def validate_request(req):
     if not isinstance(sources, list) or len(sources) > MAX_SOURCES or \
             any(not str(u).startswith('https://') or re.search(r'\s', str(u)) for u in sources):
         raise ValueError('invalid source list')
+    fm = req.get('finalmask') or {}
+    if not isinstance(fm, dict) or len(fm) > 80 or any(
+            not re.match(r'^(fm_[a-z0-9_]{1,40}|finalmask)$', str(k)) or not isinstance(v, str) or len(v) > 4000
+            for k, v in fm.items()):
+        raise ValueError('invalid finalmask')
     for ep in req.get('endpoints') or []:
         if not IP_RE.match(str(ep.get('host', ''))) or not 0 < int(ep.get('port', 0)) < 65536:
             raise ValueError('invalid endpoint')
