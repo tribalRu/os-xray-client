@@ -1725,6 +1725,14 @@
             setSelectValue($('#node\\.fm_udp_mkcp_header'), 'none');
             setSelectValue($('#node\\.fm_quic_congestion'), 'auto');
             setSelectValue($('#node\\.fm_quic_bbr_profile'), 'auto');
+            if (data.fm_tcp_type) {
+                // A link whose FinalMask fits the rows fills them (the raw field stays empty)
+                setSelectValue($('#node\\.fm_tcp_type'), data.fm_tcp_type);
+                setSelectValue($('#node\\.fm_tcp_fragment_packets'), data.fm_tcp_fragment_packets || 'tlshello');
+                fillTokenizeField('#node\\.fm_tcp_fragment_lengths', data.fm_tcp_fragment_lengths);
+                fillTokenizeField('#node\\.fm_tcp_fragment_delays', data.fm_tcp_fragment_delays);
+                $('#node\\.fm_tcp_fragment_max_split').val(data.fm_tcp_fragment_max_split || '');
+            }
 
             // WireGuard
             $('#node\\.wg_secret_key').val(data.wg_secret_key);
@@ -1780,12 +1788,15 @@
         }
 
         $('#DialogNode').on('shown.bs.modal', function () {
+            $('#node_import_notice').remove();
             toggleNodeDialogFields();
             injectWarpButton();
             if (pendingImport) {
                 var data = pendingImport;
                 pendingImport = null;
                 fillNodeDialog(data);
+                toggleNodeDialogFields();
+                showImportNotice(data.import_warnings);
             }
         });
 
@@ -2270,6 +2281,86 @@
             $sel.change();
         }
 
+        // The node name accepts letters, digits, spaces and . _ - ( ) [ ] @ # / & ! + : ; , "
+        // (the Mask in the model); flags, emoji and other scripts of a link's remark
+        // are dropped, and the address stands in for a name that is left empty.
+        function importName(remark, fallback) {
+            var name = String(remark || '').replace(/[^A-Za-z0-9\s._\-()\[\]@#\/&!+:;,"]/g, '')
+                .replace(/\s+/g, ' ').trim().substring(0, 192).trim();
+            return name !== '' ? name : fallback;
+        }
+
+        function safeDecode(s) {
+            try {
+                return decodeURIComponent(s);
+            } catch (e) {
+                return s;
+            }
+        }
+
+        // FinalMask of a link (fm=): a single TCP fragment that the rows can
+        // show fills them; anything else (chains, other types, UDP, QUIC tuning)
+        // goes into the raw FinalMask field, which wins over the rows.
+        function importFinalMask(text) {
+            var out = {fields: {}, raw: '', warning: ''};
+            var obj;
+            try {
+                obj = JSON.parse(text);
+            } catch (e) {
+                out.warning = 'fm is not valid JSON and was not imported.';
+                return out;
+            }
+            if (!obj || typeof obj !== 'object' || Array.isArray(obj) || !Object.keys(obj).length) {
+                out.warning = 'fm is not a FinalMask object and was not imported.';
+                return out;
+            }
+            var keys = Object.keys(obj);
+            var item = obj.tcp && obj.tcp.length === 1 ? obj.tcp[0] : null;
+            var st = item && item.settings ? item.settings : null;
+            var item_ok = keys.length === 1 && keys[0] === 'tcp' && item && item.type === 'fragment' && st &&
+                Object.keys(st).every(function (k) { return ['packets', 'lengths', 'delays', 'maxSplit'].indexOf(k) !== -1; }) &&
+                (st.packets === 'tlshello' || st.packets === '1-3') &&
+                [].concat(st.lengths || [], st.delays || []).every(function (v) { return /^\d{1,7}(-\d{1,7})?$/.test(String(v)); }) &&
+                (st.maxSplit === undefined || /^\d{1,7}(-\d{1,7})?$/.test(String(st.maxSplit)));
+            if (item_ok) {
+                out.fields = {
+                    fm_tcp_type: 'fragment',
+                    fm_tcp_fragment_packets: st.packets,
+                    fm_tcp_fragment_lengths: (st.lengths || []).map(String),
+                    fm_tcp_fragment_delays: (st.delays || []).map(String),
+                    fm_tcp_fragment_max_split: st.maxSplit === undefined ? '' : String(st.maxSplit)
+                };
+            } else {
+                out.raw = JSON.stringify(obj, null, 2);
+            }
+            return out;
+        }
+
+        // Link parameters the node dialog cannot take, so that nothing is lost silently.
+        function importWarnings(params, known) {
+            var w = [];
+            var fp = params.get('fp');
+            if (fp && known.indexOf(fp) === -1) {
+                w.push('Fingerprint "' + fp + '" is not one of the options here; the node keeps its default (chrome).');
+            }
+            if (params.get('cs')) {
+                w.push('Cipher suites (cs) are not imported: the plugin has no such field.');
+            }
+            return w;
+        }
+
+        function showImportNotice(list) {
+            $('#node_import_notice').remove();
+            if (!list || !list.length) {
+                return;
+            }
+            var $n = $('<div id="node_import_notice" class="alert alert-warning" style="margin: 0 0 10px;"/>');
+            list.forEach(function (t, i) {
+                $n.append((i ? $('<br/>') : $()), document.createTextNode(t));
+            });
+            $('#DialogNode .modal-body').first().prepend($n);
+        }
+
         function base64UrlDecode(s) {
             s = s.replace(/-/g, '+').replace(/_/g, '/');
             while (s.length % 4 !== 0) s += '=';
@@ -2305,7 +2396,7 @@
                 }
             }
             return {
-                name: url.hash ? decodeURIComponent(url.hash.substring(1)) : remarkFallback,
+                name: importName(url.hash ? safeDecode(url.hash.substring(1)) : '', remarkFallback),
                 protocol: 'shadowsocks',
                 address: url.hostname,
                 port: url.port || '8388',
@@ -2366,7 +2457,7 @@
                 }
 
                 var params = url.searchParams;
-                var remark = url.hash ? decodeURIComponent(url.hash.substring(1)) : (url.hostname + ':' + url.port);
+                var remark = importName(url.hash ? safeDecode(url.hash.substring(1)) : '', url.hostname + ':' + (url.port || '443'));
 
                 var netType = (params.get('type') || 'tcp').toLowerCase();
                 if (netType === 'splithttp') netType = 'xhttp';
@@ -2403,9 +2494,9 @@
                     alpn: alpn,
                     reality_pubkey: params.get('pbk') || '',
                     reality_shortid: params.get('sid') || '',
-                    reality_spiderx: params.get('spx') ? decodeURIComponent(params.get('spx')) : '/',
+                    reality_spiderx: params.get('spx') || '/',
                     transport_host: params.get('host') || '',
-                    transport_path: params.get('path') ? decodeURIComponent(params.get('path')) : '',
+                    transport_path: params.get('path') || '',
                     grpc_service_name: params.get('serviceName') || '',
                     xhttp_mode: (params.get('mode') && netType === 'xhttp') ? params.get('mode') : 'auto',
                     // XDRIVE needs Mux.Cool; default it on for imported xdrive links
@@ -2413,6 +2504,20 @@
                     mux_enabled: netType === 'xdrive' ? '1' : '0',
                     mux_concurrency: netType === 'xdrive' ? '128' : ''
                 };
+
+                var knownFp = $('#node\\.fingerprint option').map(function () { return $(this).val(); }).get();
+                var warnings = importWarnings(params, knownFp);
+                if (params.get('fm')) {
+                    var fmImport = importFinalMask(params.get('fm'));
+                    $.extend(pendingImport, fmImport.fields);
+                    if (fmImport.raw) {
+                        pendingImport.finalmask = fmImport.raw;
+                    }
+                    if (fmImport.warning) {
+                        warnings.push(fmImport.warning);
+                    }
+                }
+                pendingImport.import_warnings = warnings;
 
                 $('#DialogImportLink').one('hidden.bs.modal', function () {
                     $('#grid-nodes').parent().find('.command-add').trigger('click');
