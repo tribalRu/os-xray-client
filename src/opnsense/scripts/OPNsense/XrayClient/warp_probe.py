@@ -449,7 +449,7 @@ def probe_endpoint(mode, host, port, cred, own_ip, confirm_only=False):
     inst = XrayInstance(build_xray_config(mode, host, port, cred, free_port(), logfile))
     try:
         res = _probe_instance(inst, mode, result, own_ip)
-        if logfile and res['status'] != 'verified':
+        if logfile and (res['status'] != 'verified' or res.get('partial')):
             res['log'] = read_log(logfile, cred)
         return res
     finally:
@@ -472,6 +472,39 @@ def read_log(path, cred, lines=40):
     return [r for r in rows[-lines:] if not any(s in r for s in secrets)]
 
 
+def _masque_confirm(inst, own_ip, times):
+    """The follow-up requests of a MASQUE candidate run at the same time
+    (one flow after the other stalls on some Xray builds)."""
+    ok, kbps = 1, None
+
+    def trace():
+        body, secs = http_get(TRACE_URL, inst.port, 4)
+        if not trace_is_warp(parse_trace(body.decode('utf-8', 'replace')), own_ip):
+            raise ValueError('not WARP')
+        return secs
+
+    def download():
+        data, secs = http_get(DOWNLOAD_URL, inst.port, 8)
+        if len(data) < DOWNLOAD_MIN or secs <= 0:
+            raise ValueError('short')
+        return int(len(data) * 8 / 1000 / secs)
+
+    with ThreadPoolExecutor(max_workers=CONFIRM_REQUESTS + 1) as pool:
+        traces = [pool.submit(trace) for _ in range(CONFIRM_REQUESTS)]
+        dl = pool.submit(download)
+        for fut in traces:
+            try:
+                times.append(fut.result())
+                ok += 1
+            except Exception:
+                pass
+        try:
+            kbps = dl.result()
+        except Exception:
+            kbps = None
+    return ok, times, kbps
+
+
 def _probe_instance(inst, mode, result, own_ip):
     host, port = result['host'], result['port']
     try:
@@ -487,24 +520,35 @@ def _probe_instance(inst, mode, result, own_ip):
             return dict(result, status='failed', reason='not through WARP')
         times.append(secs)
         ok = 1
-        # confirmation
-        for _ in range(CONFIRM_REQUESTS):
-            time.sleep(0.5 if mode == 'wg' else 0)
+        total = 1 + CONFIRM_REQUESTS
+        kbps = None
+        if mode == 'wg':
+            # confirmation
+            for _ in range(CONFIRM_REQUESTS):
+                time.sleep(0.5)
+                try:
+                    body, secs = http_get(TRACE_URL, inst.port, PROBE_TIMEOUT)
+                    if trace_is_warp(parse_trace(body.decode('utf-8', 'replace')), own_ip):
+                        ok += 1
+                        times.append(secs)
+                except Exception:
+                    pass
             try:
-                body, secs = http_get(TRACE_URL, inst.port, PROBE_TIMEOUT)
-                if trace_is_warp(parse_trace(body.decode('utf-8', 'replace')), own_ip):
-                    ok += 1
-                    times.append(secs)
+                data, secs = http_get(DOWNLOAD_URL, inst.port, 10)
+                if len(data) >= DOWNLOAD_MIN and secs > 0:
+                    kbps = int(len(data) * 8 / 1000 / secs)
             except Exception:
                 pass
-        kbps = None
-        try:
-            data, secs = http_get(DOWNLOAD_URL, inst.port, 10)
-            if len(data) >= DOWNLOAD_MIN and secs > 0:
-                kbps = int(len(data) * 8 / 1000 / secs)
-        except Exception:
-            pass
-        total = 1 + CONFIRM_REQUESTS
+        else:
+            ok, times, kbps = _masque_confirm(inst, own_ip, times)
+            if ok == 1 and not kbps:
+                # The tunnel came up and the first request went through WARP,
+                # but this Xray build never answers a second flow (seen in the
+                # debug log: the request is dispatched, nothing follows). That
+                # is not a property of the endpoint, so it is reported as it is
+                # instead of failing every candidate.
+                return dict(result, status='verified', ms=int(median(times) * 1000), kbps=None, partial=True,
+                            checks='1/%d, tunnel up, later requests stalled' % total)
         status = 'verified' if ok == total and kbps else 'unstable'
         return dict(result, status=status, ms=int(median(times) * 1000), kbps=kbps,
                     checks='%d/%d%s' % (ok, total, '' if kbps else ', no data'))

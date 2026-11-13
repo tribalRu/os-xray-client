@@ -1331,6 +1331,29 @@ class TestWarpSources(unittest.TestCase):
         self.assertEqual(cfg['log'], {'loglevel': 'debug', 'error': '/tmp/l'})
         self.assertEqual(self.wp.build_xray_config('wg', '8.6.112.5', 500, wg, 1)['log'], {'loglevel': 'none'})
 
+    def test_masque_confirm_and_stalled_flows(self):
+        from unittest.mock import patch
+        wp = self.wp
+
+        class Inst:
+            port = 1
+
+        def good(url, port, timeout):
+            if 'trace' in url:
+                return b'ip=104.28.1.1\nwarp=on\n', 0.2
+            return b'x' * 300000, 1.0
+
+        def stalled(url, port, timeout):
+            raise OSError('timed out')
+
+        with patch.object(wp, 'http_get', good):
+            ok, times, kbps = wp._masque_confirm(Inst(), '93.1.1.1', [0.2])
+        self.assertEqual((ok, len(times)), (4, 4))
+        self.assertGreater(kbps, 0)
+        with patch.object(wp, 'http_get', stalled):
+            ok, times, kbps = wp._masque_confirm(Inst(), '93.1.1.1', [0.2])
+        self.assertEqual((ok, times, kbps), (1, [0.2], None))
+
 
 if __name__ == '__main__':
     unittest.main()
