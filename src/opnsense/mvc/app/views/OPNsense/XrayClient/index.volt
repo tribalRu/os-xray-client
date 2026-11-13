@@ -3212,7 +3212,17 @@
                             .prop('disabled', r.status === 'failed').on('click', function () { use(r); });
                         var $re = $('<button type="button" class="btn btn-xs btn-default">Re-check</button>')
                             .on('click', function () { start([{ host: r.host, port: r.port }]); });
-                        $tr.append($('<td/>').append($use).append($re)).data('row', r);
+                        var $acts = $('<td/>').append($use).append($re);
+                        if (r.log && r.log.length) {
+                            var $logRow = $('<tr class="wp-log" style="display:none;"><td colspan="6"><pre style="margin: 0; font-size: 11px; white-space: pre-wrap;"></pre></td></tr>');
+                            $logRow.find('pre').text(r.log.join('\n'));
+                            $acts.append($('<button type="button" class="btn btn-xs btn-default" style="margin-left: 4px;">Log</button>')
+                                .on('click', function () { $logRow.toggle(); }));
+                            $tr.append($acts).data('row', r);
+                            $tb.append($tr).append($logRow);
+                            return;
+                        }
+                        $tr.append($acts).data('row', r);
                         $tb.append($tr);
                     });
                     $dlg.find('.wp-table').toggle(rows.length > 0);

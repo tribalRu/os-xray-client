@@ -1318,6 +1318,19 @@ class TestWarpSources(unittest.TestCase):
         self.assertTrue(all(p in self.wp.MASQUE_PORTS for _, p in wide))
         self.assertEqual(self.wp.generate_candidates.__defaults__[-1], False)
 
+    def test_read_log_hides_keys_and_keeps_tail(self):
+        path = os.path.join(self.tmp, 'x.log')
+        with open(path, 'w') as fh:
+            fh.write('\n'.join(['line %d' % i for i in range(30)] + ['secret ' + 'K' * 60, '']))
+        got = self.wp.read_log(path, {'masque_warp_private_key': 'K' * 60}, lines=5)
+        self.assertEqual(got, ['line 26', 'line 27', 'line 28', 'line 29'])
+        self.assertEqual(self.wp.read_log(os.path.join(self.tmp, 'none'), {}), [])
+        mq = {'masque_warp_private_key': 'K' * 60, 'masque_warp_address': ['172.16.0.2/32'], 'masque_warp_public_key': 'E' * 90}
+        wg = {'wg_secret_key': 'S' * 43 + '=', 'wg_public_key': 'P' * 43 + '=', 'wg_address': ['172.16.0.2/32']}
+        cfg = self.wp.build_xray_config('masque_h3', '162.159.198.2', 443, mq, 1, '/tmp/l')
+        self.assertEqual(cfg['log'], {'loglevel': 'warning', 'error': '/tmp/l'})
+        self.assertEqual(self.wp.build_xray_config('wg', '8.6.112.5', 500, wg, 1)['log'], {'loglevel': 'none'})
+
 
 if __name__ == '__main__':
     unittest.main()

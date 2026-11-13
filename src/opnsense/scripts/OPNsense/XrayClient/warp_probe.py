@@ -276,7 +276,7 @@ def load_sources(urls, cache, any_address=False, fetch=fetch_source, now=None):
 
 # ------------------------------------------------------------- xray config
 
-def build_xray_config(mode, host, port, cred, listen_port):
+def build_xray_config(mode, host, port, cred, listen_port, logfile=None):
     """Temporary test config: one local HTTP inbound, one outbound."""
     if mode == 'wg':
         peer = {
@@ -319,7 +319,7 @@ def build_xray_config(mode, host, port, cred, listen_port):
                                'masqueSettings': {'warp': warp}},
         }
     return {
-        'log': {'loglevel': 'none'},
+        'log': {'loglevel': 'warning', 'error': logfile} if logfile else {'loglevel': 'none'},
         'inbounds': [{'tag': 'in', 'listen': '127.0.0.1', 'port': listen_port, 'protocol': 'http'}],
         'outbounds': [outbound],
         'routing': {'rules': [{'type': 'field', 'inboundTag': ['in'], 'outboundTag': 'probe'}]},
@@ -440,7 +440,40 @@ def probe_endpoint(mode, host, port, cred, own_ip, confirm_only=False):
             return dict(result, status='failed', reason='no TLS answer')
         cred['edge_key'] = edge
         result['edge_key'] = edge
-    inst = XrayInstance(build_xray_config(mode, host, port, cred, free_port()))
+    # MASQUE: keep Xray's own log, so that an endpoint that answers once and
+    # then stalls can be explained (shown as the Log of that row)
+    logfile = None
+    if mode != 'wg':
+        logfile = os.path.join(tempfile.gettempdir(), 'xwp_log_%d_%d' % (os.getpid(), threading.get_ident()))
+        os.close(os.open(logfile, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600))
+    inst = XrayInstance(build_xray_config(mode, host, port, cred, free_port(), logfile))
+    try:
+        res = _probe_instance(inst, mode, result, own_ip)
+        if logfile and res['status'] != 'verified':
+            res['log'] = read_log(logfile, cred)
+        return res
+    finally:
+        inst.close()
+        if logfile:
+            try:
+                os.unlink(logfile)
+            except OSError:
+                pass
+
+
+def read_log(path, cred, lines=14):
+    """Last lines of the Xray log of a probe, without anything key-like."""
+    secrets = [v for k, v in cred.items() if 'key' in k and isinstance(v, str) and len(v) > 8]
+    try:
+        with open(path, errors='replace') as fh:
+            rows = [r.rstrip()[:300] for r in fh.read().splitlines() if r.strip()]
+    except OSError:
+        return []
+    return [r for r in rows[-lines:] if not any(s in r for s in secrets)]
+
+
+def _probe_instance(inst, mode, result, own_ip):
+    host, port = result['host'], result['port']
     try:
         if not inst.wait_ready():
             return dict(result, status='failed', reason='xray did not start')
@@ -456,7 +489,7 @@ def probe_endpoint(mode, host, port, cred, own_ip, confirm_only=False):
         ok = 1
         # confirmation
         for _ in range(CONFIRM_REQUESTS):
-            time.sleep(0.5)
+            time.sleep(0.5 if mode == 'wg' else 0)
             try:
                 body, secs = http_get(TRACE_URL, inst.port, PROBE_TIMEOUT)
                 if trace_is_warp(parse_trace(body.decode('utf-8', 'replace')), own_ip):
@@ -475,8 +508,8 @@ def probe_endpoint(mode, host, port, cred, own_ip, confirm_only=False):
         status = 'verified' if ok == total and kbps else 'unstable'
         return dict(result, status=status, ms=int(median(times) * 1000), kbps=kbps,
                     checks='%d/%d%s' % (ok, total, '' if kbps else ', no data'))
-    finally:
-        inst.close()
+    except Exception as exc:  # keep the Log of the instance
+        return dict(result, status='failed', reason=str(exc)[:80])
 
 
 # -------------------------------------------------------------------- state
