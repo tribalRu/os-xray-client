@@ -4103,6 +4103,7 @@
     </div>
 
     <div id="tab_balancers" class="tab-pane fade in">
+        {{ partial("layout_partials/base_form", ['fields': observatoryForm, 'id': 'frm_general_obs']) }}
         <table id="grid-balancers" class="table table-condensed table-hover table-striped" data-editDialog="DialogBalancer">
             <thead>
                 <tr>
@@ -4135,9 +4136,8 @@
         <div class="col-md-12" id="balancer_info_output" style="display: none; margin-bottom: 6px;"></div>
         <div class="col-md-12" style="padding-bottom: 15px;">
         <div style="margin: 14px 0 8px 0;">
-            <span class="text-muted" style="font-size: 15px; line-height: 1.5;">A balancer groups nodes by tag prefix and picks one for every connection. Rules choose it from the &laquo;Balancers&raquo; group in Target Outbound. leastPing / leastLoad need an observatory (Load Balancer Observatory below). Entries save instantly &mdash; click <b>Apply &amp; Restart Xray</b>.</span>
+            <span class="text-muted" style="font-size: 15px; line-height: 1.5;">A balancer groups nodes by tag prefix and picks one for every connection. Rules choose it from the &laquo;Balancers&raquo; group in Target Outbound. leastPing / leastLoad need an observatory (Load Balancer Observatory above). Entries save instantly &mdash; click <b>Apply &amp; Restart Xray</b>.</span>
         </div>
-        {{ partial("layout_partials/base_form", ['fields': observatoryForm, 'id': 'frm_general_obs']) }}
             <hr/>
             <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves General + Maintenance settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
                 <b>Apply &amp; Restart Xray</b> <i class="fa fa-spinner fa-pulse" style="display: none;"></i>
