@@ -80,6 +80,14 @@ class TestHealthcheck(unittest.TestCase):
                 {'uuid': 'u', 'address': 'x.example.com', 'port': '443', 'protocol': proto})
             self.assertEqual(res, {'status': 'n/a', 'ms': 0})
 
+    def test_masque_over_http2_is_probed_over_tcp(self):
+        _, res = self.hc.check_node(
+            {'uuid': 'u', 'address': '127.0.0.1', 'port': '1', 'protocol': 'masque', 'alpn': 'h2,h3'})
+        self.assertEqual(res['status'], 'offline')
+        _, res = self.hc.check_node(
+            {'uuid': 'u', 'address': '127.0.0.1', 'port': '1', 'protocol': 'masque', 'alpn': 'h3'})
+        self.assertEqual(res['status'], 'n/a')
+
     def test_unreachable_tcp_node_is_offline(self):
         _, res = self.hc.check_node(
             {'uuid': 'u', 'address': '127.0.0.1', 'port': '1', 'protocol': 'vless'})
