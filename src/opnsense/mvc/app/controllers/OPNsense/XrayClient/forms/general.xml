@@ -13,7 +13,7 @@
     </field>
     <field>
         <id>xrayclient.general.expert_mode</id>
-        <label>Advanced Mode</label>
+        <label>Show Expert Config Tab</label>
         <type>checkbox</type>
         <help>Show an extra "Expert Config" tab with the exact /usr/local/etc/xray/config.json Xray is running (or would run). This is all Advanced Mode controls: the advanced fields in the dialogs are governed separately by their own "Show advanced fields" / "Show additional conditions" checkboxes. You can view the tab read-only or edit it manually; saving there switches the plugin to Raw JSON mode, and the config is validated with xray run -test before it is applied.</help>
     </field>
@@ -43,6 +43,7 @@
         <id>xrayclient.general.mask_address</id>
         <label>Mask IP Addresses in Logs</label>
         <type>text</type>
+        <hint>off, or a CIDR such as 10.0.0.0/8</hint>
         <help>A CIDR range, e.g. 10.0.0.0/8 — the matching octets are masked in Xray's logs (e.g. 192.168.1.200 → 192.168.x.x). Useful when sharing logs without leaking your LAN or client addresses.</help>
     </field>
     <field>
@@ -202,7 +203,7 @@
     </field>
     <field>
         <type>header</type>
-        <label>Telemetry &amp; Statistics</label>
+        <label>Monitoring</label>
     </field>
     <field>
         <id>xrayclient.general.stats_port</id>
@@ -220,7 +221,7 @@
         <id>xrayclient.general.telemetry_interval</id>
         <label>Traffic Polling Interval (seconds)</label>
         <type>text</type>
-        <help>How often to fetch traffic counters in the background (30-3600 seconds, default 60). Latency is polled every 5 minutes independently.</help>
+        <help>How often to fetch traffic counters in the background (30-3600 seconds, default 60). Latency is polled every 5 minutes independently. The «Live» switch above the Outbound Nodes table has its own 5-second interval and is not affected by this value.</help>
     </field>
     <field>
         <type>header</type>

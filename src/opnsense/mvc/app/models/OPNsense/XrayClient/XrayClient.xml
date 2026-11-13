@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>2.26.3</version>
+    <version>2.26.4</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -321,8 +321,8 @@
                 <default>IPIfNonMatch</default>
                 <Required>Y</Required>
                 <OptionValues>
-                    <IPIfNonMatch>IPIfNonMatch — resolve only when domains fail to match (default)</IPIfNonMatch>
-                    <IPOnDemand>IPOnDemand — resolve only when an IP rule needs it</IPOnDemand>
+                    <IPIfNonMatch>IPIfNonMatch — resolve on no match (default)</IPIfNonMatch>
+                    <IPOnDemand>IPOnDemand — resolve when an IP rule needs it</IPOnDemand>
                     <AsIs>AsIs — never resolve, cheapest</AsIs>
                 </OptionValues>
             </routing_domain_strategy>

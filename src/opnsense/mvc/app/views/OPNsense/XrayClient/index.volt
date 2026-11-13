@@ -258,6 +258,17 @@
         font-family: monospace;
         font-size: 12px;
     }
+    /* Raw JSON examples live in the placeholder; keep them visibly "sample
+       text", not something that looks like a stored value. */
+    #frm_general textarea.json_section::placeholder {
+        opacity: 0.45;
+        font-style: italic;
+    }
+    /* Dropdowns in the settings forms may use the width of the text inputs
+       beside them instead of cutting long option labels. */
+    #frm_general .bootstrap-select > .dropdown-toggle .filter-option-inner-inner {
+        white-space: normal;
+    }
     #tab_expert .tab-pane,
     #tab_expert #expert_view_wrap,
     #tab_expert #expert_edit_wrap {
@@ -2748,7 +2759,7 @@
             if (latencyActive) parts.push('latency every ' + LATENCY_AUTO_INTERVAL + ' s');
             var tip = parts.length
                 ? 'Measure now. Automatic refresh: ' + parts.join(', ') + '.'
-                : 'Measure now. Automatic refresh is off (General Settings \u2192 Telemetry & Statistics).';
+                : 'Measure now. Automatic refresh is off (General Settings \u2192 Monitoring).';
             $('#btn_check_nodes').attr('title', tip);
             $('#telemetry_status').remove();
         }
