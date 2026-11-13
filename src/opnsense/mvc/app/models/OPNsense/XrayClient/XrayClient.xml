@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>2.26.0</version>
+    <version>2.26.2</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -343,7 +343,7 @@
                     <default>Main Server</default>
                     <Required>Y</Required>
                     <Mask>/^$|^[A-Za-z0-9\s._\-()\[\]@#\/&amp;!+:;,"]{1,192}$/</Mask>
-                    <ValidationMessage>Node name must be 1-64 characters (letters, digits, spaces, and common punctuation).</ValidationMessage>
+                    <ValidationMessage>Node name must be 1-192 characters: letters, digits, spaces and . _ - ( ) [ ] @ # / &amp; ! + : ; , &quot; only (no emoji or other scripts).</ValidationMessage>
                 </name>
                 <!-- VLESS / VMess protocol settings -->
                 <protocol type="OptionField">
