@@ -1,0 +1,54 @@
+<form>
+    <field>
+        <type>header</type>
+        <label>Load Balancer Observatory</label>
+    </field>
+    <field>
+        <id>xrayclient.general.observatory_type</id>
+        <label>Observatory Type</label>
+        <type>dropdown</type>
+        <help>leastPing and leastLoad balancers need Xray to probe the nodes. «Burst observatory» probes in batches and is the recommended option; «Background observatory» probes continuously. «Disabled» keeps the Raw JSON: observatory field (shown with Show advanced fields), if it is set. Turning this on takes precedence over that raw field.</help>
+    </field>
+    <field>
+        <id>xrayclient.general.observatory_selector</id>
+        <label>Probe Targets (tag prefixes)</label>
+        <type>text</type>
+        <help>Comma-separated outbound tag prefixes to probe (default: node_, i.e. every configured node). Prefixes are matched from the start of the outbound tag.</help>
+    </field>
+    <field>
+        <id>xrayclient.general.observatory_url</id>
+        <label>Probe URL</label>
+        <type>text</type>
+        <help>HTTP(S) URL used to measure each node (default: https://connectivitycheck.gstatic.com/generate_204). Use a small, stable page on the far side of the tunnel.</help>
+    </field>
+    <field>
+        <id>xrayclient.general.observatory_interval</id>
+        <label>Probe Interval</label>
+        <type>text</type>
+        <help>Time between probe rounds, as a Go duration: 10s, 1m, 1h (default: 1m). With burst observatory this is pingConfig.interval; with the background observatory it is probeInterval.</help>
+    </field>
+    <field>
+        <id>xrayclient.general.observatory_sampling</id>
+        <label>Samples per Probe Round (burst only)</label>
+        <type>text</type>
+        <help>How many probes to send per node in each burst (default: 10). Lower values react faster, higher values smooth out jitter. Ignored by the background observatory.</help>
+    </field>
+    <field>
+        <id>xrayclient.general.observatory_timeout</id>
+        <label>Probe Timeout (burst only)</label>
+        <type>text</type>
+        <help>Timeout of a single probe, e.g. 5s (default: 5s). Ignored by the background observatory.</help>
+    </field>
+    <field>
+        <id>xrayclient.general.observatory_http_method</id>
+        <label>HTTP Method (burst only)</label>
+        <type>text</type>
+        <help>GET, HEAD or empty for Xray's default (HEAD). HEAD is lighter; GET works with servers that reject HEAD. Ignored by the background observatory.</help>
+    </field>
+    <field>
+        <id>xrayclient.general.observatory_concurrency</id>
+        <label>Probe Nodes Concurrently (background only)</label>
+        <type>checkbox</type>
+        <help>Probe all selected nodes at the same time instead of one after another. Useful with many nodes. Ignored by the burst observatory.</help>
+    </field>
+</form>

@@ -6,16 +6,10 @@
         <help>Enable or disable the Xray client service.</help>
     </field>
     <field>
-        <id>xrayclient.general.config_mode</id>
-        <label>Configuration Mode</label>
-        <type>dropdown</type>
-        <help>Select whether to generate config.json from UI tabs (Nodes + Routing Rules) or use a raw JSON config.</help>
-    </field>
-    <field>
         <id>xrayclient.general.expert_mode</id>
-        <label>Advanced Mode</label>
+        <label>Show Expert Config Tab</label>
         <type>checkbox</type>
-        <help>Show an extra "Expert Config" tab with the exact /usr/local/etc/xray/config.json Xray is running (or would run). This is all Advanced Mode controls: the advanced fields in the dialogs are governed separately by their own "Show advanced fields" / "Show additional conditions" checkboxes. You can view the tab read-only or edit it manually; saving there switches the plugin to Raw JSON mode, and the config is validated with xray run -test before it is applied.</help>
+        <help>Show an extra "Expert Config" tab with the exact /usr/local/etc/xray/config.json Xray is running (or would run). This is all Advanced Mode controls: the advanced fields in the dialogs are governed separately by their own "Show advanced fields" / "Show additional conditions" checkboxes. The Configuration Mode selector (UI Builder or Raw JSON) is on that tab. You can view the tab read-only or edit it manually; saving there switches the plugin to Raw JSON mode, and the config is validated with xray run -test before it is applied.</help>
     </field>
     <field>
         <type>header</type>
@@ -43,6 +37,7 @@
         <id>xrayclient.general.mask_address</id>
         <label>Mask IP Addresses in Logs</label>
         <type>text</type>
+        <hint>off, or a CIDR such as 10.0.0.0/8</hint>
         <help>A CIDR range, e.g. 10.0.0.0/8 — the matching octets are masked in Xray's logs (e.g. 192.168.1.200 → 192.168.x.x). Useful when sharing logs without leaking your LAN or client addresses.</help>
     </field>
     <field>
@@ -84,35 +79,6 @@
         <label>Outbound Interface Binding</label>
         <type>text</type>
         <help>Empty = off (default). «auto» or an interface name (e.g. vmx1) binds every outbound socket, so Xray's own traffic can never loop back through the TUN. WINDOWS + LINUX + MACOS work out of the box; on FREEBSD Xray needs a second routing table: add net.fibs=2 to /boot/loader.conf and REBOOT the firewall first — with net.fibs=1 Xray will refuse to start and Apply will be rejected.</help>
-    </field>
-    <field>
-        <type>header</type>
-        <label>Domain Sniffing</label>
-    </field>
-    <field>
-        <id>xrayclient.general.enable_sniffing</id>
-        <label>Enable Domain Sniffing (TLS/HTTP/QUIC)</label>
-        <type>checkbox</type>
-        <help>Required for domain-based routing rules (geosite:ru, etc.) when traffic comes via IP through the TUN interface.</help>
-    </field>
-    <field>
-        <id>xrayclient.general.sniffing_dest_override</id>
-        <label>Destination Override</label>
-        <type>select_multiple</type>
-        <style>selectpicker</style>
-        <help>Which traffic types get sniffed to recover the destination hostname: HTTP, TLS/HTTPS, QUIC/HTTP3, and FakeDNS. Disable a type if it breaks something you serve (rare — QUIC is required for HTTP3 sites).</help>
-    </field>
-    <field>
-        <id>xrayclient.general.sniffing_route_only</id>
-        <label>Route Only</label>
-        <type>checkbox</type>
-        <help>Sniffed domain is used for routing decisions only; the connection itself is not re-dialed. Almost always what you want.</help>
-    </field>
-    <field>
-        <id>xrayclient.general.sniffing_domains_excluded</id>
-        <label>Domains Excluded from Sniffing</label>
-        <type>text</type>
-        <help>Comma-separated domain rules (e.g. geosite:category-ads-all, domain:my.local) that must not be sniffed. Empty = sniff everything.</help>
     </field>
     <field>
         <type>header</type>
@@ -192,17 +158,7 @@
     </field>
     <field>
         <type>header</type>
-        <label>Routing Policy</label>
-    </field>
-    <field>
-        <id>xrayclient.general.routing_domain_strategy</id>
-        <label>Domain Strategy</label>
-        <type>dropdown</type>
-        <help>How Xray matches domain rules that fell through to IP matching: IPIfNonMatch (default) — resolve and retry; IPOnDemand — resolve only when an IP rule actually needs it; AsIs — never resolve (cheapest, leaks nothing to DNS, but geoip/country rules never match a bare domain).</help>
-    </field>
-    <field>
-        <type>header</type>
-        <label>Telemetry &amp; Statistics</label>
+        <label>Monitoring</label>
     </field>
     <field>
         <id>xrayclient.general.stats_port</id>
@@ -220,104 +176,6 @@
         <id>xrayclient.general.telemetry_interval</id>
         <label>Traffic Polling Interval (seconds)</label>
         <type>text</type>
-        <help>How often to fetch traffic counters in the background (30-3600 seconds, default 60). Latency is polled every 5 minutes independently.</help>
-    </field>
-    <field>
-        <type>header</type>
-        <label>Load Balancer Observatory</label>
-    </field>
-    <field>
-        <id>xrayclient.general.observatory_type</id>
-        <label>Observatory Type</label>
-        <type>dropdown</type>
-        <help>leastPing and leastLoad balancers need Xray to probe the nodes. «Burst observatory» probes in batches and is the recommended option; «Background observatory» probes continuously. «Disabled» keeps the Raw JSON: observatory field (shown with Show advanced fields), if it is set. Turning this on takes precedence over that raw field.</help>
-    </field>
-    <field>
-        <id>xrayclient.general.observatory_selector</id>
-        <label>Probe Targets (tag prefixes)</label>
-        <type>text</type>
-        <help>Comma-separated outbound tag prefixes to probe (default: node_, i.e. every configured node). Prefixes are matched from the start of the outbound tag.</help>
-    </field>
-    <field>
-        <id>xrayclient.general.observatory_url</id>
-        <label>Probe URL</label>
-        <type>text</type>
-        <help>HTTP(S) URL used to measure each node (default: https://connectivitycheck.gstatic.com/generate_204). Use a small, stable page on the far side of the tunnel.</help>
-    </field>
-    <field>
-        <id>xrayclient.general.observatory_interval</id>
-        <label>Probe Interval</label>
-        <type>text</type>
-        <help>Time between probe rounds, as a Go duration: 10s, 1m, 1h (default: 1m). With burst observatory this is pingConfig.interval; with the background observatory it is probeInterval.</help>
-    </field>
-    <field>
-        <id>xrayclient.general.observatory_sampling</id>
-        <label>Samples per Probe Round (burst only)</label>
-        <type>text</type>
-        <help>How many probes to send per node in each burst (default: 10). Lower values react faster, higher values smooth out jitter. Ignored by the background observatory.</help>
-    </field>
-    <field>
-        <id>xrayclient.general.observatory_timeout</id>
-        <label>Probe Timeout (burst only)</label>
-        <type>text</type>
-        <help>Timeout of a single probe, e.g. 5s (default: 5s). Ignored by the background observatory.</help>
-    </field>
-    <field>
-        <id>xrayclient.general.observatory_http_method</id>
-        <label>HTTP Method (burst only)</label>
-        <type>text</type>
-        <help>GET, HEAD or empty for Xray's default (HEAD). HEAD is lighter; GET works with servers that reject HEAD. Ignored by the background observatory.</help>
-    </field>
-    <field>
-        <id>xrayclient.general.observatory_concurrency</id>
-        <label>Probe Nodes Concurrently (background only)</label>
-        <type>checkbox</type>
-        <help>Probe all selected nodes at the same time instead of one after another. Useful with many nodes. Ignored by the burst observatory.</help>
-    </field>
-    <field>
-        <type>header</type>
-        <label>Built-in DNS server</label>
-    </field>
-    <field>
-        <id>xrayclient.general.dns_enabled</id>
-        <label>Enable Built-in DNS</label>
-        <type>checkbox</type>
-        <help>Route domain resolution through Xray's own DNS server instead of the system resolver. Addresses are looked up from the DNS Servers tab (or, when disabled, from the Raw JSON: dns field in this section, shown with Show advanced fields). Domains still unmatched by any routing rule go direct.</help>
-    </field>
-    <field>
-        <id>xrayclient.general.dns_query_strategy</id>
-        <label>Query Strategy</label>
-        <type>dropdown</type>
-        <help>Which addresses servers are allowed to answer with: IPv4 and IPv6 (default), IPv4 only or IPv6 only.</help>
-    </field>
-    <field>
-        <id>xrayclient.general.dns_disable_cache</id>
-        <label>Disable DNS Cache</label>
-        <type>checkbox</type>
-        <help>Do not cache DNS answers. Useful for testing domains whose DNS changes often; costs a query per lookup in production.</help>
-    </field>
-    <field>
-        <id>xrayclient.general.dns_disable_fallback</id>
-        <label>Disable Fallback</label>
-        <type>checkbox</type>
-        <help>If every domain-matched server fails, do not ask the untagged servers instead (strict DNS).</help>
-    </field>
-    <field>
-        <id>xrayclient.general.dns_disable_fallback_if_match</id>
-        <label>Disable Fallback If Match</label>
-        <type>checkbox</type>
-        <help>Once a request matched a domain-tagged server, fail instead of falling back to untagged servers when it cannot answer.</help>
-    </field>
-    <field>
-        <id>xrayclient.general.dns_enable_parallel_query</id>
-        <label>Parallel Query</label>
-        <type>checkbox</type>
-        <help>Query all matching servers at once and use the first answer. Higher traffic, faster answers, but can downgrade a domestic resolver's accuracy.</help>
-    </field>
-    <field>
-        <id>xrayclient.general.dns_use_system_hosts</id>
-        <label>Use System Hosts</label>
-        <type>checkbox</type>
-        <help>Feed /etc/hosts into the built-in DNS as static hosts.</help>
+        <help>How often to fetch traffic counters in the background (30-3600 seconds, default 60). Latency is polled every 5 minutes independently. The «Live» switch above the Outbound Nodes table has its own 5-second interval and is not affected by this value.</help>
     </field>
 </form>

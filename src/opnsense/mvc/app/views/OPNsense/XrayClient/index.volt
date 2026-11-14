@@ -89,6 +89,10 @@
        row, not glued to the top (Bootstrap defaults td to vertical-align:
        top, which leaves labels hovering in the upper part of the input). */
     #frm_general td,
+    #frm_general_dns td,
+    #frm_general_obs td,
+    #frm_general_route td,
+    #frm_general_expert td,
     #frm_maintenance td,
     #frm_DialogNode td,
     #frm_DialogRule td,
@@ -220,10 +224,30 @@
     #DialogRule.optional-hidden div.form-group:has(.expert_only) {
         display: none !important;
     }
+    /* Sub-navigation inside the Routing tab. */
+    #routingtabs {
+        margin: 10px 15px 6px 15px;
+    }
+    #routingtabs > li > a {
+        padding: 6px 16px;
+        border-radius: 3px;
+        border-bottom: 2px solid transparent;
+    }
+    #routingtabs > li.active > a,
+    #routingtabs > li.active > a:hover,
+    #routingtabs > li.active > a:focus {
+        border-bottom-color: #d94f00;
+    }
     /* Same collapse for Optional knobs on the General Settings tab. The raw
        JSON rows carry .expert_only on their textarea, so they follow it. */
     #tab_general.optional-hidden tr:has(.expert_only),
-    #tab_general.optional-hidden div.form-group:has(.expert_only) {
+    #tab_general.optional-hidden div.form-group:has(.expert_only),
+    #tab_dns.optional-hidden tr:has(.expert_only),
+    #tab_dns.optional-hidden div.form-group:has(.expert_only),
+    #tab_balancers.optional-hidden tr:has(.expert_only),
+    #tab_balancers.optional-hidden div.form-group:has(.expert_only),
+    #tab_routing_policy.optional-hidden tr:has(.expert_only),
+    #tab_routing_policy.optional-hidden div.form-group:has(.expert_only) {
         display: none !important;
     }
     /* The OPNsense base_dialog partial renders a third, 35%-wide column
@@ -250,13 +274,27 @@
     #tab_expert pre,
     #tab_expert textarea,
     #raw_json_container textarea,
-    #frm_general textarea.json_section {
+    textarea.json_section {
         width: 100% !important;
         max-width: none !important;
     }
-    #frm_general textarea.json_section {
+    textarea.json_section {
         font-family: monospace;
         font-size: 12px;
+    }
+    /* Raw JSON examples live in the placeholder; keep them visibly "sample
+       text", not something that looks like a stored value. */
+    textarea.json_section::placeholder {
+        opacity: 0.45;
+        font-style: italic;
+    }
+    /* Dropdowns in the settings forms may use the width of the text inputs
+       beside them instead of cutting long option labels. */
+    #frm_general .bootstrap-select > .dropdown-toggle,
+    #frm_general_dns .bootstrap-select > .dropdown-toggle,
+    #frm_general_route .bootstrap-select > .dropdown-toggle,
+    #frm_general_obs .bootstrap-select > .dropdown-toggle .filter-option-inner-inner {
+        white-space: normal;
     }
     #tab_expert .tab-pane,
     #tab_expert #expert_view_wrap,
@@ -395,6 +433,10 @@
 
         mapDataToFormUI({
             'frm_general': "/api/xrayclient/settings/get",
+            'frm_general_dns': "/api/xrayclient/settings/get",
+            'frm_general_obs': "/api/xrayclient/settings/get",
+            'frm_general_route': "/api/xrayclient/settings/get",
+            'frm_general_expert': "/api/xrayclient/settings/get",
             'frm_maintenance': "/api/xrayclient/settings/get"
         }).done(function (data) {
             formatTokenizersUI();
@@ -404,7 +446,7 @@
             setupPluginBranchPicker();
             startTelemetryAutoRefresh();
             if (typeof toggleExpertTab === 'function') {
-                toggleExpertTab($('#xrayclient\\.general\\.expert_mode').prop('checked'));
+                toggleExpertTab(expertTabWanted());
             }
             toggleGeneralRows();
         });
@@ -601,6 +643,13 @@
         // Expert Config tab: view the effective /usr/local/etc/xray/config.json
         // or edit it manually. Saving routes through saveRawConfigAction
         // (validate -> backup -> xray run -test -> atomic write -> restart).
+        // The tab is shown when the checkbox asks for it, and always in Raw JSON
+        // mode (the raw config and the mode selector live there).
+        window.expertTabWanted = function expertTabWanted() {
+            return $('#xrayclient\\.general\\.expert_mode').prop('checked') ||
+                $('#xrayclient\\.general\\.config_mode').val() === 'raw';
+        };
+
         window.toggleExpertTab = function toggleExpertTab(show) {
             $('#tab_expert_li').toggle(!!show);
             if (!show && $('a[href="#tab_expert"]').parent().hasClass('active')) {
@@ -609,7 +658,14 @@
         };
 
         $('#xrayclient\\.general\\.expert_mode').on('change', function () {
-            toggleExpertTab($(this).prop('checked'));
+            toggleExpertTab(expertTabWanted());
+        });
+        // Switching to Raw JSON keeps the tab; switching back never pulls it
+        // away from under the user (it is re-evaluated on the next load).
+        $('#xrayclient\\.general\\.config_mode').on('change', function () {
+            if ($(this).val() === 'raw') {
+                toggleExpertTab(true);
+            }
         });
 
         var expertConfigLoaded = false;
@@ -712,13 +768,14 @@
         // <form id="frm_general">. saveFormToEndpoint() only serialises
         // fields inside that form, so move the container inside it or
         // Raw JSON would never be saved to config.xml.
-        $('#frm_general').append($('#raw_json_container'));
+        $('#frm_general_expert').append($('#raw_json_container'));
 
         // The raw JSON sections are plain textareas that carry the model field
         // ids. Each one is moved into a table row at the end of the form
-        // section it belongs to (DNS, Observatory, Routing Policy), so it reads
-        // like every other field and, being .expert_only, only shows with
-        // "Show advanced fields". They stay inside #frm_general, so
+        // it belongs to (DNS settings on the DNS Servers tab; observatory and
+        // extra balancers on the Balancers tab), so it reads like every other
+        // field and, being .expert_only, only shows with "Show advanced
+        // fields". They end up inside the same form as their model fields, so
         // saveFormToEndpoint() keeps picking them up.
         (function placeJsonSections() {
             var rows = [
@@ -726,7 +783,7 @@
                 ['dns_json', 'Raw JSON: <code>dns</code>', 'dns_use_system_hosts'],
                 ['dns_hosts_json', 'Raw JSON: <code>dns.hosts</code>', 'dns_use_system_hosts'],
                 ['observatory_json', 'Raw JSON: observatory', 'observatory_concurrency'],
-                ['balancers_json', 'Raw JSON: <code>routing.balancers</code>', 'routing_domain_strategy']
+                ['balancers_json', 'Raw JSON: <code>routing.balancers</code>', 'observatory_concurrency']
             ];
             var after = {};
             rows.forEach(function (r) {
@@ -769,10 +826,10 @@
             var mode = $('#xrayclient\\.general\\.config_mode').val();
             if (mode === 'raw') {
                 $('#raw_json_container').show();
-                $('#frm_general tr.json_row').hide();
+                $('tr.json_row').hide();
             } else {
                 $('#raw_json_container').hide();
-                $('#frm_general tr.json_row').show();
+                $('tr.json_row').show();
             }
         }
         $('#xrayclient\\.general\\.config_mode').on('change', toggleConfigModeUI);
@@ -833,6 +890,20 @@
             });
         }
         $('#xrayclient\\.general\\.enable_socks, #xrayclient\\.general\\.enable_http, #xrayclient\\.general\\.enable_tun, #xrayclient\\.general\\.enable_sniffing, #xrayclient\\.general\\.auto_telemetry, #xrayclient\\.general\\.dns_enabled, #xrayclient\\.general\\.socks_auth, #xrayclient\\.general\\.http_auth, #xrayclient\\.general\\.observatory_type').on('change', toggleGeneralRows);
+
+        // The update buttons sit at the end of the section they belong to.
+        (function placeMaintenanceButtons() {
+            [['btn_update_core', 'core_branch'], ['btn_update_geodata', 'custom_geosite_url'], ['btn_update_plugin', 'plugin_branch']].forEach(function (p) {
+                var $btn = $('#' + p[0]);
+                var $anchor = $('[id="xrayclient.maintenance.' + p[1] + '"]').closest('tr');
+                if ($btn.length === 0 || $anchor.length === 0) {
+                    return;
+                }
+                var $row = $('<tr class="maint_btn_row"><td></td><td></td><td></td></tr>');
+                $row.children('td').eq(1).append($btn);
+                $anchor.after($row);
+            });
+        })();
 
         function toggleGeoDataCustomUI() {
             var preset = $('#xrayclient\\.maintenance\\.geodata_preset').val();
@@ -1247,6 +1318,58 @@
             return { host: String(row.address || ''), port: String(row.port || '') };
         }
 
+        function escHtml(v) {
+            return $('<div/>').text(v).html();
+        }
+
+        // Transport as {text, title}; null where it does not apply.
+        function nodeTransportInfo(row) {
+            var kind = nodeRowKind(row);
+            var fixed = { quic: ['QUIC', 'Hysteria 2 over QUIC'], udp: ['UDP', 'WireGuard over UDP'],
+                          h2: ['HTTP/2', 'MASQUE over HTTP/2'], h3: ['HTTP/3', 'MASQUE over HTTP/3 (QUIC)'] };
+            if (kind === 'none') {
+                return null;
+            }
+            if (fixed[kind]) {
+                return { text: fixed[kind][0], title: fixed[kind][1] };
+            }
+            var map = {
+                tcp: ['TCP', 'TCP (RAW)'],
+                ws: ['WS', 'WebSocket (WS)'],
+                grpc: ['gRPC', 'gRPC'],
+                xhttp: ['XHTTP', 'XHTTP (SplitHTTP)'],
+                httpupgrade: ['HTTPUpg', 'HTTPUpgrade'],
+                xdrive: ['XDRIVE', 'XDRIVE (Google Drive / S3 / template)']
+            };
+            var entry = map[String(row.network || '').toLowerCase()];
+            return entry ? { text: entry[0], title: entry[1] } : { text: String(row.network || ''), title: '' };
+        }
+
+        // Security as text; '' where it does not apply.
+        function nodeSecurityText(row) {
+            var kind = nodeRowKind(row);
+            if (kind === 'quic' || kind === 'h2' || kind === 'h3') {
+                return 'TLS';
+            }
+            if (kind === 'udp' || kind === 'none') {
+                return '';
+            }
+            return String(row.security || '');
+        }
+
+        // host:port, IPv6 hosts in brackets; '' for nodes without an endpoint.
+        function nodeEndpointText(row) {
+            var ep = nodeRowEndpoint(row);
+            if (ep.host === '') {
+                return '';
+            }
+            var host = ep.host;
+            if (host.indexOf(':') !== -1 && host.charAt(0) !== '[') {
+                host = '[' + host + ']';
+            }
+            return ep.port === '' ? host : host + ':' + ep.port;
+        }
+
         $("#grid-nodes").UIBootgrid({
             search: '/api/xrayclient/settings/searchNode',
             get: '/api/xrayclient/settings/getNode/',
@@ -1269,29 +1392,13 @@
                         }
                     },
                     "transport": function (column, row) {
-                        var kind = nodeRowKind(row);
-                        var fixed = { quic: ['QUIC', 'Hysteria 2 over QUIC'], udp: ['UDP', 'WireGuard over UDP'],
-                                      h2: ['HTTP/2', 'MASQUE over HTTP/2'], h3: ['HTTP/3', 'MASQUE over HTTP/3 (QUIC)'] };
-                        if (kind === 'none') {
+                        var info = nodeTransportInfo(row);
+                        if (info === null) {
                             return '<span class="text-muted">&mdash;</span>';
                         }
-                        if (fixed[kind]) {
-                            return '<span class="bootgrid-tooltip" title="' + fixed[kind][1] + '">' + fixed[kind][0] + '</span>';
-                        }
-                        var map = {
-                            tcp: ['TCP', 'TCP (RAW)'],
-                            ws: ['WS', 'WebSocket (WS)'],
-                            grpc: ['gRPC', 'gRPC'],
-                            xhttp: ['XHTTP', 'XHTTP (SplitHTTP)'],
-                            httpupgrade: ['HTTPUpg', 'HTTPUpgrade'],
-                            xdrive: ['XDRIVE', 'XDRIVE (Google Drive / S3 / template)']
-                        };
-                        var key = String(row.network || '').toLowerCase();
-                        var entry = map[key];
-                        if (!entry) {
-                            return '' + $('<div/>').text(row.network || '').html();
-                        }
-                        return '<span class="bootgrid-tooltip" title="' + entry[1] + '">' + entry[0] + '</span>';
+                        return info.title
+                            ? '<span class="bootgrid-tooltip" title="' + info.title + '">' + escHtml(info.text) + '</span>'
+                            : escHtml(info.text);
                     },
                     "nodeaddr": function (column, row) {
                         var ep = nodeRowEndpoint(row);
@@ -1302,14 +1409,29 @@
                         return ep.port === '' ? '<span class="text-muted">&mdash;</span>' : $('<div/>').text(ep.port).html();
                     },
                     "nodesec": function (column, row) {
-                        var kind = nodeRowKind(row);
-                        if (kind === 'quic' || kind === 'h2' || kind === 'h3') {
-                            return 'TLS';
+                        var text = nodeSecurityText(row);
+                        return text === '' ? '<span class="text-muted">&mdash;</span>' : escHtml(text);
+                    },
+                    // One compact column for protocol, transport and security,
+                    // e.g. "VLESS · gRPC · tls" (the node widget uses the same form).
+                    "nodetype": function (column, row) {
+                        var sep = ' <span class="text-muted">&middot;</span> ';
+                        var parts = ['<b>' + escHtml(row.protocol || '') + '</b>'];
+                        var info = nodeTransportInfo(row);
+                        if (info !== null && info.text !== '') {
+                            parts.push(info.title
+                                ? '<span class="bootgrid-tooltip" title="' + info.title + '">' + escHtml(info.text) + '</span>'
+                                : escHtml(info.text));
                         }
-                        if (kind === 'udp' || kind === 'none') {
-                            return '<span class="text-muted">&mdash;</span>';
+                        var sec = nodeSecurityText(row);
+                        if (sec !== '' && sec.toLowerCase() !== 'none') {
+                            parts.push(escHtml(sec));
                         }
-                        return $('<div/>').text(row.security || '').html();
+                        return parts.join(sep);
+                    },
+                    "nodeendpoint": function (column, row) {
+                        var text = nodeEndpointText(row);
+                        return text === '' ? '<span class="text-muted">&mdash;</span>' : escHtml(text);
                     },
                     "latency": function (column, row) {
                         var info = nodeLatencyCache[row.uuid];
@@ -1328,6 +1450,67 @@
                 }
             }
         });
+
+        // Condition summary parts of a rule row; empty = matches all traffic.
+        function ruleMatchParts(row) {
+            function list(v) {
+                return String(v || '').split(',').map(function (x) { return $.trim(x); }).filter(Boolean);
+            }
+            var parts = [];
+            var domains = list(row.domain);
+            if (domains.length) {
+                parts.push('domains: ' + domains.length);
+            }
+            var ips = list(row.ip);
+            var geoip = ips.filter(function (x) { return x.indexOf('geoip:') === 0; }).length;
+            if (geoip) {
+                parts.push('geoip: ' + geoip);
+            }
+            var plain = ips.length - geoip;
+            if (plain) {
+                parts.push('ips: ' + plain);
+            }
+            if ($.trim(row.port || '')) {
+                parts.push('port: ' + escHtml(row.port));
+            }
+            var sniff = list(row.protocol);
+            if (sniff.length) {
+                parts.push('sniff: ' + sniff.map(escHtml).join('/'));
+            }
+            if (row.network_proto && row.network_proto !== 'tcp_udp') {
+                parts.push('net: ' + escHtml(row.network_proto));
+            }
+            [['inbound_tag', 'inbound'], ['source', 'src'], ['source_port', 'src port'], ['user', 'user']].forEach(function (f) {
+                var items = list(row[f[0]]);
+                if (items.length) {
+                    parts.push(f[1] + ': ' + items.length);
+                }
+            });
+            return parts;
+        }
+
+        // The enabled match-everything rule with a lower sequence number that
+        // hides this (enabled) rule, or null. Only the rows of the current
+        // page are known, which is enough for the usual short rule lists.
+        function ruleShadowedBy(row) {
+            if (String(row.enabled) !== '1') {
+                return null;
+            }
+            var seq = parseFloat(row.sequence);
+            var cover = null;
+            try {
+                $('#grid-rules').bootgrid('getCurrentRows').forEach(function (r) {
+                    var rs = parseFloat(r.sequence);
+                    if (r.uuid !== row.uuid && String(r.enabled) === '1' && rs < seq && ruleMatchParts(r).length === 0 &&
+                        (cover === null || rs < parseFloat(cover.sequence))) {
+                        cover = r;
+                    }
+                });
+            } catch (e) {
+                // grid API unavailable: no warning
+            }
+            return cover;
+        }
 
         $("#grid-rules").UIBootgrid({
             search: '/api/xrayclient/settings/searchRule',
@@ -1353,51 +1536,19 @@
                         }
                     },
                     // Condensed counts of every condition, e.g.
-                    // "domains: 2 · geoip: 1 · port: 443".
+                    // "domains: 2 · geoip: 1 · port: 443". A rule that sits
+                    // below an enabled match-everything rule is marked: it
+                    // can never be reached.
                     "rulematch": function (column, row) {
-                        function esc(v) {
-                            return $('<div/>').text(v).html();
+                        var parts = ruleMatchParts(row);
+                        var html = parts.length ? parts.join(' · ') : '<span class="text-muted">any traffic</span>';
+                        var cover = ruleShadowedBy(row);
+                        if (cover) {
+                            html += ' <i class="fa fa-exclamation-triangle text-warning bootgrid-tooltip" title="Never reached: rule ' +
+                                escHtml(String(cover.sequence)) + (cover.description ? ' (' + escHtml(cover.description) + ')' : '') +
+                                ' above matches all traffic first."></i>';
                         }
-                        function list(v) {
-                            return String(v || '').split(',').map(function (x) { return $.trim(x); }).filter(Boolean);
-                        }
-                        var parts = [];
-                        var domains = list(row.domain);
-                        if (domains.length) {
-                            parts.push('domains: ' + domains.length);
-                        }
-                        var ips = list(row.ip);
-                        var geoip = ips.filter(function (x) { return x.indexOf('geoip:') === 0; }).length;
-                        if (geoip) {
-                            parts.push('geoip: ' + geoip);
-                        }
-                        var plain = ips.length - geoip;
-                        if (plain) {
-                            parts.push('ips: ' + plain);
-                        }
-                        if ($.trim(row.port || '')) {
-                            parts.push('port: ' + esc(row.port));
-                        }
-                        var sniff = list(row.protocol);
-                        if (sniff.length) {
-                            parts.push('sniff: ' + sniff.map(esc).join('/'));
-                        }
-                        if (row.network_proto && row.network_proto !== 'tcp_udp') {
-                            parts.push('net: ' + esc(row.network_proto));
-                        }
-                        var extra = [
-                            ['inbound_tag', 'inbound'],
-                            ['source', 'src'],
-                            ['source_port', 'src port'],
-                            ['user', 'user']
-                        ];
-                        extra.forEach(function (f) {
-                            var items = list(row[f[0]]);
-                            if (items.length) {
-                                parts.push(f[1] + ': ' + items.length);
-                            }
-                        });
-                        return parts.length ? parts.join(' · ') : '<span class="text-muted">any traffic</span>';
+                        return html;
                     },
                     // Flags a sequence number shared with another rule: the
                     // order between them is then decided by config order only.
@@ -2159,12 +2310,20 @@
             generalExpertIds.forEach(function (id) {
                 $('[id="' + id + '"]').addClass('expert_only');
             });
-            var $tab = $('#tab_general');
-            var saved = localStorage.getItem('osxray_show_advanced_general') === '1';
-            $tab.toggleClass('optional-hidden', !saved);
-            mountNativeAdvancedToggle('#frm_general', 'advanced fields', saved, function (show) {
-                localStorage.setItem('osxray_show_advanced_general', show ? '1' : '0');
-                $tab.toggleClass('optional-hidden', !show);
+            // The DNS and observatory settings now live on their own tabs, each
+            // with its own switch; all of them share one stored choice and
+            // move together.
+            var $tabs = $('#tab_general, #tab_dns, #tab_balancers, #tab_routing_policy');
+            var saved = false;
+            try { saved = localStorage.getItem('osxray_show_advanced_general') === '1'; } catch (e) {}
+            $tabs.toggleClass('optional-hidden', !saved);
+            var toggles = [];
+            ['#frm_general', '#frm_general_dns', '#frm_general_obs', '#frm_general_route'].forEach(function (formSel) {
+                toggles.push(mountNativeAdvancedToggle(formSel, 'advanced fields', saved, function (show) {
+                    try { localStorage.setItem('osxray_show_advanced_general', show ? '1' : '0'); } catch (e) {}
+                    $tabs.toggleClass('optional-hidden', !show);
+                    toggles.forEach(function (t) { t.set(show); });
+                }));
             });
         })();
 
@@ -2565,8 +2724,9 @@
                     $('#xrayclient\\.general\\.config_mode').val('raw').selectpicker('refresh');
                     $('#xrayclient\\.general\\.raw_json').val(raw);
                     toggleConfigModeUI();
+                    toggleExpertTab(true);
                     $('#DialogImportLink').modal('hide');
-                    $('a[href="#tab_general"]').tab('show');
+                    showTab('#tab_expert');
                     return;
                 } catch (e) {
                     $('#import_error_msg').text('Invalid JSON syntax: ' + e.message).show();
@@ -2748,7 +2908,7 @@
             if (latencyActive) parts.push('latency every ' + LATENCY_AUTO_INTERVAL + ' s');
             var tip = parts.length
                 ? 'Measure now. Automatic refresh: ' + parts.join(', ') + '.'
-                : 'Measure now. Automatic refresh is off (General Settings \u2192 Telemetry & Statistics).';
+                : 'Measure now. Automatic refresh is off (General Settings \u2192 Monitoring).';
             $('#btn_check_nodes').attr('title', tip);
             $('#telemetry_status').remove();
         }
@@ -3417,11 +3577,16 @@
                     '<div class="wp-opts" style="display:none; margin-top: 6px;">' + modeHtml +
                     ' <label class="checkbox-inline"><input type="checkbox" class="wp-zt"> Zero Trust ranges</label>' +
                     ' <label class="checkbox-inline"><input type="checkbox" class="wp-ignore"> Retry endpoints that failed recently</label>' +
-                    ' <label class="checkbox-inline" title="' + (kind === 'wg' ? 'Endpoints from the lists set under Maintenance, WARP Endpoint Lists' :
-                        'No MASQUE list is published: the addresses of the WireGuard lists set under Maintenance, WARP Endpoint Lists are tried on port 443') + '"><input type="checkbox" class="wp-src"> Use external lists</label>' +
+                    ' <label class="checkbox-inline" title="' + (kind === 'wg' ? 'Endpoints from the external lists below (one URL per line)' :
+                        'No MASQUE list is published: the addresses of the external lists below are tried on port 443') + '"><input type="checkbox" class="wp-src"> Use external lists</label>' +
                     ' <label class="checkbox-inline" title="Normally only Cloudflare addresses are tested: a list could point the handshake at any host"><input type="checkbox" class="wp-any"> Also test addresses outside Cloudflare ranges</label>' +
                     (kind === 'wg' ? '' : ' <label class="checkbox-inline" title="Send the probe the way this node would: the FinalMask rows of the dialog are applied. Needed where the connection is filtered"><input type="checkbox" class="wp-fm" checked> Apply this node\'s FinalMask</label>') +
                     (kind === 'wg' ? '' : ' <label class="checkbox-inline" title="Experimental: other WARP ranges (162.159.192.x, 162.159.195.x and the WireGuard ranges) with the MASQUE ports"><input type="checkbox" class="wp-wide"> Also try other WARP ranges</label>') +
+                    '<div class="wp-src-box" style="display:none; margin-top: 6px;">' +
+                    '<div class="text-muted" style="font-size: 12px; margin-bottom: 2px;">External endpoint lists, one https:// URL per line. Saved with the plugin settings, shared by WireGuard and MASQUE searches.</div>' +
+                    '<textarea class="form-control wp-src-urls" rows="3" spellcheck="false" style="max-width: none; font-family: monospace; font-size: 12px;" placeholder="https://example.com/warp-endpoints.json"></textarea>' +
+                    '<div class="wp-src-msg" style="font-size: 12px; margin-top: 2px;"></div>' +
+                    '<div class="text-muted" style="font-size: 12px; margin-top: 2px;">Accepted: JSON [{"ip": "8.6.112.0", "ports": [500, 939]}], JSON with ip:port strings or an ip-to-ports object, or text with ip:port lines. The router fetches the lists when a search starts and caches them for a day. Every entry is still tested end to end, and only Cloudflare addresses are used unless the option above allows others. Empty = built-in ranges only.</div></div>' +
                     '<div style="margin-top: 4px;">Stop after <input type="number" class="wp-want form-control" style="width: 5em; display: inline-block;" value="5" min="1" max="20"> verified, at most ' +
                     '<input type="number" class="wp-max form-control" style="width: 6em; display: inline-block;" value="80" min="1" max="300"> attempts</div>' +
                     '<div class="text-muted" style="font-size: 12px; margin-top: 4px;">Each candidate is tested with this node\'s keys through a temporary Xray on the router; FinalMask is applied when the option is ticked.</div></div>' +
@@ -3655,10 +3820,42 @@
                 try {
                     $wrap.find('.wp-src').prop('checked', window.localStorage.getItem(srcKey) === '1');
                 } catch (e) { /* storage unavailable: the box simply starts unchecked */ }
+                // The URL list is a plugin setting (xrayclient.maintenance.warp_sources),
+                // edited here, next to the search that uses it.
+                var srcLoaded = false;
+                function showSrcBox() {
+                    var on = $wrap.find('.wp-src').is(':checked');
+                    $wrap.find('.wp-src-box').toggle(on);
+                    if (on && !srcLoaded) {
+                        srcLoaded = true;
+                        ajaxCall('/api/xrayclient/settings/get', {}, function (res) {
+                            var m = res && res.xrayclient && res.xrayclient.maintenance;
+                            $wrap.find('.wp-src-urls').val((m && m.warp_sources) || '').data('saved', (m && m.warp_sources) || '');
+                        });
+                    }
+                }
+                showSrcBox();
                 $wrap.find('.wp-src').on('change', function () {
                     try {
                         window.localStorage.setItem(srcKey, this.checked ? '1' : '0');
                     } catch (e) { /* ignore */ }
+                    showSrcBox();
+                });
+                $wrap.find('.wp-src-urls').on('change', function () {
+                    var $ta = $(this);
+                    var $msg = $wrap.find('.wp-src-msg');
+                    var value = $.trim($ta.val() || '');
+                    $msg.attr('class', 'wp-src-msg text-muted').text('Saving...');
+                    ajaxCall('/api/xrayclient/settings/set', { xrayclient: { maintenance: { warp_sources: value } } }, function (res) {
+                        if (res && res.result === 'saved') {
+                            $ta.val(value).data('saved', value);
+                            $msg.attr('class', 'wp-src-msg text-success').text('Saved.');
+                        } else {
+                            var v = res && res.validations;
+                            var text = v ? Object.keys(v).map(function (k) { return v[k]; }).join(' ') : 'The list was not saved.';
+                            $msg.attr('class', 'wp-src-msg text-danger').text(text);
+                        }
+                    });
                 });
                 $wrap.find('.wp-start').on('click', function () { start(null); });
                 $wrap.find('.wp-show').on('click', function (e) {
@@ -3737,6 +3934,15 @@
             });
         })();
 
+        // Rules, Balancers and Policy & Sniffing are sub-tabs of Routing:
+        // bring the parent tab to the front first.
+        function showTab(href) {
+            if (['#tab_rules', '#tab_balancers', '#tab_routing_policy'].indexOf(href) !== -1) {
+                $('a[href="#tab_routing"]').tab('show');
+            }
+            $('a[href="' + href + '"]').tab('show');
+        }
+
         $('.btn_save_apply').on('click', function () {
             var jsonError = jsonSectionError();
             if (jsonError) {
@@ -3746,26 +3952,50 @@
             var $btn = $(this);
             var originalHtml = $btn.html();
             $btn.prop('disabled', true).find('.fa-spinner').show();
-            saveFormToEndpoint("/api/xrayclient/settings/set", 'frm_general', function () {
-                // (re)start background telemetry polling with the new interval
-                startTelemetryAutoRefresh();
-                saveFormToEndpoint("/api/xrayclient/settings/set", 'frm_maintenance', function () {
-                    ajaxCall("/api/xrayclient/service/reconfigure", {}, function (data) {
-                        updateServiceControlUI('xrayclient');
-                        if (data && data.status === 'ok') {
-                            $btn.html('<b>Applied <span class="fa fa-check"></span></b>');
-                            setTimeout(function () {
-                                $btn.html(originalHtml).prop('disabled', false);
-                            }, 1500);
-                        } else {
-                            $btn.html('<b>Failed — see logs</b>');
-                            setTimeout(function () {
-                                $btn.html(originalHtml).prop('disabled', false);
-                            }, 2500);
-                        }
-                    });
+            // The settings are spread over several forms (General, Routing,
+            // DNS, Balancers, Expert Config, Maintenance); they are saved one after the
+            // other and the first form with a validation error is brought to
+            // the front, so the error is not hidden on another tab.
+            var saveSteps = [
+                ['frm_general', '#tab_general'],
+                ['frm_general_dns', '#tab_dns'],
+                ['frm_general_obs', '#tab_balancers'],
+                ['frm_general_route', '#tab_routing_policy'],
+                ['frm_general_expert', '#tab_expert'],
+                ['frm_maintenance', '#tab_maintenance']
+            ];
+            function saveStep(i) {
+                if (i >= saveSteps.length) {
+                    return applyAfterSave();
+                }
+                saveFormToEndpoint("/api/xrayclient/settings/set", saveSteps[i][0], function () {
+                    if (i === 0) {
+                        // (re)start background telemetry polling with the new interval
+                        startTelemetryAutoRefresh();
+                    }
+                    saveStep(i + 1);
+                }, false, function () {
+                    showTab(saveSteps[i][1]);
+                    $btn.html(originalHtml).prop('disabled', false);
                 });
-            });
+            }
+            saveStep(0);
+            function applyAfterSave() {
+                ajaxCall("/api/xrayclient/service/reconfigure", {}, function (data) {
+                    updateServiceControlUI('xrayclient');
+                    if (data && data.status === 'ok') {
+                        $btn.html('<b>Applied <span class="fa fa-check"></span></b>');
+                        setTimeout(function () {
+                            $btn.html(originalHtml).prop('disabled', false);
+                        }, 1500);
+                    } else {
+                        $btn.html('<b>Failed — see logs</b>');
+                        setTimeout(function () {
+                            $btn.html(originalHtml).prop('disabled', false);
+                        }, 2500);
+                    }
+                });
+            }
         });
 
         function loadVersionInfo() {
@@ -3863,8 +4093,7 @@
 <ul class="nav nav-tabs" data-tabs="tabs" id="maintabs">
     <li class="active"><a data-toggle="tab" href="#tab_general"><b>General Settings</b></a></li>
     <li><a data-toggle="tab" href="#tab_nodes"><b>Outbound Nodes (Servers)</b></a></li>
-    <li><a data-toggle="tab" href="#tab_rules"><b>Routing Rules</b></a></li>
-    <li><a data-toggle="tab" href="#tab_balancers"><b>Balancers</b></a></li>
+    <li><a data-toggle="tab" href="#tab_routing"><b>Routing</b></a></li>
     <li><a data-toggle="tab" href="#tab_dns"><b>DNS Servers</b></a></li>
     <li id="tab_expert_li" style="display: none;"><a data-toggle="tab" href="#tab_expert"><b>Expert Config</b></a></li>
     <li><a data-toggle="tab" href="#tab_maintenance"><b>Maintenance &amp; Updates</b></a></li>
@@ -3874,15 +4103,11 @@
     <div id="tab_general" class="tab-pane fade in active">
         <div class="content-box" style="padding-bottom: 1.5em;">
             {{ partial("layout_partials/base_form", ['fields': generalForm, 'id': 'frm_general']) }}
-            <div id="raw_json_container" style="display:none; padding: 0 15px 15px 15px;">
-                <label for="xrayclient.general.raw_json"><b>Raw Xray JSON Configuration (/usr/local/etc/xray/config.json):</b></label>
-                <textarea id="xrayclient.general.raw_json" class="form-control" rows="16" style="font-family: monospace; font-size: 12px;" placeholder="{ &quot;inbounds&quot;: [...], &quot;outbounds&quot;: [...] }"></textarea>
-            </div>
             <div id="json_sections_container" style="display:none;">
                 <div class="form-group">
                     <label for="xrayclient.general.dns_json"><b>Built-in DNS — top-level <code>dns</code> object</b></label>
                     <textarea id="xrayclient.general.dns_json" class="form-control json_section" rows="6" spellcheck="false" placeholder='{ "servers": ["https://1.1.1.1/dns-query", "1.1.1.1"], "queryStrategy": "UseIP" }'></textarea>
-                    <span class="help-block">Fallback path, used only when <b>Enable Built-in DNS</b> in General Settings is off — an enabled built-in DNS takes precedence and this field is ignored. When set, Xray resolves domains for routing through this DNS instead of the system resolver. Server formats: an IP, <code>tcp://ip</code>, <code>https://host/dns-query</code> (DoH), <code>https+local://host/dns-query</code> (DoH without a detour), <code>localhost</code>, <code>fakedns</code>. Supports <code>hosts</code>, <code>queryStrategy</code>, <code>disableCache</code>, <code>tag</code>. A wrong DNS breaks domain-based routing, so start with a minimal list.</span>
+                    <span class="help-block">Fallback path, used only when <b>Enable Built-in DNS</b> (above) is off — an enabled built-in DNS takes precedence and this field is ignored. When set, Xray resolves domains for routing through this DNS instead of the system resolver. Server formats: an IP, <code>tcp://ip</code>, <code>https://host/dns-query</code> (DoH), <code>https+local://host/dns-query</code> (DoH without a detour), <code>localhost</code>, <code>fakedns</code>. Supports <code>hosts</code>, <code>queryStrategy</code>, <code>disableCache</code>, <code>tag</code>. A wrong DNS breaks domain-based routing, so start with a minimal list.</span>
                 </div>
                 <div class="form-group">
                     <label for="xrayclient.general.balancers_json"><b>Load Balancers — <code>routing.balancers</code> array</b></label>
@@ -3902,7 +4127,7 @@
             </div>
             <div class="col-md-12">
                 <hr/>
-                <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves General + Maintenance settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
+                <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves the plugin settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
                     <b>Apply &amp; Restart Xray</b> <i class="fa fa-spinner fa-pulse" style="display: none;"></i>
                 </button>
             </div>
@@ -3929,11 +4154,8 @@
                     <th data-column-id="uuid" data-type="string" data-identifier="true" data-visible="false">ID</th>
                     <th data-column-id="enabled" data-width="3.5em" data-type="string" data-formatter="rowtoggle">Active</th>
                     <th data-column-id="name" data-min-width="8em" data-type="string">Server Name</th>
-                    <th data-column-id="protocol" data-width="4.5em" data-type="string">Protocol</th>
-                    <th data-column-id="network" data-width="6em" data-formatter="transport">Transport</th>
-                    <th data-column-id="address" data-min-width="12em" data-formatter="nodeaddr">Address</th>
-                    <th data-column-id="port" data-width="3em" data-formatter="nodeport">Port</th>
-                    <th data-column-id="security" data-width="5em" data-formatter="nodesec">Security</th>
+                    <th data-column-id="protocol" data-min-width="13em" data-formatter="nodetype">Type</th>
+                    <th data-column-id="address" data-min-width="14em" data-formatter="nodeendpoint">Endpoint</th>
                     <th data-column-id="latency" data-width="6em" data-formatter="latency" data-sortable="false">Latency</th>
                     <th data-column-id="traffic" data-width="10em" data-formatter="traffic" data-sortable="false">Traffic &#8595;/&#8593;</th>
                     <th data-column-id="commands" data-width="8em" data-formatter="commands" data-sortable="false">Actions</th>
@@ -3958,19 +4180,26 @@
             <span class="text-muted" style="font-size: 15px; line-height: 1.5;">Entries here are saved immediately on every add/edit/delete/toggle. <b>Apply &amp; Restart Xray</b> rebuilds config.json and restarts Xray.</span>
         </div>
             <hr/>
-            <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves General + Maintenance settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
+            <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves the plugin settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
                 <b>Apply &amp; Restart Xray</b> <i class="fa fa-spinner fa-pulse" style="display: none;"></i>
             </button>
         </div>
     </div>
 
-    <div id="tab_rules" class="tab-pane fade in">
+    <div id="tab_routing" class="tab-pane fade in">
+        <ul class="nav nav-pills" id="routingtabs">
+            <li class="active"><a data-toggle="tab" href="#tab_rules"><b>Rules</b></a></li>
+            <li><a data-toggle="tab" href="#tab_balancers"><b>Balancers</b></a></li>
+            <li><a data-toggle="tab" href="#tab_routing_policy"><b>Policy &amp; Sniffing</b></a></li>
+        </ul>
+        <div class="tab-content">
+    <div id="tab_rules" class="tab-pane fade in active">
         <table id="grid-rules" class="table table-condensed table-hover table-striped" data-editDialog="DialogRule">
             <thead>
                 <tr>
                     <th data-column-id="uuid" data-type="string" data-identifier="true" data-visible="false">ID</th>
                     <th data-column-id="enabled" data-width="6em" data-type="string" data-formatter="rowtoggle">Enabled</th>
-                    <th data-column-id="sequence" data-width="6em" data-type="numeric" data-formatter="ruleseq">Seq</th>
+                    <th data-column-id="sequence" data-width="4em" data-type="numeric" data-formatter="ruleseq">#</th>
                     <th data-column-id="description" data-type="string">Description</th>
                     <th data-column-id="domain" data-type="string" data-formatter="rulematch" data-sortable="false">Match</th>
                     <th data-column-id="outbound_tag" data-width="10em" data-type="string">Action (Outbound)</th>
@@ -3993,13 +4222,14 @@
             <span class="text-muted" style="font-size: 15px; line-height: 1.5;">Rules are applied top-to-bottom (&#8593;/&#8595; to reorder). Entries save instantly &mdash; click <b>Apply &amp; Restart Xray</b>.</span>
         </div>
             <hr/>
-            <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves General + Maintenance settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
+            <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves the plugin settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
                 <b>Apply &amp; Restart Xray</b> <i class="fa fa-spinner fa-pulse" style="display: none;"></i>
             </button>
         </div>
     </div>
 
     <div id="tab_balancers" class="tab-pane fade in">
+        {{ partial("layout_partials/base_form", ['fields': observatoryForm, 'id': 'frm_general_obs']) }}
         <table id="grid-balancers" class="table table-condensed table-hover table-striped" data-editDialog="DialogBalancer">
             <thead>
                 <tr>
@@ -4032,16 +4262,29 @@
         <div class="col-md-12" id="balancer_info_output" style="display: none; margin-bottom: 6px;"></div>
         <div class="col-md-12" style="padding-bottom: 15px;">
         <div style="margin: 14px 0 8px 0;">
-            <span class="text-muted" style="font-size: 15px; line-height: 1.5;">A balancer groups nodes by tag prefix and picks one for every connection. Rules choose it from the &laquo;Balancers&raquo; group in Target Outbound. leastPing / leastLoad need an observatory (General Settings &rarr; Load Balancer Observatory). Entries save instantly &mdash; click <b>Apply &amp; Restart Xray</b>.</span>
+            <span class="text-muted" style="font-size: 15px; line-height: 1.5;">A balancer groups nodes by tag prefix and picks one for every connection. Rules choose it from the &laquo;Balancers&raquo; group in Target Outbound. leastPing / leastLoad need an observatory (Load Balancer Observatory above). Entries save instantly &mdash; click <b>Apply &amp; Restart Xray</b>.</span>
         </div>
             <hr/>
-            <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves General + Maintenance settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
+            <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves the plugin settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
                 <b>Apply &amp; Restart Xray</b> <i class="fa fa-spinner fa-pulse" style="display: none;"></i>
             </button>
         </div>
     </div>
 
+    <div id="tab_routing_policy" class="tab-pane fade in">
+        {{ partial("layout_partials/base_form", ['fields': routingForm, 'id': 'frm_general_route']) }}
+        <div class="col-md-12" style="padding-bottom: 15px;">
+            <hr/>
+            <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves the plugin settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
+                <b>Apply &amp; Restart Xray</b> <i class="fa fa-spinner fa-pulse" style="display: none;"></i>
+            </button>
+        </div>
+    </div>
+        </div>
+    </div>
+
     <div id="tab_dns" class="tab-pane fade in">
+        {{ partial("layout_partials/base_form", ['fields': dnsForm, 'id': 'frm_general_dns']) }}
         <div id="dns_empty_state" class="alert alert-info" style="display:none; margin-top: 10px; padding-top: 12px; padding-bottom: 12px;">
             <b>No DNS servers yet.</b> The built-in DNS needs at least one resolver here. Use the <b>+</b> button above the table — the dialog offers built-in presets (Cloudflare / Google / AdGuard DoH, Yandex, system resolver) or a custom server.
         </div>
@@ -4070,16 +4313,21 @@
         </table>
         <div class="col-md-12" style="padding-bottom: 15px;">
         <div style="margin: 14px 0 8px 0;">
-            <span class="text-muted" style="font-size: 15px; line-height: 1.5;">Enable the built-in DNS in <b>General Settings &rarr; Built-in DNS server</b>, then list resolvers here. Servers with a domains list answer only those domains; the preset in the dialog fills typical setups. Entries save instantly &mdash; <b>Apply &amp; Restart Xray</b>.</span>
+            <span class="text-muted" style="font-size: 15px; line-height: 1.5;">Switch on <b>Enable Built-in DNS</b> above, then list resolvers here. Servers with a domains list answer only those domains; the preset in the dialog fills typical setups. Entries save instantly &mdash; <b>Apply &amp; Restart Xray</b>.</span>
         </div>
             <hr/>
-            <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves General + Maintenance settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
+            <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves the plugin settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
                 <b>Apply &amp; Restart Xray</b> <i class="fa fa-spinner fa-pulse" style="display: none;"></i>
             </button>
         </div>
     </div>
 
     <div id="tab_expert" class="tab-pane fade">
+        {{ partial("layout_partials/base_form", ['fields': expertForm, 'id': 'frm_general_expert']) }}
+            <div id="raw_json_container" style="display:none; padding: 0 15px 15px 15px; margin-top: 10px;">
+                <label for="xrayclient.general.raw_json"><b>Raw Xray JSON Configuration (/usr/local/etc/xray/config.json):</b></label>
+                <textarea id="xrayclient.general.raw_json" class="form-control" rows="16" style="font-family: monospace; font-size: 12px;" placeholder="{ &quot;inbounds&quot;: [...], &quot;outbounds&quot;: [...] }"></textarea>
+            </div>
         <div class="col-md-12" style="margin-top: 15px; padding-bottom: 15px;">
             <div class="alert alert-warning" style="margin-bottom: 10px;">
                 <b>Expert Mode.</b> This is the exact <code>/usr/local/etc/xray/config.json</code> Xray is running (or would run). Saving here validates the JSON with <code>xray run -test</code>, stores a backup next to the file (<code>config.json.bak-*</code>), switches the plugin to <b>Raw JSON</b> mode and restarts Xray. The UI tabs will no longer regenerate the file. Use <b>Reset to template-generated config</b> to switch back to template-based generation (UI Builder) without losing nodes or rules.
@@ -4131,7 +4379,7 @@
             </div>
         </div>
         {{ partial("layout_partials/base_form", ['fields': maintenanceForm, 'id': 'frm_maintenance']) }}
-        <div class="col-md-12" style="padding-bottom: 15px;">
+        <div class="col-md-12">
             <button id="btn_update_core" type="button" class="btn btn-warning">
                 <i class="fa fa-cloud-download"></i> <b>Download &amp; Update Xray-core</b>
             </button>
@@ -4141,6 +4389,8 @@
             <button id="btn_update_plugin" type="button" class="btn btn-success">
                 <i class="fa fa-github"></i> <b>Update Plugin from GitHub</b>
             </button>
+        </div>
+        <div class="col-md-12" style="padding-bottom: 15px;">
             <pre id="maintenance_output" style="display:none; margin-top: 15px; max-height: 300px; overflow-y: auto;"></pre>
         </div>
     </div>

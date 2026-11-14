@@ -1,0 +1,41 @@
+<form>
+    <field>
+        <type>header</type>
+        <label>Routing Policy</label>
+    </field>
+    <field>
+        <id>xrayclient.general.routing_domain_strategy</id>
+        <label>Domain Strategy</label>
+        <type>dropdown</type>
+        <help>How Xray matches domain rules that fell through to IP matching: IPIfNonMatch (default) — resolve and retry; IPOnDemand — resolve only when an IP rule actually needs it; AsIs — never resolve (cheapest, leaks nothing to DNS, but geoip/country rules never match a bare domain).</help>
+    </field>
+    <field>
+        <type>header</type>
+        <label>Domain Sniffing</label>
+    </field>
+    <field>
+        <id>xrayclient.general.enable_sniffing</id>
+        <label>Enable Domain Sniffing (TLS/HTTP/QUIC)</label>
+        <type>checkbox</type>
+        <help>Required for domain-based routing rules (geosite:ru, etc.) when traffic comes via IP through the TUN interface.</help>
+    </field>
+    <field>
+        <id>xrayclient.general.sniffing_dest_override</id>
+        <label>Destination Override</label>
+        <type>select_multiple</type>
+        <style>selectpicker</style>
+        <help>Which traffic types get sniffed to recover the destination hostname: HTTP, TLS/HTTPS, QUIC/HTTP3, and FakeDNS. Disable a type if it breaks something you serve (rare — QUIC is required for HTTP3 sites).</help>
+    </field>
+    <field>
+        <id>xrayclient.general.sniffing_route_only</id>
+        <label>Route Only</label>
+        <type>checkbox</type>
+        <help>Sniffed domain is used for routing decisions only; the connection itself is not re-dialed. Almost always what you want.</help>
+    </field>
+    <field>
+        <id>xrayclient.general.sniffing_domains_excluded</id>
+        <label>Domains Excluded from Sniffing</label>
+        <type>text</type>
+        <help>Comma-separated domain rules (e.g. geosite:category-ads-all, domain:my.local) that must not be sniffed. Empty = sniff everything.</help>
+    </field>
+</form>

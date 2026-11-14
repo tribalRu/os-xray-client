@@ -1,0 +1,8 @@
+<form>
+    <field>
+        <id>xrayclient.general.config_mode</id>
+        <label>Configuration Mode</label>
+        <type>dropdown</type>
+        <help>Select whether config.json is generated from the UI tabs (Nodes, Routing, DNS) or taken from the raw JSON config below. Raw JSON mode keeps this tab visible even when «Show Expert Config Tab» is off.</help>
+    </field>
+</form>

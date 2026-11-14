@@ -1,0 +1,48 @@
+<form>
+    <field>
+        <type>header</type>
+        <label>Built-in DNS server</label>
+    </field>
+    <field>
+        <id>xrayclient.general.dns_enabled</id>
+        <label>Enable Built-in DNS</label>
+        <type>checkbox</type>
+        <help>Route domain resolution through Xray's own DNS server instead of the system resolver. Addresses are looked up from the DNS Servers tab (or, when disabled, from the Raw JSON: dns field in this section, shown with Show advanced fields). Domains still unmatched by any routing rule go direct.</help>
+    </field>
+    <field>
+        <id>xrayclient.general.dns_query_strategy</id>
+        <label>Query Strategy</label>
+        <type>dropdown</type>
+        <help>Which addresses servers are allowed to answer with: IPv4 and IPv6 (default), IPv4 only or IPv6 only.</help>
+    </field>
+    <field>
+        <id>xrayclient.general.dns_disable_cache</id>
+        <label>Disable DNS Cache</label>
+        <type>checkbox</type>
+        <help>Do not cache DNS answers. Useful for testing domains whose DNS changes often; costs a query per lookup in production.</help>
+    </field>
+    <field>
+        <id>xrayclient.general.dns_disable_fallback</id>
+        <label>Disable Fallback</label>
+        <type>checkbox</type>
+        <help>If every domain-matched server fails, do not ask the untagged servers instead (strict DNS).</help>
+    </field>
+    <field>
+        <id>xrayclient.general.dns_disable_fallback_if_match</id>
+        <label>Disable Fallback If Match</label>
+        <type>checkbox</type>
+        <help>Once a request matched a domain-tagged server, fail instead of falling back to untagged servers when it cannot answer.</help>
+    </field>
+    <field>
+        <id>xrayclient.general.dns_enable_parallel_query</id>
+        <label>Parallel Query</label>
+        <type>checkbox</type>
+        <help>Query all matching servers at once and use the first answer. Higher traffic, faster answers, but can downgrade a domestic resolver's accuracy.</help>
+    </field>
+    <field>
+        <id>xrayclient.general.dns_use_system_hosts</id>
+        <label>Use System Hosts</label>
+        <type>checkbox</type>
+        <help>Feed /etc/hosts into the built-in DNS as static hosts.</help>
+    </field>
+</form>
