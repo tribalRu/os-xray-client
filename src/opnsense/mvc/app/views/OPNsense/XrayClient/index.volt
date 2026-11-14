@@ -224,15 +224,16 @@
     #DialogRule.optional-hidden div.form-group:has(.expert_only) {
         display: none !important;
     }
-    /* Update buttons in the maintenance rows: level with the dropdown, and an
-       empty help-block above them must not push them down. */
+    /* Update buttons in the maintenance rows: right beside the dropdown, with
+       a normal gap; notes and help texts below the row wrap as usual. */
     #frm_maintenance td.maint_btn_cell {
-        vertical-align: middle;
-    }
-    #frm_maintenance td.maint_btn_cell > .help-block:empty {
-        display: none;
+        white-space: nowrap;
     }
     #frm_maintenance td.maint_btn_cell > .btn {
+        margin-left: 12px;
+        vertical-align: middle;
+    }
+    #frm_maintenance td.maint_btn_cell > div:not(.bootstrap-select) {
         white-space: normal;
     }
     /* Sub-navigation inside the Routing tab. */
@@ -902,12 +903,12 @@
         }
         $('#xrayclient\\.general\\.enable_socks, #xrayclient\\.general\\.enable_http, #xrayclient\\.general\\.enable_tun, #xrayclient\\.general\\.enable_sniffing, #xrayclient\\.general\\.auto_telemetry, #xrayclient\\.general\\.dns_enabled, #xrayclient\\.general\\.socks_auth, #xrayclient\\.general\\.http_auth, #xrayclient\\.general\\.observatory_type').on('change', toggleGeneralRows);
 
-        // Each update button sits in the row of the field it acts on, in the
-        // otherwise empty third column right of the dropdown.
+        // Each update button sits in the row of the field it acts on, right
+        // beside the dropdown.
         (function placeMaintenanceButtons() {
             [['btn_update_core', 'core_branch'], ['btn_update_geodata', 'geodata_preset'], ['btn_update_plugin', 'plugin_branch']].forEach(function (p) {
                 var $btn = $('#' + p[0]);
-                var $cell = $('[id="xrayclient.maintenance.' + p[1] + '"]').closest('tr').children('td').eq(2);
+                var $cell = $('[id="xrayclient.maintenance.' + p[1] + '"]').closest('tr').children('td').eq(1);
                 if ($btn.length === 0 || $cell.length === 0) {
                     return;
                 }
