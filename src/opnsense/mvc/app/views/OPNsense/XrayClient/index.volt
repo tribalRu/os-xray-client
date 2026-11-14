@@ -254,6 +254,21 @@
         width: 0 !important;
         padding: 0 !important;
     }
+    /* Versions card of the Maintenance tab: one table instead of two blocks. */
+    .maint_ver_table {
+        border-collapse: separate;
+        border-spacing: 0 4px;
+        font-size: 13px;
+    }
+    .maint_ver_table th {
+        font-weight: normal;
+        opacity: 0.6;
+        padding: 0 22px 2px 0;
+    }
+    .maint_ver_table td {
+        padding: 2px 22px 2px 0;
+        white-space: nowrap;
+    }
     /* Sub-navigation inside the Routing tab. */
     #routingtabs {
         margin: 10px 15px 6px 15px;
@@ -921,6 +936,19 @@
             });
         }
         $('#xrayclient\\.general\\.enable_socks, #xrayclient\\.general\\.enable_http, #xrayclient\\.general\\.enable_tun, #xrayclient\\.general\\.enable_sniffing, #xrayclient\\.general\\.auto_telemetry, #xrayclient\\.general\\.dns_enabled, #xrayclient\\.general\\.socks_auth, #xrayclient\\.general\\.http_auth, #xrayclient\\.general\\.observatory_type').on('change', toggleGeneralRows);
+
+        // The versions card goes right under the form's "full help" row, so
+        // that switch stays in the top right corner of the tab.
+        (function placeVersionsCard() {
+            var $helpRow = $('#frm_maintenance [id^="show_all_help"]').first().closest('tr');
+            if ($helpRow.length === 0 || $('#maint_versions').length === 0) {
+                return;
+            }
+            var $row = $('<tr class="maint_versions_row"><td colspan="3"></td></tr>');
+            $row.children('td').append($('#maint_versions').css('margin-bottom', '0'));
+            $helpRow.after($row);
+            $('#maint_versions_wrap').remove();
+        })();
 
         // Each update button sits in the row of the field it acts on, right
         // beside the dropdown.
@@ -4075,7 +4103,6 @@
         }
 
         function renderUpdateRow(prefix, info) {
-            $('#upd_' + prefix + '_current').text(info.current || 'unknown');
             $('#upd_' + prefix + '_latest').text(info.latest || 'unreachable');
             var $badge = $('#upd_' + prefix + '_badge');
             if (!info.latest) {
@@ -4108,7 +4135,6 @@
                 }
                 renderUpdateRow('core', data.core || {});
                 renderUpdateRow('plugin', data.plugin || {});
-                $('#updates_details').show();
                 if (data.message) {
                     $('#lbl_updates_status').text(data.message).removeClass('text-muted').addClass('text-warning');
                 } else {
@@ -4417,31 +4443,38 @@
     </div>
 
     <div id="tab_maintenance" class="tab-pane fade in">
-        <div class="col-md-12" style="margin-top: 15px;">
-            <div class="alert alert-info">
-                <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
-                <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">&hellip;</span>
-            </div>
-        </div>
-        <div class="col-md-12">
-            <div style="border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; padding: 12px 15px; margin-bottom: 10px; background: rgba(255,255,255,0.02);">
-                <div class="form-inline" style="margin-bottom: 0;">
+        <div id="maint_versions_wrap" class="col-md-12" style="margin-top: 15px;">
+            <div id="maint_versions" style="border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; padding: 12px 15px; margin-bottom: 10px; background: rgba(255,255,255,0.02);">
+                <div class="form-inline" style="margin-bottom: 8px;">
                     <button id="btn_check_updates" type="button" class="btn btn-default"><i class="fa fa-refresh"></i> <b>Check for Updates</b></button>
                     <span id="lbl_updates_status" class="text-muted" style="margin-left: 12px;">Not checked yet.</span>
                 </div>
-                <div id="updates_details" style="display: none; margin-top: 12px; font-size: 13px;">
-                    <div style="margin-bottom: 6px;">
-                        <b>Xray-core:</b> <span id="upd_core_current"></span> &nbsp;→&nbsp; <span id="upd_core_latest"></span>
-                        <span id="upd_core_badge" style="margin-left: 8px;"></span>
-                        <a id="upd_core_link" href="#" target="_blank" rel="noopener" style="margin-left: 8px; display: none;">release notes</a>
-                    </div>
-                    <div>
-                        <b>Plugin:</b> <span id="upd_plugin_current"></span> &nbsp;→&nbsp; <span id="upd_plugin_latest"></span>
-                        <span id="upd_plugin_badge" style="margin-left: 8px;"></span>
-                        <a id="upd_plugin_link" href="#" target="_blank" rel="noopener" style="margin-left: 8px; display: none;">GitHub</a>
-                    </div>
-                </div>
+                <table class="maint_ver_table">
+                    <thead>
+                        <tr><th></th><th>Installed</th><th>Latest</th><th></th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><b>Xray-core</b></td>
+                            <td id="lbl_core_version">Loading...</td>
+                            <td id="upd_core_latest" class="text-muted">&mdash;</td>
+                            <td id="upd_core_badge"></td>
+                            <td><a id="upd_core_link" href="#" target="_blank" rel="noopener" style="display: none;">release notes</a></td>
+                        </tr>
+                        <tr>
+                            <td><b>Plugin</b></td>
+                            <td id="lbl_plugin_version">&hellip;</td>
+                            <td id="upd_plugin_latest" class="text-muted">&mdash;</td>
+                            <td id="upd_plugin_badge"></td>
+                            <td><a id="upd_plugin_link" href="#" target="_blank" rel="noopener" style="display: none;">GitHub</a></td>
+                        </tr>
+                        <tr>
+                            <td><b>GeoIP &amp; GeoSite</b></td>
+                            <td id="lbl_geodata_date">Loading...</td>
+                            <td colspan="3" class="text-muted">updated at the time shown</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
         {{ partial("layout_partials/base_form", ['fields': maintenanceForm, 'id': 'frm_maintenance']) }}
