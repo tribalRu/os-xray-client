@@ -258,8 +258,8 @@
     .maint_ver_table {
         width: auto;
         border-collapse: separate;
-        border-spacing: 0 4px;
-        font-size: 13px;
+        border-spacing: 0 5px;
+        font-size: 15px;
     }
     .maint_ver_table th {
         font-weight: normal;
