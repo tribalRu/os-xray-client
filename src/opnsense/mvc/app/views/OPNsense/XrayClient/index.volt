@@ -224,6 +224,52 @@
     #DialogRule.optional-hidden div.form-group:has(.expert_only) {
         display: none !important;
     }
+    /* Update buttons in the maintenance rows: right beside the dropdown, with
+       a normal gap; notes and help texts below the row wrap as usual. */
+    #frm_maintenance td.maint_btn_cell {
+        white-space: nowrap;
+    }
+    #frm_maintenance td.maint_btn_cell > .maint_anchor {
+        display: inline-block !important;
+        vertical-align: middle;
+    }
+    #frm_maintenance td.maint_btn_cell .bootstrap-select.maint_fixed {
+        width: 330px !important;
+    }
+    #frm_maintenance td.maint_btn_cell > .btn {
+        margin-left: 12px;
+        vertical-align: middle;
+    }
+    #frm_maintenance td.maint_btn_cell > div:not(.bootstrap-select),
+    #frm_maintenance td.maint_btn_cell > span.help-block {
+        white-space: normal;
+    }
+    /* The form is label + field only: the third column (validation text) is
+       folded into the field cell, which gets its width, so a dropdown and its
+       button fit in one row. */
+    #frm_maintenance tr:not(.maint_ver_row) > td:nth-child(2) {
+        width: 78% !important;
+    }
+    #frm_maintenance tr:not(.maint_ver_row) > td:nth-child(3) {
+        width: 0 !important;
+        padding: 0 !important;
+    }
+    /* Versions card of the Maintenance tab: one table instead of two blocks. */
+    .maint_ver_table {
+        width: auto;
+        border-collapse: separate;
+        border-spacing: 0 5px;
+        font-size: 15px;
+    }
+    .maint_ver_table th {
+        font-weight: normal;
+        opacity: 0.6;
+        padding: 0 22px 2px 0;
+    }
+    .maint_ver_table td {
+        padding: 2px 22px 2px 0;
+        white-space: nowrap;
+    }
     /* Sub-navigation inside the Routing tab. */
     #routingtabs {
         margin: 10px 15px 6px 15px;
@@ -444,6 +490,7 @@
             toggleConfigModeUI();
             toggleGeoDataCustomUI();
             setupPluginBranchPicker();
+            settleMaintenanceButtons();
             startTelemetryAutoRefresh();
             if (typeof toggleExpertTab === 'function') {
                 toggleExpertTab(expertTabWanted());
@@ -891,19 +938,67 @@
         }
         $('#xrayclient\\.general\\.enable_socks, #xrayclient\\.general\\.enable_http, #xrayclient\\.general\\.enable_tun, #xrayclient\\.general\\.enable_sniffing, #xrayclient\\.general\\.auto_telemetry, #xrayclient\\.general\\.dns_enabled, #xrayclient\\.general\\.socks_auth, #xrayclient\\.general\\.http_auth, #xrayclient\\.general\\.observatory_type').on('change', toggleGeneralRows);
 
-        // The update buttons sit at the end of the section they belong to.
+        // The versions card goes right under the form's "full help" row, so
+        // that switch stays in the top right corner of the tab.
+        (function placeVersionsCard() {
+            var $helpRow = $('#frm_maintenance [id^="show_all_help"]').first().closest('tr');
+            if ($helpRow.length === 0 || $('#maint_versions').length === 0) {
+                return;
+            }
+            var $row = $('<tr class="maint_versions_row"><td colspan="3"></td></tr>');
+            $row.children('td').append($('#maint_versions').css('margin-bottom', '0'));
+            $helpRow.after($row);
+            $('#maint_versions_wrap').remove();
+        })();
+
+        // Each update button sits in the row of the field it acts on, right
+        // beside the dropdown.
         (function placeMaintenanceButtons() {
-            [['btn_update_core', 'core_branch'], ['btn_update_geodata', 'custom_geosite_url'], ['btn_update_plugin', 'plugin_branch']].forEach(function (p) {
+            // validation messages move under the field (see the CSS above)
+            $('#frm_maintenance tr').each(function () {
+                var $tds = $(this).children('td');
+                if ($tds.length === 3) {
+                    $tds.eq(2).children('.help-block').appendTo($tds.eq(1));
+                }
+            });
+            [['btn_update_core', 'core_branch'], ['btn_update_geodata', 'geodata_preset'], ['btn_update_plugin', 'plugin_branch']].forEach(function (p) {
                 var $btn = $('#' + p[0]);
-                var $anchor = $('[id="xrayclient.maintenance.' + p[1] + '"]').closest('tr');
-                if ($btn.length === 0 || $anchor.length === 0) {
+                var $cell = $('[id="xrayclient.maintenance.' + p[1] + '"]').closest('tr').children('td').eq(1);
+                if ($btn.length === 0 || $cell.length === 0) {
                     return;
                 }
-                var $row = $('<tr class="maint_btn_row"><td></td><td></td><td></td></tr>');
-                $row.children('td').eq(1).append($btn);
-                $anchor.after($row);
+                $cell.addClass('maint_btn_cell').append($btn);
             });
         })();
+
+        // The dropdowns are built after the buttons are placed (and the plugin
+        // branch picker and its note after that), so once they exist the button
+        // is put right behind its dropdown and any note below the row.
+        function settleMaintenanceButtons() {
+            [['btn_update_core', '[id="xrayclient.maintenance.core_branch"]'],
+             ['btn_update_geodata', '[id="xrayclient.maintenance.geodata_preset"]'],
+             ['btn_update_plugin', '#plugin_branch_picker']].forEach(function (p) {
+                var $btn = $('#' + p[0]);
+                var $sel = $(p[1]);
+                if (!$btn.length || !$sel.length) {
+                    return;
+                }
+                // The dropdown may sit in wrappers of its own: take whatever is
+                // the topmost element under the cell and keep it on the row.
+                var $anchor = $sel.parentsUntil('td').last();
+                if (!$anchor.length) {
+                    $anchor = $sel;
+                }
+                $anchor.addClass('maint_anchor');
+                $btn.insertAfter($anchor);
+                // the plugin branch picker sizes itself; the other two get a
+                // fixed width that leaves room for the button on one row
+                if (p[0] !== 'btn_update_plugin') {
+                    $sel.closest('.bootstrap-select').addClass('maint_fixed');
+                }
+            });
+            $('#plugin_branch_note').insertAfter($('#btn_update_plugin'));
+        }
 
         function toggleGeoDataCustomUI() {
             var preset = $('#xrayclient\\.maintenance\\.geodata_preset').val();
@@ -927,7 +1022,7 @@
             }
             $input.hide().after(
                 '<select id="plugin_branch_picker" class="selectpicker" data-live-search="true" data-width="auto" data-size="10"></select>' +
-                ' <span id="plugin_branch_note" class="small"></span>'
+                '<div id="plugin_branch_note" class="small" style="margin-top: 4px;"></div>'
             );
             $('#plugin_branch_picker').on('change', function () {
                 $input.val($(this).val());
@@ -4009,7 +4104,6 @@
         }
 
         function renderUpdateRow(prefix, info) {
-            $('#upd_' + prefix + '_current').text(info.current || 'unknown');
             $('#upd_' + prefix + '_latest').text(info.latest || 'unreachable');
             var $badge = $('#upd_' + prefix + '_badge');
             if (!info.latest) {
@@ -4042,7 +4136,6 @@
                 }
                 renderUpdateRow('core', data.core || {});
                 renderUpdateRow('plugin', data.plugin || {});
-                $('#updates_details').show();
                 if (data.message) {
                     $('#lbl_updates_status').text(data.message).removeClass('text-muted').addClass('text-warning');
                 } else {
@@ -4351,40 +4444,47 @@
     </div>
 
     <div id="tab_maintenance" class="tab-pane fade in">
-        <div class="col-md-12" style="margin-top: 15px;">
-            <div class="alert alert-info">
-                <b>Installed Xray-core Version:</b> <span id="lbl_core_version">Loading...</span> &nbsp;|&nbsp;
-                <b>GeoData Last Updated:</b> <span id="lbl_geodata_date">Loading...</span> &nbsp;|&nbsp;
-                <b>Plugin Version:</b> <span id="lbl_plugin_version">&hellip;</span>
-            </div>
-        </div>
-        <div class="col-md-12">
-            <div style="border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; padding: 12px 15px; margin-bottom: 10px; background: rgba(255,255,255,0.02);">
-                <div class="form-inline" style="margin-bottom: 0;">
+        <div id="maint_versions_wrap" class="col-md-12" style="margin-top: 15px;">
+            <div id="maint_versions" style="border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; padding: 12px 15px; margin-bottom: 10px; background: rgba(255,255,255,0.02);">
+                <div class="form-inline" style="margin-bottom: 8px;">
                     <button id="btn_check_updates" type="button" class="btn btn-default"><i class="fa fa-refresh"></i> <b>Check for Updates</b></button>
                     <span id="lbl_updates_status" class="text-muted" style="margin-left: 12px;">Not checked yet.</span>
                 </div>
-                <div id="updates_details" style="display: none; margin-top: 12px; font-size: 13px;">
-                    <div style="margin-bottom: 6px;">
-                        <b>Xray-core:</b> <span id="upd_core_current"></span> &nbsp;→&nbsp; <span id="upd_core_latest"></span>
-                        <span id="upd_core_badge" style="margin-left: 8px;"></span>
-                        <a id="upd_core_link" href="#" target="_blank" rel="noopener" style="margin-left: 8px; display: none;">release notes</a>
-                    </div>
-                    <div>
-                        <b>Plugin:</b> <span id="upd_plugin_current"></span> &nbsp;→&nbsp; <span id="upd_plugin_latest"></span>
-                        <span id="upd_plugin_badge" style="margin-left: 8px;"></span>
-                        <a id="upd_plugin_link" href="#" target="_blank" rel="noopener" style="margin-left: 8px; display: none;">GitHub</a>
-                    </div>
-                </div>
+                <table class="maint_ver_table">
+                    <thead>
+                        <tr class="maint_ver_row"><th></th><th>Installed</th><th>Latest</th><th></th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        <tr class="maint_ver_row">
+                            <td><b>Xray-core</b></td>
+                            <td id="lbl_core_version">Loading...</td>
+                            <td id="upd_core_latest" class="text-muted">&mdash;</td>
+                            <td id="upd_core_badge"></td>
+                            <td><a id="upd_core_link" href="#" target="_blank" rel="noopener" style="display: none;">release notes</a></td>
+                        </tr>
+                        <tr class="maint_ver_row">
+                            <td><b>Plugin</b></td>
+                            <td id="lbl_plugin_version">&hellip;</td>
+                            <td id="upd_plugin_latest" class="text-muted">&mdash;</td>
+                            <td id="upd_plugin_badge"></td>
+                            <td><a id="upd_plugin_link" href="#" target="_blank" rel="noopener" style="display: none;">GitHub</a></td>
+                        </tr>
+                        <tr class="maint_ver_row">
+                            <td><b>GeoIP &amp; GeoSite</b></td>
+                            <td id="lbl_geodata_date">Loading...</td>
+                            <td colspan="3"></td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
         {{ partial("layout_partials/base_form", ['fields': maintenanceForm, 'id': 'frm_maintenance']) }}
         <div class="col-md-12">
             <button id="btn_update_core" type="button" class="btn btn-warning">
-                <i class="fa fa-cloud-download"></i> <b>Download &amp; Update Xray-core</b>
+                <i class="fa fa-cloud-download"></i> <b>Update Xray-core</b>
             </button>
             <button id="btn_update_geodata" type="button" class="btn btn-info">
-                <i class="fa fa-globe"></i> <b>Update GeoIP &amp; GeoSite Now</b>
+                <i class="fa fa-globe"></i> <b>Update GeoIP &amp; GeoSite</b>
             </button>
             <button id="btn_update_plugin" type="button" class="btn btn-success">
                 <i class="fa fa-github"></i> <b>Update Plugin from GitHub</b>
