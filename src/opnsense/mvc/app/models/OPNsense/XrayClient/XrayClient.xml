@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>2.26.8</version>
+    <version>2.26.9</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -12,7 +12,7 @@
                 <default>ui</default>
                 <Required>Y</Required>
                 <OptionValues>
-                    <ui>UI Builder (Nodes + Routing Rules)</ui>
+                    <ui>UI Builder (Nodes + Routing + DNS)</ui>
                     <raw>Raw JSON Configuration</raw>
                 </OptionValues>
             </config_mode>

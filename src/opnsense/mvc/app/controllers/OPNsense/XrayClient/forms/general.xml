@@ -6,16 +6,10 @@
         <help>Enable or disable the Xray client service.</help>
     </field>
     <field>
-        <id>xrayclient.general.config_mode</id>
-        <label>Configuration Mode</label>
-        <type>dropdown</type>
-        <help>Select whether to generate config.json from UI tabs (Nodes + Routing Rules) or use a raw JSON config.</help>
-    </field>
-    <field>
         <id>xrayclient.general.expert_mode</id>
         <label>Show Expert Config Tab</label>
         <type>checkbox</type>
-        <help>Show an extra "Expert Config" tab with the exact /usr/local/etc/xray/config.json Xray is running (or would run). This is all Advanced Mode controls: the advanced fields in the dialogs are governed separately by their own "Show advanced fields" / "Show additional conditions" checkboxes. You can view the tab read-only or edit it manually; saving there switches the plugin to Raw JSON mode, and the config is validated with xray run -test before it is applied.</help>
+        <help>Show an extra "Expert Config" tab with the exact /usr/local/etc/xray/config.json Xray is running (or would run). This is all Advanced Mode controls: the advanced fields in the dialogs are governed separately by their own "Show advanced fields" / "Show additional conditions" checkboxes. The Configuration Mode selector (UI Builder or Raw JSON) is on that tab. You can view the tab read-only or edit it manually; saving there switches the plugin to Raw JSON mode, and the config is validated with xray run -test before it is applied.</help>
     </field>
     <field>
         <type>header</type>

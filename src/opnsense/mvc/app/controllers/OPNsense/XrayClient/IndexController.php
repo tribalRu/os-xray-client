@@ -14,6 +14,7 @@ class IndexController extends BaseIndexController
         // form they are rendered in differs.
         $this->view->observatoryForm = $this->getForm("generalObservatory");
         $this->view->routingForm = $this->getForm("generalRouting");
+        $this->view->expertForm = $this->getForm("generalExpert");
         $this->view->dnsForm = $this->getForm("generalDns");
         $this->view->formDialogNode = $this->getForm("dialogNode");
         $this->view->formDialogRule = $this->getForm("dialogRule");

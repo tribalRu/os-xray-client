@@ -92,6 +92,7 @@
     #frm_general_dns td,
     #frm_general_obs td,
     #frm_general_route td,
+    #frm_general_expert td,
     #frm_maintenance td,
     #frm_DialogNode td,
     #frm_DialogRule td,
@@ -435,6 +436,7 @@
             'frm_general_dns': "/api/xrayclient/settings/get",
             'frm_general_obs': "/api/xrayclient/settings/get",
             'frm_general_route': "/api/xrayclient/settings/get",
+            'frm_general_expert': "/api/xrayclient/settings/get",
             'frm_maintenance': "/api/xrayclient/settings/get"
         }).done(function (data) {
             formatTokenizersUI();
@@ -444,7 +446,7 @@
             setupPluginBranchPicker();
             startTelemetryAutoRefresh();
             if (typeof toggleExpertTab === 'function') {
-                toggleExpertTab($('#xrayclient\\.general\\.expert_mode').prop('checked'));
+                toggleExpertTab(expertTabWanted());
             }
             toggleGeneralRows();
         });
@@ -641,6 +643,13 @@
         // Expert Config tab: view the effective /usr/local/etc/xray/config.json
         // or edit it manually. Saving routes through saveRawConfigAction
         // (validate -> backup -> xray run -test -> atomic write -> restart).
+        // The tab is shown when the checkbox asks for it, and always in Raw JSON
+        // mode (the raw config and the mode selector live there).
+        window.expertTabWanted = function expertTabWanted() {
+            return $('#xrayclient\\.general\\.expert_mode').prop('checked') ||
+                $('#xrayclient\\.general\\.config_mode').val() === 'raw';
+        };
+
         window.toggleExpertTab = function toggleExpertTab(show) {
             $('#tab_expert_li').toggle(!!show);
             if (!show && $('a[href="#tab_expert"]').parent().hasClass('active')) {
@@ -649,7 +658,14 @@
         };
 
         $('#xrayclient\\.general\\.expert_mode').on('change', function () {
-            toggleExpertTab($(this).prop('checked'));
+            toggleExpertTab(expertTabWanted());
+        });
+        // Switching to Raw JSON keeps the tab; switching back never pulls it
+        // away from under the user (it is re-evaluated on the next load).
+        $('#xrayclient\\.general\\.config_mode').on('change', function () {
+            if ($(this).val() === 'raw') {
+                toggleExpertTab(true);
+            }
         });
 
         var expertConfigLoaded = false;
@@ -752,7 +768,7 @@
         // <form id="frm_general">. saveFormToEndpoint() only serialises
         // fields inside that form, so move the container inside it or
         // Raw JSON would never be saved to config.xml.
-        $('#frm_general').append($('#raw_json_container'));
+        $('#frm_general_expert').append($('#raw_json_container'));
 
         // The raw JSON sections are plain textareas that carry the model field
         // ids. Each one is moved into a table row at the end of the form
@@ -2628,8 +2644,9 @@
                     $('#xrayclient\\.general\\.config_mode').val('raw').selectpicker('refresh');
                     $('#xrayclient\\.general\\.raw_json').val(raw);
                     toggleConfigModeUI();
+                    toggleExpertTab(true);
                     $('#DialogImportLink').modal('hide');
-                    $('a[href="#tab_general"]').tab('show');
+                    showTab('#tab_expert');
                     return;
                 } catch (e) {
                     $('#import_error_msg').text('Invalid JSON syntax: ' + e.message).show();
@@ -3855,8 +3872,8 @@
             var $btn = $(this);
             var originalHtml = $btn.html();
             $btn.prop('disabled', true).find('.fa-spinner').show();
-            // General settings are spread over four forms (General, the DNS
-            // Routing and DNS tabs, Maintenance); they are saved one after the
+            // The settings are spread over several forms (General, Routing,
+            // DNS, Balancers, Expert Config, Maintenance); they are saved one after the
             // other and the first form with a validation error is brought to
             // the front, so the error is not hidden on another tab.
             var saveSteps = [
@@ -3864,6 +3881,7 @@
                 ['frm_general_dns', '#tab_dns'],
                 ['frm_general_obs', '#tab_balancers'],
                 ['frm_general_route', '#tab_routing_policy'],
+                ['frm_general_expert', '#tab_expert'],
                 ['frm_maintenance', '#tab_maintenance']
             ];
             function saveStep(i) {
@@ -4005,15 +4023,11 @@
     <div id="tab_general" class="tab-pane fade in active">
         <div class="content-box" style="padding-bottom: 1.5em;">
             {{ partial("layout_partials/base_form", ['fields': generalForm, 'id': 'frm_general']) }}
-            <div id="raw_json_container" style="display:none; padding: 0 15px 15px 15px;">
-                <label for="xrayclient.general.raw_json"><b>Raw Xray JSON Configuration (/usr/local/etc/xray/config.json):</b></label>
-                <textarea id="xrayclient.general.raw_json" class="form-control" rows="16" style="font-family: monospace; font-size: 12px;" placeholder="{ &quot;inbounds&quot;: [...], &quot;outbounds&quot;: [...] }"></textarea>
-            </div>
             <div id="json_sections_container" style="display:none;">
                 <div class="form-group">
                     <label for="xrayclient.general.dns_json"><b>Built-in DNS — top-level <code>dns</code> object</b></label>
                     <textarea id="xrayclient.general.dns_json" class="form-control json_section" rows="6" spellcheck="false" placeholder='{ "servers": ["https://1.1.1.1/dns-query", "1.1.1.1"], "queryStrategy": "UseIP" }'></textarea>
-                    <span class="help-block">Fallback path, used only when <b>Enable Built-in DNS</b> in General Settings is off — an enabled built-in DNS takes precedence and this field is ignored. When set, Xray resolves domains for routing through this DNS instead of the system resolver. Server formats: an IP, <code>tcp://ip</code>, <code>https://host/dns-query</code> (DoH), <code>https+local://host/dns-query</code> (DoH without a detour), <code>localhost</code>, <code>fakedns</code>. Supports <code>hosts</code>, <code>queryStrategy</code>, <code>disableCache</code>, <code>tag</code>. A wrong DNS breaks domain-based routing, so start with a minimal list.</span>
+                    <span class="help-block">Fallback path, used only when <b>Enable Built-in DNS</b> (above) is off — an enabled built-in DNS takes precedence and this field is ignored. When set, Xray resolves domains for routing through this DNS instead of the system resolver. Server formats: an IP, <code>tcp://ip</code>, <code>https://host/dns-query</code> (DoH), <code>https+local://host/dns-query</code> (DoH without a detour), <code>localhost</code>, <code>fakedns</code>. Supports <code>hosts</code>, <code>queryStrategy</code>, <code>disableCache</code>, <code>tag</code>. A wrong DNS breaks domain-based routing, so start with a minimal list.</span>
                 </div>
                 <div class="form-group">
                     <label for="xrayclient.general.balancers_json"><b>Load Balancers — <code>routing.balancers</code> array</b></label>
@@ -4033,7 +4047,7 @@
             </div>
             <div class="col-md-12">
                 <hr/>
-                <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves General + Maintenance settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
+                <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves the plugin settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
                     <b>Apply &amp; Restart Xray</b> <i class="fa fa-spinner fa-pulse" style="display: none;"></i>
                 </button>
             </div>
@@ -4089,7 +4103,7 @@
             <span class="text-muted" style="font-size: 15px; line-height: 1.5;">Entries here are saved immediately on every add/edit/delete/toggle. <b>Apply &amp; Restart Xray</b> rebuilds config.json and restarts Xray.</span>
         </div>
             <hr/>
-            <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves General + Maintenance settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
+            <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves the plugin settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
                 <b>Apply &amp; Restart Xray</b> <i class="fa fa-spinner fa-pulse" style="display: none;"></i>
             </button>
         </div>
@@ -4131,7 +4145,7 @@
             <span class="text-muted" style="font-size: 15px; line-height: 1.5;">Rules are applied top-to-bottom (&#8593;/&#8595; to reorder). Entries save instantly &mdash; click <b>Apply &amp; Restart Xray</b>.</span>
         </div>
             <hr/>
-            <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves General + Maintenance settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
+            <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves the plugin settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
                 <b>Apply &amp; Restart Xray</b> <i class="fa fa-spinner fa-pulse" style="display: none;"></i>
             </button>
         </div>
@@ -4174,7 +4188,7 @@
             <span class="text-muted" style="font-size: 15px; line-height: 1.5;">A balancer groups nodes by tag prefix and picks one for every connection. Rules choose it from the &laquo;Balancers&raquo; group in Target Outbound. leastPing / leastLoad need an observatory (Load Balancer Observatory above). Entries save instantly &mdash; click <b>Apply &amp; Restart Xray</b>.</span>
         </div>
             <hr/>
-            <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves General + Maintenance settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
+            <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves the plugin settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
                 <b>Apply &amp; Restart Xray</b> <i class="fa fa-spinner fa-pulse" style="display: none;"></i>
             </button>
         </div>
@@ -4184,7 +4198,7 @@
         {{ partial("layout_partials/base_form", ['fields': routingForm, 'id': 'frm_general_route']) }}
         <div class="col-md-12" style="padding-bottom: 15px;">
             <hr/>
-            <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves General + Maintenance settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
+            <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves the plugin settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
                 <b>Apply &amp; Restart Xray</b> <i class="fa fa-spinner fa-pulse" style="display: none;"></i>
             </button>
         </div>
@@ -4225,13 +4239,18 @@
             <span class="text-muted" style="font-size: 15px; line-height: 1.5;">Switch on <b>Enable Built-in DNS</b> above, then list resolvers here. Servers with a domains list answer only those domains; the preset in the dialog fills typical setups. Entries save instantly &mdash; <b>Apply &amp; Restart Xray</b>.</span>
         </div>
             <hr/>
-            <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves General + Maintenance settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
+            <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves the plugin settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
                 <b>Apply &amp; Restart Xray</b> <i class="fa fa-spinner fa-pulse" style="display: none;"></i>
             </button>
         </div>
     </div>
 
     <div id="tab_expert" class="tab-pane fade">
+        {{ partial("layout_partials/base_form", ['fields': expertForm, 'id': 'frm_general_expert']) }}
+            <div id="raw_json_container" style="display:none; padding: 0 15px 15px 15px; margin-top: 10px;">
+                <label for="xrayclient.general.raw_json"><b>Raw Xray JSON Configuration (/usr/local/etc/xray/config.json):</b></label>
+                <textarea id="xrayclient.general.raw_json" class="form-control" rows="16" style="font-family: monospace; font-size: 12px;" placeholder="{ &quot;inbounds&quot;: [...], &quot;outbounds&quot;: [...] }"></textarea>
+            </div>
         <div class="col-md-12" style="margin-top: 15px; padding-bottom: 15px;">
             <div class="alert alert-warning" style="margin-bottom: 10px;">
                 <b>Expert Mode.</b> This is the exact <code>/usr/local/etc/xray/config.json</code> Xray is running (or would run). Saving here validates the JSON with <code>xray run -test</code>, stores a backup next to the file (<code>config.json.bak-*</code>), switches the plugin to <b>Raw JSON</b> mode and restarts Xray. The UI tabs will no longer regenerate the file. Use <b>Reset to template-generated config</b> to switch back to template-based generation (UI Builder) without losing nodes or rules.
