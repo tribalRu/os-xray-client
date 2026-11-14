@@ -224,6 +224,17 @@
     #DialogRule.optional-hidden div.form-group:has(.expert_only) {
         display: none !important;
     }
+    /* Update buttons in the maintenance rows: level with the dropdown, and an
+       empty help-block above them must not push them down. */
+    #frm_maintenance td.maint_btn_cell {
+        vertical-align: middle;
+    }
+    #frm_maintenance td.maint_btn_cell > .help-block:empty {
+        display: none;
+    }
+    #frm_maintenance td.maint_btn_cell > .btn {
+        white-space: normal;
+    }
     /* Sub-navigation inside the Routing tab. */
     #routingtabs {
         margin: 10px 15px 6px 15px;
@@ -891,17 +902,16 @@
         }
         $('#xrayclient\\.general\\.enable_socks, #xrayclient\\.general\\.enable_http, #xrayclient\\.general\\.enable_tun, #xrayclient\\.general\\.enable_sniffing, #xrayclient\\.general\\.auto_telemetry, #xrayclient\\.general\\.dns_enabled, #xrayclient\\.general\\.socks_auth, #xrayclient\\.general\\.http_auth, #xrayclient\\.general\\.observatory_type').on('change', toggleGeneralRows);
 
-        // The update buttons sit at the end of the section they belong to.
+        // Each update button sits in the row of the field it acts on, in the
+        // otherwise empty third column right of the dropdown.
         (function placeMaintenanceButtons() {
-            [['btn_update_core', 'core_branch'], ['btn_update_geodata', 'custom_geosite_url'], ['btn_update_plugin', 'plugin_branch']].forEach(function (p) {
+            [['btn_update_core', 'core_branch'], ['btn_update_geodata', 'geodata_preset'], ['btn_update_plugin', 'plugin_branch']].forEach(function (p) {
                 var $btn = $('#' + p[0]);
-                var $anchor = $('[id="xrayclient.maintenance.' + p[1] + '"]').closest('tr');
-                if ($btn.length === 0 || $anchor.length === 0) {
+                var $cell = $('[id="xrayclient.maintenance.' + p[1] + '"]').closest('tr').children('td').eq(2);
+                if ($btn.length === 0 || $cell.length === 0) {
                     return;
                 }
-                var $row = $('<tr class="maint_btn_row"><td></td><td></td><td></td></tr>');
-                $row.children('td').eq(1).append($btn);
-                $anchor.after($row);
+                $cell.addClass('maint_btn_cell').append($btn);
             });
         })();
 
