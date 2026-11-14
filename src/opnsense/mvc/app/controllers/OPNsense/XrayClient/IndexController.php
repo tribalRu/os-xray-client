@@ -9,10 +9,11 @@ class IndexController extends BaseIndexController
     public function indexAction()
     {
         $this->view->generalForm = $this->getForm("general");
-        // Settings that belong to the Balancers and DNS Servers tabs. They stay
+        // Settings that belong to the Routing and DNS Servers tabs. They stay
         // fields of the general model node (same ids and storage); only the
         // form they are rendered in differs.
         $this->view->observatoryForm = $this->getForm("generalObservatory");
+        $this->view->routingForm = $this->getForm("generalRouting");
         $this->view->dnsForm = $this->getForm("generalDns");
         $this->view->formDialogNode = $this->getForm("dialogNode");
         $this->view->formDialogRule = $this->getForm("dialogRule");

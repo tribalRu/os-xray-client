@@ -91,6 +91,7 @@
     #frm_general td,
     #frm_general_dns td,
     #frm_general_obs td,
+    #frm_general_route td,
     #frm_maintenance td,
     #frm_DialogNode td,
     #frm_DialogRule td,
@@ -222,6 +223,20 @@
     #DialogRule.optional-hidden div.form-group:has(.expert_only) {
         display: none !important;
     }
+    /* Sub-navigation inside the Routing tab. */
+    #routingtabs {
+        margin: 10px 15px 6px 15px;
+    }
+    #routingtabs > li > a {
+        padding: 6px 16px;
+        border-radius: 3px;
+        border-bottom: 2px solid transparent;
+    }
+    #routingtabs > li.active > a,
+    #routingtabs > li.active > a:hover,
+    #routingtabs > li.active > a:focus {
+        border-bottom-color: #d94f00;
+    }
     /* Same collapse for Optional knobs on the General Settings tab. The raw
        JSON rows carry .expert_only on their textarea, so they follow it. */
     #tab_general.optional-hidden tr:has(.expert_only),
@@ -229,7 +244,9 @@
     #tab_dns.optional-hidden tr:has(.expert_only),
     #tab_dns.optional-hidden div.form-group:has(.expert_only),
     #tab_balancers.optional-hidden tr:has(.expert_only),
-    #tab_balancers.optional-hidden div.form-group:has(.expert_only) {
+    #tab_balancers.optional-hidden div.form-group:has(.expert_only),
+    #tab_routing_policy.optional-hidden tr:has(.expert_only),
+    #tab_routing_policy.optional-hidden div.form-group:has(.expert_only) {
         display: none !important;
     }
     /* The OPNsense base_dialog partial renders a third, 35%-wide column
@@ -274,6 +291,7 @@
        beside them instead of cutting long option labels. */
     #frm_general .bootstrap-select > .dropdown-toggle,
     #frm_general_dns .bootstrap-select > .dropdown-toggle,
+    #frm_general_route .bootstrap-select > .dropdown-toggle,
     #frm_general_obs .bootstrap-select > .dropdown-toggle .filter-option-inner-inner {
         white-space: normal;
     }
@@ -416,6 +434,7 @@
             'frm_general': "/api/xrayclient/settings/get",
             'frm_general_dns': "/api/xrayclient/settings/get",
             'frm_general_obs': "/api/xrayclient/settings/get",
+            'frm_general_route': "/api/xrayclient/settings/get",
             'frm_maintenance': "/api/xrayclient/settings/get"
         }).done(function (data) {
             formatTokenizersUI();
@@ -2198,12 +2217,12 @@
             // The DNS and observatory settings now live on their own tabs, each
             // with its own switch; all of them share one stored choice and
             // move together.
-            var $tabs = $('#tab_general, #tab_dns, #tab_balancers');
+            var $tabs = $('#tab_general, #tab_dns, #tab_balancers, #tab_routing_policy');
             var saved = false;
             try { saved = localStorage.getItem('osxray_show_advanced_general') === '1'; } catch (e) {}
             $tabs.toggleClass('optional-hidden', !saved);
             var toggles = [];
-            ['#frm_general', '#frm_general_dns', '#frm_general_obs'].forEach(function (formSel) {
+            ['#frm_general', '#frm_general_dns', '#frm_general_obs', '#frm_general_route'].forEach(function (formSel) {
                 toggles.push(mountNativeAdvancedToggle(formSel, 'advanced fields', saved, function (show) {
                     try { localStorage.setItem('osxray_show_advanced_general', show ? '1' : '0'); } catch (e) {}
                     $tabs.toggleClass('optional-hidden', !show);
@@ -3818,6 +3837,15 @@
             });
         })();
 
+        // Rules, Balancers and Policy & Sniffing are sub-tabs of Routing:
+        // bring the parent tab to the front first.
+        function showTab(href) {
+            if (['#tab_rules', '#tab_balancers', '#tab_routing_policy'].indexOf(href) !== -1) {
+                $('a[href="#tab_routing"]').tab('show');
+            }
+            $('a[href="' + href + '"]').tab('show');
+        }
+
         $('.btn_save_apply').on('click', function () {
             var jsonError = jsonSectionError();
             if (jsonError) {
@@ -3828,13 +3856,14 @@
             var originalHtml = $btn.html();
             $btn.prop('disabled', true).find('.fa-spinner').show();
             // General settings are spread over four forms (General, the DNS
-            // and Balancers tabs, Maintenance); they are saved one after the
+            // Routing and DNS tabs, Maintenance); they are saved one after the
             // other and the first form with a validation error is brought to
             // the front, so the error is not hidden on another tab.
             var saveSteps = [
                 ['frm_general', '#tab_general'],
                 ['frm_general_dns', '#tab_dns'],
                 ['frm_general_obs', '#tab_balancers'],
+                ['frm_general_route', '#tab_routing_policy'],
                 ['frm_maintenance', '#tab_maintenance']
             ];
             function saveStep(i) {
@@ -3848,7 +3877,7 @@
                     }
                     saveStep(i + 1);
                 }, false, function () {
-                    $('a[href="' + saveSteps[i][1] + '"]').tab('show');
+                    showTab(saveSteps[i][1]);
                     $btn.html(originalHtml).prop('disabled', false);
                 });
             }
@@ -3966,8 +3995,7 @@
 <ul class="nav nav-tabs" data-tabs="tabs" id="maintabs">
     <li class="active"><a data-toggle="tab" href="#tab_general"><b>General Settings</b></a></li>
     <li><a data-toggle="tab" href="#tab_nodes"><b>Outbound Nodes (Servers)</b></a></li>
-    <li><a data-toggle="tab" href="#tab_rules"><b>Routing Rules</b></a></li>
-    <li><a data-toggle="tab" href="#tab_balancers"><b>Balancers</b></a></li>
+    <li><a data-toggle="tab" href="#tab_routing"><b>Routing</b></a></li>
     <li><a data-toggle="tab" href="#tab_dns"><b>DNS Servers</b></a></li>
     <li id="tab_expert_li" style="display: none;"><a data-toggle="tab" href="#tab_expert"><b>Expert Config</b></a></li>
     <li><a data-toggle="tab" href="#tab_maintenance"><b>Maintenance &amp; Updates</b></a></li>
@@ -4067,7 +4095,14 @@
         </div>
     </div>
 
-    <div id="tab_rules" class="tab-pane fade in">
+    <div id="tab_routing" class="tab-pane fade in">
+        <ul class="nav nav-pills" id="routingtabs">
+            <li class="active"><a data-toggle="tab" href="#tab_rules"><b>Rules</b></a></li>
+            <li><a data-toggle="tab" href="#tab_balancers"><b>Balancers</b></a></li>
+            <li><a data-toggle="tab" href="#tab_routing_policy"><b>Policy &amp; Sniffing</b></a></li>
+        </ul>
+        <div class="tab-content">
+    <div id="tab_rules" class="tab-pane fade in active">
         <table id="grid-rules" class="table table-condensed table-hover table-striped" data-editDialog="DialogRule">
             <thead>
                 <tr>
@@ -4142,6 +4177,18 @@
             <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves General + Maintenance settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
                 <b>Apply &amp; Restart Xray</b> <i class="fa fa-spinner fa-pulse" style="display: none;"></i>
             </button>
+        </div>
+    </div>
+
+    <div id="tab_routing_policy" class="tab-pane fade in">
+        {{ partial("layout_partials/base_form", ['fields': routingForm, 'id': 'frm_general_route']) }}
+        <div class="col-md-12" style="padding-bottom: 15px;">
+            <hr/>
+            <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves General + Maintenance settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
+                <b>Apply &amp; Restart Xray</b> <i class="fa fa-spinner fa-pulse" style="display: none;"></i>
+            </button>
+        </div>
+    </div>
         </div>
     </div>
 
