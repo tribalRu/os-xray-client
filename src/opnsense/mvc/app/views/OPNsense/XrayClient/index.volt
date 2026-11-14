@@ -229,12 +229,27 @@
     #frm_maintenance td.maint_btn_cell {
         white-space: nowrap;
     }
+    #frm_maintenance td.maint_btn_cell > .bootstrap-select {
+        display: inline-block !important;
+        vertical-align: middle;
+    }
     #frm_maintenance td.maint_btn_cell > .btn {
         margin-left: 12px;
         vertical-align: middle;
     }
-    #frm_maintenance td.maint_btn_cell > div:not(.bootstrap-select) {
+    #frm_maintenance td.maint_btn_cell > div:not(.bootstrap-select),
+    #frm_maintenance td.maint_btn_cell > span.help-block {
         white-space: normal;
+    }
+    /* The form is label + field only: the third column (validation text) is
+       folded into the field cell, which gets its width, so a dropdown and its
+       button fit in one row. */
+    #frm_maintenance tr > td:nth-child(2) {
+        width: 78% !important;
+    }
+    #frm_maintenance tr > td:nth-child(3) {
+        width: 0 !important;
+        padding: 0 !important;
     }
     /* Sub-navigation inside the Routing tab. */
     #routingtabs {
@@ -456,6 +471,7 @@
             toggleConfigModeUI();
             toggleGeoDataCustomUI();
             setupPluginBranchPicker();
+            settleMaintenanceButtons();
             startTelemetryAutoRefresh();
             if (typeof toggleExpertTab === 'function') {
                 toggleExpertTab(expertTabWanted());
@@ -906,6 +922,13 @@
         // Each update button sits in the row of the field it acts on, right
         // beside the dropdown.
         (function placeMaintenanceButtons() {
+            // validation messages move under the field (see the CSS above)
+            $('#frm_maintenance tr').each(function () {
+                var $tds = $(this).children('td');
+                if ($tds.length === 3) {
+                    $tds.eq(2).children('.help-block').appendTo($tds.eq(1));
+                }
+            });
             [['btn_update_core', 'core_branch'], ['btn_update_geodata', 'geodata_preset'], ['btn_update_plugin', 'plugin_branch']].forEach(function (p) {
                 var $btn = $('#' + p[0]);
                 var $cell = $('[id="xrayclient.maintenance.' + p[1] + '"]').closest('tr').children('td').eq(1);
@@ -915,6 +938,20 @@
                 $cell.addClass('maint_btn_cell').append($btn);
             });
         })();
+
+        // The dropdowns are built after the buttons are placed (and the plugin
+        // branch picker and its note after that), so once they exist the button
+        // is put right behind its dropdown and any note below the row.
+        function settleMaintenanceButtons() {
+            ['btn_update_core', 'btn_update_geodata', 'btn_update_plugin'].forEach(function (id) {
+                var $btn = $('#' + id);
+                var $picker = $btn.closest('td').children('.bootstrap-select').first();
+                if ($btn.length && $picker.length) {
+                    $btn.insertAfter($picker);
+                }
+            });
+            $('#plugin_branch_note').insertAfter($('#btn_update_plugin'));
+        }
 
         function toggleGeoDataCustomUI() {
             var preset = $('#xrayclient\\.maintenance\\.geodata_preset').val();
