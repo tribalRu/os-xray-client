@@ -233,6 +233,9 @@
         display: inline-block !important;
         vertical-align: middle;
     }
+    #frm_maintenance td.maint_btn_cell > .bootstrap-select.maint_fixed {
+        width: 330px !important;
+    }
     #frm_maintenance td.maint_btn_cell > .btn {
         margin-left: 12px;
         vertical-align: middle;
@@ -948,6 +951,9 @@
                 var $picker = $btn.closest('td').children('.bootstrap-select').first();
                 if ($btn.length && $picker.length) {
                     $btn.insertAfter($picker);
+                    // the plugin branch picker sizes itself; the other two get a
+                    // fixed width that leaves room for the button on one row
+                    $picker.toggleClass('maint_fixed', id !== 'btn_update_plugin');
                 }
             });
             $('#plugin_branch_note').insertAfter($('#btn_update_plugin'));
@@ -4429,10 +4435,10 @@
         {{ partial("layout_partials/base_form", ['fields': maintenanceForm, 'id': 'frm_maintenance']) }}
         <div class="col-md-12">
             <button id="btn_update_core" type="button" class="btn btn-warning">
-                <i class="fa fa-cloud-download"></i> <b>Download &amp; Update Xray-core</b>
+                <i class="fa fa-cloud-download"></i> <b>Update Xray-core</b>
             </button>
             <button id="btn_update_geodata" type="button" class="btn btn-info">
-                <i class="fa fa-globe"></i> <b>Update GeoIP &amp; GeoSite Now</b>
+                <i class="fa fa-globe"></i> <b>Update GeoIP &amp; GeoSite</b>
             </button>
             <button id="btn_update_plugin" type="button" class="btn btn-success">
                 <i class="fa fa-github"></i> <b>Update Plugin from GitHub</b>
