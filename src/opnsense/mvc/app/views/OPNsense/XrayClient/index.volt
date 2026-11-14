@@ -229,11 +229,11 @@
     #frm_maintenance td.maint_btn_cell {
         white-space: nowrap;
     }
-    #frm_maintenance td.maint_btn_cell > .bootstrap-select {
+    #frm_maintenance td.maint_btn_cell > .maint_anchor {
         display: inline-block !important;
         vertical-align: middle;
     }
-    #frm_maintenance td.maint_btn_cell > .bootstrap-select.maint_fixed {
+    #frm_maintenance td.maint_btn_cell .bootstrap-select.maint_fixed {
         width: 330px !important;
     }
     #frm_maintenance td.maint_btn_cell > .btn {
@@ -946,14 +946,26 @@
         // branch picker and its note after that), so once they exist the button
         // is put right behind its dropdown and any note below the row.
         function settleMaintenanceButtons() {
-            ['btn_update_core', 'btn_update_geodata', 'btn_update_plugin'].forEach(function (id) {
-                var $btn = $('#' + id);
-                var $picker = $btn.closest('td').children('.bootstrap-select').first();
-                if ($btn.length && $picker.length) {
-                    $btn.insertAfter($picker);
-                    // the plugin branch picker sizes itself; the other two get a
-                    // fixed width that leaves room for the button on one row
-                    $picker.toggleClass('maint_fixed', id !== 'btn_update_plugin');
+            [['btn_update_core', '[id="xrayclient.maintenance.core_branch"]'],
+             ['btn_update_geodata', '[id="xrayclient.maintenance.geodata_preset"]'],
+             ['btn_update_plugin', '#plugin_branch_picker']].forEach(function (p) {
+                var $btn = $('#' + p[0]);
+                var $sel = $(p[1]);
+                if (!$btn.length || !$sel.length) {
+                    return;
+                }
+                // The dropdown may sit in wrappers of its own: take whatever is
+                // the topmost element under the cell and keep it on the row.
+                var $anchor = $sel.parentsUntil('td').last();
+                if (!$anchor.length) {
+                    $anchor = $sel;
+                }
+                $anchor.addClass('maint_anchor');
+                $btn.insertAfter($anchor);
+                // the plugin branch picker sizes itself; the other two get a
+                // fixed width that leaves room for the button on one row
+                if (p[0] !== 'btn_update_plugin') {
+                    $sel.closest('.bootstrap-select').addClass('maint_fixed');
                 }
             });
             $('#plugin_branch_note').insertAfter($('#btn_update_plugin'));
