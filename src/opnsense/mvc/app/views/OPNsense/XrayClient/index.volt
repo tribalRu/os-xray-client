@@ -4149,36 +4149,145 @@
         $('a[href="#tab_maintenance"]').on('shown.bs.tab', loadVersionInfo);
         $('a[href="#tab_maintenance"]').on('shown.bs.tab', checkForUpdates);
 
-        $('#btn_update_core').on('click', function () {
-            $('#maintenance_output').text('Updating Xray-core binary from GitHub... Please wait.').show();
-            saveFormToEndpoint("/api/xrayclient/settings/set", 'frm_maintenance', function () {
-                ajaxCall('/api/xrayclient/service/updateCore', {}, function (res) {
-                    $('#maintenance_output').text(res.output || 'Update finished.');
-                    loadVersionInfo();
+        // ---- Update progress dialog -------------------------------------------
+        // The update scripts report through their text output only (configd
+        // does not pass the exit code on), so the outcome is read from the
+        // marker lines they print: a success line, "ERROR:" or "FAILED".
+        var UPDATE_KINDS = {
+            core: {
+                title: 'Updating Xray-core',
+                running: function () { return 'Downloading and installing Xray-core. Xray restarts when it is done.'; },
+                url: '/api/xrayclient/service/updateCore',
+                success: /=== Successfully updated Xray-core/,
+                done: 'Xray-core updated.'
+            },
+            geodata: {
+                title: 'Updating GeoIP & GeoSite',
+                running: function () { return 'Downloading geoip.dat and geosite.dat.'; },
+                url: '/api/xrayclient/service/updateGeodata',
+                success: /=== GeoData update completed!/,
+                done: 'GeoIP & GeoSite updated.'
+            },
+            plugin: {
+                title: 'Updating the plugin',
+                running: function () {
+                    return 'Pulling the plugin code (branch ' + ($('[id="xrayclient.maintenance.plugin_branch"]').val() || 'main') + ') from GitHub.';
+                },
+                url: '/api/xrayclient/service/updatePlugin',
+                success: /=== Plugin successfully updated/,
+                done: 'Plugin updated. Reload the page to load the new interface.',
+                reload: true
+            }
+        };
+
+        // -> { state: 'ok' | 'failed' | 'noresponse', message, output }
+        function updateOutcome(kind, res) {
+            var spec = UPDATE_KINDS[kind];
+            var isReply = res && typeof res === 'object' && typeof res.readyState === 'undefined' && res.status !== undefined;
+            if (!isReply) {
+                var code = res && res.status ? ' (HTTP ' + res.status + ')' : '';
+                return {
+                    state: 'noresponse',
+                    message: 'No usable answer from the router' + code + '. The connection may have dropped or timed out; ' +
+                        'the update can still be running or may already be done. Wait a minute and check the versions.',
+                    output: ''
+                };
+            }
+            if (res.status !== 'ok') {
+                return { state: 'failed', message: 'The update was not started' + (res.message ? ': ' + res.message : '.'), output: '' };
+            }
+            var output = String(res.output || '');
+            if (/^ERROR:/m.test(output) || /FAILED/.test(output)) {
+                return { state: 'failed', message: 'The update failed. Nothing was changed, or the previous version was restored (see the log below).', output: output };
+            }
+            if (spec.success.test(output)) {
+                return { state: 'ok', message: spec.done, output: output };
+            }
+            return {
+                state: 'failed',
+                message: output === ''
+                    ? 'The update script returned no output, so the result is unknown.'
+                    : 'The update script did not report success (see the log below).',
+                output: output
+            };
+        }
+
+        var updateRunning = false;
+
+        function runMaintenanceUpdate(kind) {
+            var spec = UPDATE_KINDS[kind];
+            if (updateRunning || !spec) {
+                return;
+            }
+            updateRunning = true;
+            var $dlg = $('#DialogUpdateProgress');
+            var started = Date.now();
+            var tick = null;
+            var escape = null;
+            var reloadOnClose = false;
+
+            function stopTimers() {
+                window.clearInterval(tick);
+                window.clearTimeout(escape);
+            }
+
+            // finished: show the result and let the dialog be closed
+            function finish(outcome) {
+                stopTimers();
+                updateRunning = false;
+                var icon = outcome.state === 'ok' ? 'fa-check-circle text-success'
+                    : (outcome.state === 'noresponse' ? 'fa-question-circle text-warning' : 'fa-exclamation-triangle text-danger');
+                $('#upd_modal_status').html('<i class="fa ' + icon + '"></i> ').append($('<b/>').text(outcome.message));
+                if (outcome.output) {
+                    $('#upd_modal_output').text(outcome.output).show();
+                    $('#upd_modal_output').scrollTop($('#upd_modal_output')[0].scrollHeight);
+                }
+                var needReload = (outcome.state === 'ok' && spec.reload) || outcome.state === 'noresponse';
+                reloadOnClose = outcome.state === 'ok' && !!spec.reload;
+                $('#upd_modal_reload').toggle(needReload);
+                $('#upd_modal_close').text('Close').show();
+                loadVersionInfo();
+                if (outcome.state === 'ok') {
+                    checkForUpdates();
+                }
+                if (kind === 'core') {
                     updateServiceControlUI('xrayclient');
-                });
-            });
-        });
+                }
+            }
 
-        $('#btn_update_geodata').on('click', function () {
-            $('#maintenance_output').text('Downloading geoip.dat and geosite.dat... Please wait.').show();
-            saveFormToEndpoint("/api/xrayclient/settings/set", 'frm_maintenance', function () {
-                ajaxCall('/api/xrayclient/service/updateGeodata', {}, function (res) {
-                    $('#maintenance_output').text(res.output || 'GeoData update finished.');
-                    loadVersionInfo();
-                });
+            $('#upd_modal_title').text(spec.title);
+            $('#upd_modal_output').text('').hide();
+            $('#upd_modal_reload, #upd_modal_close').hide();
+            $('#upd_modal_status').html('<i class="fa fa-spinner fa-spin"></i> ').append($('<span/>').text('Saving settings...'));
+            $dlg.off('hidden.bs.modal.updprog').on('hidden.bs.modal.updprog', function () {
+                if (reloadOnClose) {
+                    location.reload();
+                }
             });
-        });
+            $dlg.modal({ backdrop: 'static', keyboard: false });
 
-        $('#btn_update_plugin').on('click', function () {
-            $('#maintenance_output').text('Pulling os-xray-client plugin code (branch ' + ($('[id="xrayclient.maintenance.plugin_branch"]').val() || 'main') + ') from GitHub...').show();
             saveFormToEndpoint("/api/xrayclient/settings/set", 'frm_maintenance', function () {
-                ajaxCall('/api/xrayclient/service/updatePlugin', {}, function (res) {
-                    $('#maintenance_output').text(res.output || 'Plugin updated. Reloading page in 3 seconds...');
-                    setTimeout(function () { location.reload(); }, 3000);
+                $('#upd_modal_status').html('<i class="fa fa-spinner fa-spin"></i> ').append($('<span/>').text(spec.running() + ' '));
+                $('#upd_modal_status span').append($('<span class="text-muted upd_elapsed"/>').text('0 s'));
+                tick = window.setInterval(function () {
+                    $('#upd_modal_status .upd_elapsed').text(Math.round((Date.now() - started) / 1000) + ' s');
+                }, 1000);
+                // a hung request must not lock the page behind this dialog
+                escape = window.setTimeout(function () {
+                    $('#upd_modal_close').text('Stop waiting').show();
+                }, 120000);
+                ajaxCall(spec.url, {}, function (res) {
+                    finish(updateOutcome(kind, res));
                 });
+            }, true, function () {
+                finish({ state: 'failed', message: 'The settings could not be saved (see the highlighted fields on the tab). Nothing was updated.', output: '' });
             });
-        });
+        }
+
+        $('#btn_update_core').on('click', function () { runMaintenanceUpdate('core'); });
+        $('#btn_update_geodata').on('click', function () { runMaintenanceUpdate('geodata'); });
+        $('#btn_update_plugin').on('click', function () { runMaintenanceUpdate('plugin'); });
+        $('#upd_modal_reload').on('click', function () { location.reload(); });
 
     });
 </script>
@@ -4490,9 +4599,6 @@
                 <i class="fa fa-github"></i> <b>Update Plugin from GitHub</b>
             </button>
         </div>
-        <div class="col-md-12" style="padding-bottom: 15px;">
-            <pre id="maintenance_output" style="display:none; margin-top: 15px; max-height: 300px; overflow-y: auto;"></pre>
-        </div>
     </div>
 </div>
 
@@ -4500,6 +4606,24 @@
 {{ partial("layout_partials/base_dialog", ['fields': formDialogRule, 'id': 'DialogRule', 'label': 'Edit Routing Rule']) }}
 {{ partial("layout_partials/base_dialog", ['fields': formDialogBalancer, 'id': 'DialogBalancer', 'label': 'Edit Load Balancer']) }}
 {{ partial("layout_partials/base_dialog", ['fields': formDialogDnsServer, 'id': 'DialogDnsServer', 'label': 'Edit DNS Server']) }}
+
+<div class="modal fade" id="DialogUpdateProgress" tabindex="-1" role="dialog" data-backdrop="static" data-keyboard="false">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="upd_modal_title">Update</h4>
+            </div>
+            <div class="modal-body">
+                <div id="upd_modal_status" style="font-size: 15px; margin-bottom: 10px;"></div>
+                <pre id="upd_modal_output" style="display: none; max-height: calc(100vh - 330px); overflow: auto; margin-bottom: 0; white-space: pre-wrap;"></pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="upd_modal_reload" class="btn btn-primary" style="display: none;"><i class="fa fa-refresh"></i> Reload page</button>
+                <button type="button" id="upd_modal_close" class="btn btn-default" data-dismiss="modal" style="display: none;">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="modal fade" id="DialogResetTemplate" tabindex="-1" role="dialog">
     <div class="modal-dialog" role="document">
