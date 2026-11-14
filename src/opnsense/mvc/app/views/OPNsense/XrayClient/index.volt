@@ -1318,6 +1318,58 @@
             return { host: String(row.address || ''), port: String(row.port || '') };
         }
 
+        function escHtml(v) {
+            return $('<div/>').text(v).html();
+        }
+
+        // Transport as {text, title}; null where it does not apply.
+        function nodeTransportInfo(row) {
+            var kind = nodeRowKind(row);
+            var fixed = { quic: ['QUIC', 'Hysteria 2 over QUIC'], udp: ['UDP', 'WireGuard over UDP'],
+                          h2: ['HTTP/2', 'MASQUE over HTTP/2'], h3: ['HTTP/3', 'MASQUE over HTTP/3 (QUIC)'] };
+            if (kind === 'none') {
+                return null;
+            }
+            if (fixed[kind]) {
+                return { text: fixed[kind][0], title: fixed[kind][1] };
+            }
+            var map = {
+                tcp: ['TCP', 'TCP (RAW)'],
+                ws: ['WS', 'WebSocket (WS)'],
+                grpc: ['gRPC', 'gRPC'],
+                xhttp: ['XHTTP', 'XHTTP (SplitHTTP)'],
+                httpupgrade: ['HTTPUpg', 'HTTPUpgrade'],
+                xdrive: ['XDRIVE', 'XDRIVE (Google Drive / S3 / template)']
+            };
+            var entry = map[String(row.network || '').toLowerCase()];
+            return entry ? { text: entry[0], title: entry[1] } : { text: String(row.network || ''), title: '' };
+        }
+
+        // Security as text; '' where it does not apply.
+        function nodeSecurityText(row) {
+            var kind = nodeRowKind(row);
+            if (kind === 'quic' || kind === 'h2' || kind === 'h3') {
+                return 'TLS';
+            }
+            if (kind === 'udp' || kind === 'none') {
+                return '';
+            }
+            return String(row.security || '');
+        }
+
+        // host:port, IPv6 hosts in brackets; '' for nodes without an endpoint.
+        function nodeEndpointText(row) {
+            var ep = nodeRowEndpoint(row);
+            if (ep.host === '') {
+                return '';
+            }
+            var host = ep.host;
+            if (host.indexOf(':') !== -1 && host.charAt(0) !== '[') {
+                host = '[' + host + ']';
+            }
+            return ep.port === '' ? host : host + ':' + ep.port;
+        }
+
         $("#grid-nodes").UIBootgrid({
             search: '/api/xrayclient/settings/searchNode',
             get: '/api/xrayclient/settings/getNode/',
@@ -1340,29 +1392,13 @@
                         }
                     },
                     "transport": function (column, row) {
-                        var kind = nodeRowKind(row);
-                        var fixed = { quic: ['QUIC', 'Hysteria 2 over QUIC'], udp: ['UDP', 'WireGuard over UDP'],
-                                      h2: ['HTTP/2', 'MASQUE over HTTP/2'], h3: ['HTTP/3', 'MASQUE over HTTP/3 (QUIC)'] };
-                        if (kind === 'none') {
+                        var info = nodeTransportInfo(row);
+                        if (info === null) {
                             return '<span class="text-muted">&mdash;</span>';
                         }
-                        if (fixed[kind]) {
-                            return '<span class="bootgrid-tooltip" title="' + fixed[kind][1] + '">' + fixed[kind][0] + '</span>';
-                        }
-                        var map = {
-                            tcp: ['TCP', 'TCP (RAW)'],
-                            ws: ['WS', 'WebSocket (WS)'],
-                            grpc: ['gRPC', 'gRPC'],
-                            xhttp: ['XHTTP', 'XHTTP (SplitHTTP)'],
-                            httpupgrade: ['HTTPUpg', 'HTTPUpgrade'],
-                            xdrive: ['XDRIVE', 'XDRIVE (Google Drive / S3 / template)']
-                        };
-                        var key = String(row.network || '').toLowerCase();
-                        var entry = map[key];
-                        if (!entry) {
-                            return '' + $('<div/>').text(row.network || '').html();
-                        }
-                        return '<span class="bootgrid-tooltip" title="' + entry[1] + '">' + entry[0] + '</span>';
+                        return info.title
+                            ? '<span class="bootgrid-tooltip" title="' + info.title + '">' + escHtml(info.text) + '</span>'
+                            : escHtml(info.text);
                     },
                     "nodeaddr": function (column, row) {
                         var ep = nodeRowEndpoint(row);
@@ -1373,14 +1409,29 @@
                         return ep.port === '' ? '<span class="text-muted">&mdash;</span>' : $('<div/>').text(ep.port).html();
                     },
                     "nodesec": function (column, row) {
-                        var kind = nodeRowKind(row);
-                        if (kind === 'quic' || kind === 'h2' || kind === 'h3') {
-                            return 'TLS';
+                        var text = nodeSecurityText(row);
+                        return text === '' ? '<span class="text-muted">&mdash;</span>' : escHtml(text);
+                    },
+                    // One compact column for protocol, transport and security,
+                    // e.g. "VLESS · gRPC · tls" (the node widget uses the same form).
+                    "nodetype": function (column, row) {
+                        var sep = ' <span class="text-muted">&middot;</span> ';
+                        var parts = ['<b>' + escHtml(row.protocol || '') + '</b>'];
+                        var info = nodeTransportInfo(row);
+                        if (info !== null && info.text !== '') {
+                            parts.push(info.title
+                                ? '<span class="bootgrid-tooltip" title="' + info.title + '">' + escHtml(info.text) + '</span>'
+                                : escHtml(info.text));
                         }
-                        if (kind === 'udp' || kind === 'none') {
-                            return '<span class="text-muted">&mdash;</span>';
+                        var sec = nodeSecurityText(row);
+                        if (sec !== '' && sec.toLowerCase() !== 'none') {
+                            parts.push(escHtml(sec));
                         }
-                        return $('<div/>').text(row.security || '').html();
+                        return parts.join(sep);
+                    },
+                    "nodeendpoint": function (column, row) {
+                        var text = nodeEndpointText(row);
+                        return text === '' ? '<span class="text-muted">&mdash;</span>' : escHtml(text);
                     },
                     "latency": function (column, row) {
                         var info = nodeLatencyCache[row.uuid];
@@ -1399,6 +1450,67 @@
                 }
             }
         });
+
+        // Condition summary parts of a rule row; empty = matches all traffic.
+        function ruleMatchParts(row) {
+            function list(v) {
+                return String(v || '').split(',').map(function (x) { return $.trim(x); }).filter(Boolean);
+            }
+            var parts = [];
+            var domains = list(row.domain);
+            if (domains.length) {
+                parts.push('domains: ' + domains.length);
+            }
+            var ips = list(row.ip);
+            var geoip = ips.filter(function (x) { return x.indexOf('geoip:') === 0; }).length;
+            if (geoip) {
+                parts.push('geoip: ' + geoip);
+            }
+            var plain = ips.length - geoip;
+            if (plain) {
+                parts.push('ips: ' + plain);
+            }
+            if ($.trim(row.port || '')) {
+                parts.push('port: ' + escHtml(row.port));
+            }
+            var sniff = list(row.protocol);
+            if (sniff.length) {
+                parts.push('sniff: ' + sniff.map(escHtml).join('/'));
+            }
+            if (row.network_proto && row.network_proto !== 'tcp_udp') {
+                parts.push('net: ' + escHtml(row.network_proto));
+            }
+            [['inbound_tag', 'inbound'], ['source', 'src'], ['source_port', 'src port'], ['user', 'user']].forEach(function (f) {
+                var items = list(row[f[0]]);
+                if (items.length) {
+                    parts.push(f[1] + ': ' + items.length);
+                }
+            });
+            return parts;
+        }
+
+        // The enabled match-everything rule with a lower sequence number that
+        // hides this (enabled) rule, or null. Only the rows of the current
+        // page are known, which is enough for the usual short rule lists.
+        function ruleShadowedBy(row) {
+            if (String(row.enabled) !== '1') {
+                return null;
+            }
+            var seq = parseFloat(row.sequence);
+            var cover = null;
+            try {
+                $('#grid-rules').bootgrid('getCurrentRows').forEach(function (r) {
+                    var rs = parseFloat(r.sequence);
+                    if (r.uuid !== row.uuid && String(r.enabled) === '1' && rs < seq && ruleMatchParts(r).length === 0 &&
+                        (cover === null || rs < parseFloat(cover.sequence))) {
+                        cover = r;
+                    }
+                });
+            } catch (e) {
+                // grid API unavailable: no warning
+            }
+            return cover;
+        }
 
         $("#grid-rules").UIBootgrid({
             search: '/api/xrayclient/settings/searchRule',
@@ -1424,51 +1536,19 @@
                         }
                     },
                     // Condensed counts of every condition, e.g.
-                    // "domains: 2 · geoip: 1 · port: 443".
+                    // "domains: 2 · geoip: 1 · port: 443". A rule that sits
+                    // below an enabled match-everything rule is marked: it
+                    // can never be reached.
                     "rulematch": function (column, row) {
-                        function esc(v) {
-                            return $('<div/>').text(v).html();
+                        var parts = ruleMatchParts(row);
+                        var html = parts.length ? parts.join(' · ') : '<span class="text-muted">any traffic</span>';
+                        var cover = ruleShadowedBy(row);
+                        if (cover) {
+                            html += ' <i class="fa fa-exclamation-triangle text-warning bootgrid-tooltip" title="Never reached: rule ' +
+                                escHtml(String(cover.sequence)) + (cover.description ? ' (' + escHtml(cover.description) + ')' : '') +
+                                ' above matches all traffic first."></i>';
                         }
-                        function list(v) {
-                            return String(v || '').split(',').map(function (x) { return $.trim(x); }).filter(Boolean);
-                        }
-                        var parts = [];
-                        var domains = list(row.domain);
-                        if (domains.length) {
-                            parts.push('domains: ' + domains.length);
-                        }
-                        var ips = list(row.ip);
-                        var geoip = ips.filter(function (x) { return x.indexOf('geoip:') === 0; }).length;
-                        if (geoip) {
-                            parts.push('geoip: ' + geoip);
-                        }
-                        var plain = ips.length - geoip;
-                        if (plain) {
-                            parts.push('ips: ' + plain);
-                        }
-                        if ($.trim(row.port || '')) {
-                            parts.push('port: ' + esc(row.port));
-                        }
-                        var sniff = list(row.protocol);
-                        if (sniff.length) {
-                            parts.push('sniff: ' + sniff.map(esc).join('/'));
-                        }
-                        if (row.network_proto && row.network_proto !== 'tcp_udp') {
-                            parts.push('net: ' + esc(row.network_proto));
-                        }
-                        var extra = [
-                            ['inbound_tag', 'inbound'],
-                            ['source', 'src'],
-                            ['source_port', 'src port'],
-                            ['user', 'user']
-                        ];
-                        extra.forEach(function (f) {
-                            var items = list(row[f[0]]);
-                            if (items.length) {
-                                parts.push(f[1] + ': ' + items.length);
-                            }
-                        });
-                        return parts.length ? parts.join(' · ') : '<span class="text-muted">any traffic</span>';
+                        return html;
                     },
                     // Flags a sequence number shared with another rule: the
                     // order between them is then decided by config order only.
@@ -4074,11 +4154,8 @@
                     <th data-column-id="uuid" data-type="string" data-identifier="true" data-visible="false">ID</th>
                     <th data-column-id="enabled" data-width="3.5em" data-type="string" data-formatter="rowtoggle">Active</th>
                     <th data-column-id="name" data-min-width="8em" data-type="string">Server Name</th>
-                    <th data-column-id="protocol" data-width="4.5em" data-type="string">Protocol</th>
-                    <th data-column-id="network" data-width="6em" data-formatter="transport">Transport</th>
-                    <th data-column-id="address" data-min-width="12em" data-formatter="nodeaddr">Address</th>
-                    <th data-column-id="port" data-width="3em" data-formatter="nodeport">Port</th>
-                    <th data-column-id="security" data-width="5em" data-formatter="nodesec">Security</th>
+                    <th data-column-id="protocol" data-min-width="13em" data-formatter="nodetype">Type</th>
+                    <th data-column-id="address" data-min-width="14em" data-formatter="nodeendpoint">Endpoint</th>
                     <th data-column-id="latency" data-width="6em" data-formatter="latency" data-sortable="false">Latency</th>
                     <th data-column-id="traffic" data-width="10em" data-formatter="traffic" data-sortable="false">Traffic &#8595;/&#8593;</th>
                     <th data-column-id="commands" data-width="8em" data-formatter="commands" data-sortable="false">Actions</th>
@@ -4122,7 +4199,7 @@
                 <tr>
                     <th data-column-id="uuid" data-type="string" data-identifier="true" data-visible="false">ID</th>
                     <th data-column-id="enabled" data-width="6em" data-type="string" data-formatter="rowtoggle">Enabled</th>
-                    <th data-column-id="sequence" data-width="6em" data-type="numeric" data-formatter="ruleseq">Seq</th>
+                    <th data-column-id="sequence" data-width="4em" data-type="numeric" data-formatter="ruleseq">#</th>
                     <th data-column-id="description" data-type="string">Description</th>
                     <th data-column-id="domain" data-type="string" data-formatter="rulematch" data-sortable="false">Match</th>
                     <th data-column-id="outbound_tag" data-width="10em" data-type="string">Action (Outbound)</th>
