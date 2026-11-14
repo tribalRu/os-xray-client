@@ -937,7 +937,7 @@
             }
             $input.hide().after(
                 '<select id="plugin_branch_picker" class="selectpicker" data-live-search="true" data-width="auto" data-size="10"></select>' +
-                ' <span id="plugin_branch_note" class="small"></span>'
+                '<div id="plugin_branch_note" class="small" style="margin-top: 4px;"></div>'
             );
             $('#plugin_branch_picker').on('change', function () {
                 $input.val($(this).val());
