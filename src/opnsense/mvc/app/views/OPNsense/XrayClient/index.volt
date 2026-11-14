@@ -256,6 +256,7 @@
     }
     /* Versions card of the Maintenance tab: one table instead of two blocks. */
     .maint_ver_table {
+        width: auto;
         border-collapse: separate;
         border-spacing: 0 4px;
         font-size: 13px;
@@ -4471,7 +4472,7 @@
                         <tr>
                             <td><b>GeoIP &amp; GeoSite</b></td>
                             <td id="lbl_geodata_date">Loading...</td>
-                            <td colspan="3" class="text-muted">updated at the time shown</td>
+                            <td colspan="3"></td>
                         </tr>
                     </tbody>
                 </table>
