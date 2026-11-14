@@ -247,10 +247,10 @@
     /* The form is label + field only: the third column (validation text) is
        folded into the field cell, which gets its width, so a dropdown and its
        button fit in one row. */
-    #frm_maintenance tr > td:nth-child(2) {
+    #frm_maintenance tr:not(.maint_ver_row) > td:nth-child(2) {
         width: 78% !important;
     }
-    #frm_maintenance tr > td:nth-child(3) {
+    #frm_maintenance tr:not(.maint_ver_row) > td:nth-child(3) {
         width: 0 !important;
         padding: 0 !important;
     }
@@ -4452,24 +4452,24 @@
                 </div>
                 <table class="maint_ver_table">
                     <thead>
-                        <tr><th></th><th>Installed</th><th>Latest</th><th></th><th></th></tr>
+                        <tr class="maint_ver_row"><th></th><th>Installed</th><th>Latest</th><th></th><th></th></tr>
                     </thead>
                     <tbody>
-                        <tr>
+                        <tr class="maint_ver_row">
                             <td><b>Xray-core</b></td>
                             <td id="lbl_core_version">Loading...</td>
                             <td id="upd_core_latest" class="text-muted">&mdash;</td>
                             <td id="upd_core_badge"></td>
                             <td><a id="upd_core_link" href="#" target="_blank" rel="noopener" style="display: none;">release notes</a></td>
                         </tr>
-                        <tr>
+                        <tr class="maint_ver_row">
                             <td><b>Plugin</b></td>
                             <td id="lbl_plugin_version">&hellip;</td>
                             <td id="upd_plugin_latest" class="text-muted">&mdash;</td>
                             <td id="upd_plugin_badge"></td>
                             <td><a id="upd_plugin_link" href="#" target="_blank" rel="noopener" style="display: none;">GitHub</a></td>
                         </tr>
-                        <tr>
+                        <tr class="maint_ver_row">
                             <td><b>GeoIP &amp; GeoSite</b></td>
                             <td id="lbl_geodata_date">Loading...</td>
                             <td colspan="3"></td>
