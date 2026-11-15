@@ -8,7 +8,7 @@ Typical use: a home or office firewall that sends some traffic through a VLESS /
 ## What you get
 
 - **Servers (outbound nodes)** — VLESS, VMess, Trojan, Shadowsocks, SOCKS 5, HTTP, WireGuard, Hysteria 2, MASQUE, plus Freedom / Blackhole / DNS / Loopback. Paste a `vless://`, `vmess://`, `trojan://`, `ss://` or `hy2://` link and the form is filled in for you.
-- **Routing rules** — a readable rule list with drag-free ordering (arrows), *Pin to top* / *Pin to end*, one-click presets (LAN direct, Russia direct, blocked-in-Russia via proxy, block ads, BitTorrent direct, block QUIC, everything else via proxy) and a configurable **Default Action** for traffic nothing else matched.
+- **Routing rules** — a readable rule list, reordered with arrow buttons, *Pin to top* / *Pin to end*, one-click presets (LAN direct, Russia direct, blocked-in-Russia via proxy, block ads, BitTorrent direct, block QUIC, everything else via proxy) and a configurable **Default Action** for traffic nothing else matched.
 - **GeoData browser** — look inside `geosite.dat` / `geoip.dat`, search categories and entries, insert them into a rule; typos in `geosite:` / `geoip:` tags are flagged before Apply.
 - **Load balancing** — balancers with failover and least-ping / least-load strategies, and a live view of which node is picked.
 - **Transparent routing** — Xray creates a native TUN interface; point an OPNsense gateway and a firewall rule at it and whole LAN segments go through the proxy.
