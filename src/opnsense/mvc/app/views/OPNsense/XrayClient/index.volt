@@ -948,12 +948,12 @@
                 }
             });
 
-            // A stacked modal: keep it above the rule dialog and keep that
-            // one scrollable after this one closes.
-            $('#DialogGeoData').on('shown.bs.modal', function () {
-                $(this).css('z-index', 1070);
-                $('.modal-backdrop').last().css('z-index', 1065);
-            }).on('hidden.bs.modal', function () {
+            // Stacked on the rule dialog: Bootstrap drops body.modal-open when
+            // this one closes, which would stop the rule dialog from
+            // scrolling. (No z-index overrides: the page's own modals
+            // already stack correctly, forcing values hid this one under
+            // the backdrop.)
+            $('#DialogGeoData').on('hidden.bs.modal', function () {
                 if ($('.modal.in').length) {
                     $('body').addClass('modal-open');
                 }
