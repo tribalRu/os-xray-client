@@ -621,6 +621,34 @@
             });
         })();
 
+        // Pin to top and Pin to end share one row: the Pin to end checkbox
+        // moves next to the first one (it stays inside the form, so it is
+        // still loaded and saved), its own row is dropped and its help text
+        // is appended to the shared one.
+        (function mergePinRows() {
+            var $top = $('#DialogRule [id="rule.pinned"]').closest('tr');
+            var $endRow = $('#DialogRule [id="rule.pin_end"]').closest('tr');
+            if (!$top.length || !$endRow.length || $top[0] === $endRow[0]) {
+                return;
+            }
+            var $topBox = $top.find('[id="rule.pinned"]');
+            var $endBox = $endRow.find('[id="rule.pin_end"]');
+            var lbl = function (id, text, pad) {
+                return $('<label style="margin:0 ' + pad + 'px 0 6px;font-weight:normal;vertical-align:middle;"/>').attr('for', id).text(text);
+            };
+            // [ ] Pin to top   [ ] Pin to end, before any help block
+            $topBox.after(lbl('rule.pinned', 'Pin to top', 22), $endBox, lbl('rule.pin_end', 'Pin to end', 0));
+            $top.children('td').eq(0).find('b').first().text('Pin to');
+            // help text: the row keeps its own help block, the other one is appended
+            var $help = $endRow.find('[data-for], .help-block').first();
+            var $topHelp = $top.find('[data-for], .help-block').first();
+            if ($help.length && $topHelp.length) {
+                var $inner = $topHelp.children().first().length ? $topHelp.children().first() : $topHelp;
+                $inner.append('<br/>').append($help.text());
+            }
+            $endRow.hide();
+        })();
+
         // Pin to top and Pin to end exclude each other.
         $(document).on('change', '#DialogRule [id="rule.pinned"]', function () {
             if (this.checked) {
