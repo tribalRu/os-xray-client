@@ -5,6 +5,8 @@
 A plugin that runs **[Xray-core](https://github.com/XTLS/Xray-core)** on **OPNsense 26.x** and manages it from the web UI.
 Add your proxy servers, decide which traffic goes where, and the plugin turns that into an Xray config, starts the service and keeps an eye on it. No SSH editing of JSON files required (though you can, if you like).
 
+> **Unofficial plugin.** This is an independent, community project. It is **not** an official OPNsense plugin and is not made, supported or endorsed by the OPNsense project (Deciso), the Xray / XTLS project or Cloudflare. It is not available from the OPNsense plugin repository; it is installed from this repository.
+
 Typical use: a home or office firewall that sends some traffic through a VLESS / Trojan / WireGuard / WARP server and the rest straight to the internet, for example *"Russian sites direct, everything else through the proxy"*.
 
 ## What you get
@@ -111,4 +113,4 @@ The software is provided **as is, without warranty of any kind**, express or imp
 | GeoIP / GeoSite data | Loyalsoldier, runetfreedom, Chocolate4U or your own URLs (see *GeoData Source Preset*) | as published in each repository |
 | OPNsense | [opnsense/core](https://github.com/opnsense/core) | BSD 2-Clause |
 
-**Services and trademarks.** The project is independent and is not affiliated with or endorsed by the Xray / XTLS project, the OPNsense project (Deciso) or Cloudflare. Names such as OPNsense, Xray, WireGuard, Cloudflare and WARP belong to their owners. The WARP features use Cloudflare's public client API: you are responsible for following Cloudflare's terms of service. You are also responsible for using proxies and routing features in accordance with the laws that apply to you.
+**Services and trademarks.** This is an unofficial plugin: the project is independent and is not affiliated with or endorsed by the Xray / XTLS project, the OPNsense project (Deciso) or Cloudflare. Names such as OPNsense, Xray, WireGuard, Cloudflare and WARP belong to their owners. The WARP features use Cloudflare's public client API: you are responsible for following Cloudflare's terms of service. You are also responsible for using proxies and routing features in accordance with the laws that apply to you.
