@@ -10,6 +10,12 @@
         <help>A disabled rule is kept in the list but is not written to config.json.</help>
     </field>
     <field>
+        <id>rule.pinned</id>
+        <label>Pin to top</label>
+        <type>checkbox</type>
+        <help>Pinned rules are evaluated before all other rules (like floating rules in the firewall), regardless of their sequence; among themselves they keep their sequence order. Useful for exceptions that must always win.</help>
+    </field>
+    <field>
         <id>rule.description</id>
         <label>Rule Description</label>
         <type>text</type>

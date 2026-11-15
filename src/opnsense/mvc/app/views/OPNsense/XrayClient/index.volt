@@ -1595,12 +1595,17 @@
                 return null;
             }
             var seq = parseFloat(row.sequence);
+            var pin = String(row.pinned) === '1';
             var cover = null;
             try {
                 $('#grid-rules').bootgrid('getCurrentRows').forEach(function (r) {
                     var rs = parseFloat(r.sequence);
-                    if (r.uuid !== row.uuid && String(r.enabled) === '1' && rs < seq && ruleMatchParts(r).length === 0 &&
-                        (cover === null || rs < parseFloat(cover.sequence))) {
+                    var rpin = String(r.pinned) === '1';
+                    // Effective order: pinned rules first, then by sequence.
+                    var before = (rpin && !pin) || (rpin === pin && rs < seq);
+                    if (r.uuid !== row.uuid && String(r.enabled) === '1' && before && ruleMatchParts(r).length === 0 &&
+                        (cover === null || (rpin && String(cover.pinned) !== '1') ||
+                         (rpin === (String(cover.pinned) === '1') && rs < parseFloat(cover.sequence)))) {
                         cover = r;
                     }
                 });
@@ -1633,6 +1638,13 @@
                             return '<span style="cursor: pointer;" class="fa fa-fw fa-toggle-off text-muted command-toggle bootgrid-tooltip" data-value="0" data-row-id="' + row.uuid + '"></span>';
                         }
                     },
+                    // Description with a pin mark for pinned rules.
+                    "rulename": function (column, row) {
+                        var d = escHtml(row.description || '');
+                        return String(row.pinned) === '1'
+                            ? '<span class="fa fa-fw fa-thumb-tack text-info bootgrid-tooltip" title="Pinned: evaluated before all regular rules"></span> ' + d
+                            : d;
+                    },
                     // Condensed counts of every condition, e.g.
                     // "domains: 2 · geoip: 1 · port: 443". A rule that sits
                     // below an enabled match-everything rule is marked: it
@@ -1654,7 +1666,8 @@
                         var dup = false;
                         try {
                             $('#grid-rules').bootgrid('getCurrentRows').forEach(function (r) {
-                                if (r.uuid !== row.uuid && String(r.sequence) === String(row.sequence)) {
+                                if (r.uuid !== row.uuid && String(r.sequence) === String(row.sequence) &&
+                                    String(r.pinned) === String(row.pinned)) {
                                     dup = true;
                                 }
                             });
@@ -4412,7 +4425,7 @@
                     <th data-column-id="uuid" data-type="string" data-identifier="true" data-visible="false">ID</th>
                     <th data-column-id="enabled" data-width="6em" data-type="string" data-formatter="rowtoggle">Enabled</th>
                     <th data-column-id="sequence" data-width="4em" data-type="numeric" data-formatter="ruleseq">#</th>
-                    <th data-column-id="description" data-type="string">Description</th>
+                    <th data-column-id="description" data-type="string" data-formatter="rulename">Description</th>
                     <th data-column-id="domain" data-type="string" data-formatter="rulematch" data-sortable="false">Match</th>
                     <th data-column-id="outbound_tag" data-width="10em" data-type="string">Action (Outbound)</th>
                     <th data-column-id="commands" data-width="12em" data-formatter="commands" data-sortable="false">Actions</th>
