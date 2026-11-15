@@ -2,6 +2,8 @@
     .rule_builtin { padding: 7px 10px; margin: 6px 0; border: 1px dashed #bbb; border-radius: 3px; background: rgba(128,128,128,0.07); cursor: help; }
     .rule_builtin .rb_seq { display: inline-block; width: 3.2em; text-align: center; opacity: 0.6; }
     .rule_builtin .rb_note { margin-left: 8px; }
+    .geodata_bar { margin-top: 6px; }
+    #DialogGeoData .list-group-item { padding: 5px 10px; }
     /* OPNsense 26 full-help sidebar squeezes the form into a narrow
        column and the dialog becomes wider than the viewport.
        Keep the dialog centred and the form readable.
@@ -673,6 +675,290 @@
                 $('#DialogRule [id="rule.pinned"]').prop('checked', false);
             }
         });
+
+        // --- GeoData browser (categories of geosite.dat / geoip.dat) ---
+        // Tags the installed .dat files do not contain make `xray run -test`
+        // fail on Apply, so unknown ones are flagged in the rule dialog.
+        // GEODATA-PURE-BEGIN
+        function geodataUnknownTags(values, sets) {
+            var out = [];
+            (values || []).forEach(function (v) {
+                var m = /^!?(geosite|geoip):(.+)$/i.exec($.trim(String(v)));
+                if (!m) {
+                    return;
+                }
+                var kind = m[1].toLowerCase() === 'geosite' ? 'site' : 'ip';
+                var known = sets ? sets[kind] : null;
+                if (!known) {
+                    return; // list not available: stay silent
+                }
+                var tag = m[2].split('@')[0].toLowerCase();
+                // "private" is built into Xray itself, not read from the file
+                if (kind === 'ip' && tag === 'private') {
+                    return;
+                }
+                if (!Object.prototype.hasOwnProperty.call(known, tag)) {
+                    out.push(String(v));
+                }
+            });
+            return out;
+        }
+
+        function geodataEntryToken(kind, row) {
+            if (kind !== 'site') {
+                return row.value;
+            }
+            return row.type === 'domain' ? 'domain:' + row.value
+                : row.type === 'full' ? 'full:' + row.value
+                : row.type === 'regexp' ? 'regexp:' + row.value
+                : row.value;
+        }
+        // GEODATA-PURE-END
+
+        (function setupGeoData() {
+            var tagSets = { site: null, ip: null };
+            var tagLists = { site: [], ip: [] };
+            var tagLoadedAt = { site: 0, ip: 0 };
+            var FIELDS = [['domain', 'site', 'GeoSite'], ['ip', 'ip', 'GeoIP'], ['source', 'ip', 'GeoIP']];
+
+            function esc(t) {
+                return $('<div/>').text(String(t)).html();
+            }
+
+            function loadTags(kind, done, force) {
+                if (!force && tagSets[kind] && Date.now() - tagLoadedAt[kind] < 30000) {
+                    done(tagSets[kind]);
+                    return;
+                }
+                $.ajax({ url: '/api/xrayclient/service/geodataTags/' + kind, dataType: 'json' }).done(function (d) {
+                    if (d && d.status === 'ok' && $.isArray(d.tags)) {
+                        var set = {};
+                        d.tags.forEach(function (t) { set[t.tag] = t.count; });
+                        tagSets[kind] = set;
+                        tagLists[kind] = d.tags;
+                        tagLoadedAt[kind] = Date.now();
+                        done(set, null);
+                    } else {
+                        tagSets[kind] = null;
+                        tagLists[kind] = [];
+                        done(null, (d && d.message) || 'GeoData is not available');
+                    }
+                }).fail(function () {
+                    tagSets[kind] = null;
+                    tagLists[kind] = [];
+                    done(null, 'GeoData is not available');
+                });
+            }
+
+            function fieldValues(id) {
+                var v = $('#rule\\.' + id).val();
+                return $.isArray(v) ? v : (v ? String(v).split(',') : []);
+            }
+
+            function addToken(id, value) {
+                var $sel = $('#rule\\.' + id);
+                if (!$sel.length) {
+                    return false;
+                }
+                var cur = fieldValues(id);
+                if (cur.indexOf(value) !== -1) {
+                    return true;
+                }
+                cur.push(value);
+                $sel.empty();
+                cur.forEach(function (v) {
+                    $('<option/>').val(v).text(v).prop('selected', true).appendTo($sel);
+                });
+                if (typeof formatTokenizersUI === 'function') {
+                    formatTokenizersUI();
+                }
+                $sel.trigger('change');
+                return true;
+            }
+
+            // --- tag check in the rule dialog ---
+            function checkTags() {
+                FIELDS.forEach(function (f) {
+                    var $warn = $('#geodata_warn_' + f[0]);
+                    if (!$warn.length) {
+                        return;
+                    }
+                    var values = fieldValues(f[0]);
+                    var hasGeo = values.some(function (v) { return /^!?geo(site|ip):/i.test($.trim(v)); });
+                    if (!hasGeo) {
+                        $warn.hide();
+                        return;
+                    }
+                    loadTags(f[1], function (set) {
+                        var sets = {};
+                        sets[f[1]] = set;
+                        var bad = geodataUnknownTags(fieldValues(f[0]), sets);
+                        if (bad.length) {
+                            $warn.html('<i class="fa fa-exclamation-triangle"></i> Not found in the installed ' +
+                                (f[1] === 'site' ? 'geosite.dat' : 'geoip.dat') + ': <b>' + bad.map(esc).join(', ') +
+                                '</b>. Xray will reject the config on Apply. Pick a category with <b>Browse ' + f[2] + '</b> or update GeoData.').show();
+                        } else {
+                            $warn.hide();
+                        }
+                    });
+                });
+            }
+
+            FIELDS.forEach(function (f) {
+                var $sel = $('#rule\\.' + f[0]);
+                var $cell = $sel.closest('td');
+                if (!$cell.length) {
+                    return;
+                }
+                var $bar = $('<div class="geodata_bar"/>').append(
+                    $('<button type="button" class="btn btn-xs btn-default geodata_open"/>')
+                        .attr('data-field', f[0]).attr('data-kind', f[1])
+                        .html('<i class="fa fa-search"></i> Browse ' + f[2] + '&hellip;'),
+                    $('<div class="geodata_warn text-warning" style="display:none;margin-top:4px;"/>').attr('id', 'geodata_warn_' + f[0])
+                );
+                $cell.append($bar);
+                $sel.on('change', checkTags);
+            });
+            $('#DialogRule').on('shown.bs.modal', checkTags);
+            $(document).on('change', '#rule_preset', function () { setTimeout(checkTags, 50); });
+
+            // --- the browser dialog ---
+            var state = { kind: 'site', tag: '', target: null, offset: 0, total: 0, q: '' };
+            var PAGE = 100;
+
+            function renderTags() {
+                var f = $.trim($('#geodata_tag_filter').val()).toLowerCase();
+                var rows = tagLists[state.kind].filter(function (t) { return !f || t.tag.indexOf(f) !== -1; });
+                var html = rows.slice(0, 400).map(function (t) {
+                    return '<a href="#" class="list-group-item geodata_tag' + (t.tag === state.tag ? ' active' : '') +
+                        '" data-tag="' + esc(t.tag) + '">' + esc(t.tag) + ' <span class="badge">' + t.count + '</span></a>';
+                }).join('');
+                if (rows.length > 400) {
+                    html += '<div class="list-group-item text-muted">&hellip; ' + (rows.length - 400) + ' more: narrow the filter</div>';
+                }
+                $('#geodata_tags').html(html || '<div class="list-group-item text-muted">No categories</div>');
+            }
+
+            function showMessage(text) {
+                $('#geodata_msg').text(text || '').toggle(!!text);
+            }
+
+            function loadKind(kind) {
+                state.kind = kind;
+                state.tag = '';
+                $('#geodata_kind_tabs li').removeClass('active').filter('[data-kind="' + kind + '"]').addClass('active');
+                $('#geodata_entries_box').hide();
+                $('#geodata_tags').html('<div class="list-group-item text-muted"><i class="fa fa-spinner fa-pulse"></i> Loading&hellip;</div>');
+                showMessage('');
+                loadTags(kind, function (set, err) {
+                    if (!set) {
+                        $('#geodata_tags').empty();
+                        showMessage(err + '. Update GeoData in Maintenance first.');
+                        return;
+                    }
+                    renderTags();
+                }, true);
+            }
+
+            function loadEntries(append) {
+                if (!append) {
+                    state.offset = 0;
+                    $('#geodata_rows').empty();
+                }
+                $('#geodata_more').prop('disabled', true);
+                $.ajax({
+                    url: '/api/xrayclient/service/geodataEntries', dataType: 'json',
+                    data: { kind: state.kind, tag: state.tag, q: state.q, offset: state.offset, limit: PAGE }
+                }).done(function (d) {
+                    if (!d || d.status !== 'ok') {
+                        showMessage((d && d.message) || 'Could not read the category.');
+                        return;
+                    }
+                    showMessage('');
+                    state.total = d.total;
+                    var canInsert = !!state.target;
+                    $('#geodata_rows').append(d.rows.map(function (r) {
+                        var token = geodataEntryToken(state.kind, r);
+                        return '<tr><td class="text-muted">' + esc(r.type) + '</td><td><code>' + esc(r.value) + '</code>' +
+                            (r.attrs.length ? ' <span class="text-muted">@' + r.attrs.map(esc).join(' @') + '</span>' : '') + '</td>' +
+                            '<td style="width:2.5em;">' + (canInsert ? '<button type="button" class="btn btn-xs btn-default geodata_add_entry" data-token="' + esc(token) + '" title="Add ' + esc(token) + ' to the rule"><i class="fa fa-plus"></i></button>' : '') + '</td></tr>';
+                    }).join(''));
+                    state.offset += d.rows.length;
+                    $('#geodata_count').text(state.offset + ' of ' + d.total);
+                    $('#geodata_more').toggle(state.offset < d.total).prop('disabled', false);
+                }).fail(function () {
+                    showMessage('Could not read the category.');
+                });
+            }
+
+            function selectTag(tag) {
+                state.tag = tag;
+                state.q = '';
+                $('#geodata_q').val('');
+                var prefix = state.kind === 'site' ? 'geosite:' : 'geoip:';
+                $('#geodata_tag_title').text(prefix + tag);
+                $('#geodata_use_tag').toggle(!!state.target).attr('data-token', prefix + tag);
+                $('#geodata_entries_box').show();
+                renderTags();
+                loadEntries(false);
+            }
+
+            $(document).on('click', '.geodata_open', function () {
+                state.target = $(this).attr('data-field');
+                openBrowser($(this).attr('data-kind'));
+            });
+            $(document).on('click', '#btn_geodata_browse', function () {
+                state.target = null;
+                openBrowser('site');
+            });
+
+            function openBrowser(kind) {
+                $('#geodata_tag_filter').val('');
+                $('#geodata_target_note').text(state.target ? 'Adding to the rule field: ' + state.target : 'Browse only. To insert a category open this from a rule.');
+                loadKind(kind);
+                $('#DialogGeoData').modal('show');
+            }
+
+            $(document).on('click', '#geodata_kind_tabs a', function (e) {
+                e.preventDefault();
+                loadKind($(this).parent().attr('data-kind'));
+            });
+            $(document).on('input', '#geodata_tag_filter', renderTags);
+            $(document).on('click', '.geodata_tag', function (e) {
+                e.preventDefault();
+                selectTag($(this).attr('data-tag'));
+            });
+            var qTimer = null;
+            $(document).on('input', '#geodata_q', function () {
+                var v = $.trim($(this).val());
+                clearTimeout(qTimer);
+                qTimer = setTimeout(function () {
+                    state.q = v;
+                    loadEntries(false);
+                }, 300);
+            });
+            $(document).on('click', '#geodata_more', function () { loadEntries(true); });
+            $(document).on('click', '#geodata_use_tag, .geodata_add_entry', function () {
+                var token = $(this).attr('data-token');
+                // category insertion targets the field matching the kind; entries go to the opened field
+                var target = state.target;
+                if (target && addToken(target, token)) {
+                    $(this).removeClass('btn-default').addClass('btn-success').find('i').attr('class', 'fa fa-check');
+                    checkTags();
+                }
+            });
+
+            // A stacked modal: keep it above the rule dialog and keep that
+            // one scrollable after this one closes.
+            $('#DialogGeoData').on('shown.bs.modal', function () {
+                $(this).css('z-index', 1070);
+                $('.modal-backdrop').last().css('z-index', 1065);
+            }).on('hidden.bs.modal', function () {
+                if ($('.modal.in').length) {
+                    $('body').addClass('modal-open');
+                }
+            });
+        })();
 
         // Built-in DNS server presets in the Add/Edit server dialog.
         // Mirrors the rule dialog pattern: preset box lives outside the
@@ -4534,8 +4820,9 @@
             <span class="text-muted rb_note">Applies when no rule above matches. Change it in Routing &rarr; Policy &amp; Sniffing &rarr; Default Action.</span>
         </div>
         <div class="col-md-12" style="padding-bottom: 15px;">
-        <div style="margin: 14px 0 8px 0;">
+        <div style="margin: 14px 0 8px 0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
             <span class="text-muted" style="font-size: 15px; line-height: 1.5;">Rules are applied top-to-bottom (&#8593;/&#8595; to reorder). Entries save instantly &mdash; click <b>Apply &amp; Restart Xray</b>.</span>
+            <button type="button" id="btn_geodata_browse" class="btn btn-default btn-sm" title="Look into the installed geosite.dat / geoip.dat to find categories for rules"><i class="fa fa-search"></i> Browse GeoData</button>
         </div>
             <hr/>
             <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves the plugin settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
@@ -4720,6 +5007,46 @@
 {{ partial("layout_partials/base_dialog", ['fields': formDialogRule, 'id': 'DialogRule', 'label': 'Edit Routing Rule']) }}
 {{ partial("layout_partials/base_dialog", ['fields': formDialogBalancer, 'id': 'DialogBalancer', 'label': 'Edit Load Balancer']) }}
 {{ partial("layout_partials/base_dialog", ['fields': formDialogDnsServer, 'id': 'DialogDnsServer', 'label': 'Edit DNS Server']) }}
+
+<div class="modal fade" id="DialogGeoData" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                <h4 class="modal-title">GeoData browser</h4>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs" id="geodata_kind_tabs" style="margin-bottom: 10px;">
+                    <li data-kind="site" class="active"><a href="#">geosite.dat (domains)</a></li>
+                    <li data-kind="ip"><a href="#">geoip.dat (IP ranges)</a></li>
+                </ul>
+                <div class="text-muted" id="geodata_target_note" style="margin-bottom: 8px;"></div>
+                <div class="alert alert-warning" id="geodata_msg" style="display: none;"></div>
+                <div class="row">
+                    <div class="col-sm-5">
+                        <input type="text" id="geodata_tag_filter" class="form-control" placeholder="Filter categories&hellip;" autocomplete="off" style="margin-bottom: 6px;"/>
+                        <div class="list-group" id="geodata_tags" style="max-height: 50vh; overflow-y: auto; margin-bottom: 0;"></div>
+                    </div>
+                    <div class="col-sm-7" id="geodata_entries_box" style="display: none;">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                            <b id="geodata_tag_title" style="flex: 1 1 auto;"></b>
+                            <button type="button" id="geodata_use_tag" class="btn btn-xs btn-default" style="display: none;"><i class="fa fa-plus"></i> Use whole category</button>
+                        </div>
+                        <input type="text" id="geodata_q" class="form-control" placeholder="Search entries&hellip;" autocomplete="off" style="margin-bottom: 6px;"/>
+                        <div style="max-height: calc(50vh - 40px); overflow-y: auto;">
+                            <table class="table table-condensed table-striped" style="margin-bottom: 4px;"><tbody id="geodata_rows"></tbody></table>
+                        </div>
+                        <span class="text-muted" id="geodata_count"></span>
+                        <button type="button" id="geodata_more" class="btn btn-xs btn-default pull-right" style="display: none;">Load more</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="modal fade" id="DialogUpdateProgress" tabindex="-1" role="dialog" data-backdrop="static" data-keyboard="false">
     <div class="modal-dialog modal-lg" role="document">
