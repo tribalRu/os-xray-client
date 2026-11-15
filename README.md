@@ -1,5 +1,7 @@
 # os-xray-client
 
+**English** · [Русский](README.ru.md)
+
 A plugin that runs **[Xray-core](https://github.com/XTLS/Xray-core)** on **OPNsense 26.x** and manages it from the web UI.
 Add your proxy servers, decide which traffic goes where, and the plugin turns that into an Xray config, starts the service and keeps an eye on it. No SSH editing of JSON files required (though you can, if you like).
 
