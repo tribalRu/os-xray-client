@@ -95,4 +95,20 @@ Files use LF line endings (`.gitattributes`). On Windows keep `git config core.f
 
 ## License
 
-GPL-3.0
+Copyright (C) 2026 os-xray-client contributors.
+
+This project is free software, released under the **GNU General Public License, version 3** (GPL-3.0). The full text is in the [LICENSE](LICENSE) file. You may use, study, modify and redistribute it under those terms; if you distribute a modified version, it must stay under the GPL-3.0 and come with its source.
+
+The software is provided **as is, without warranty of any kind**, express or implied, including merchantability and fitness for a particular purpose. You run it on your own firewall at your own risk: always keep a configuration backup and check the result before relying on it.
+
+**Files with their own header.** A few PHP files follow the OPNsense convention and carry a BSD 2-Clause header (`Copyright (C) 2026 os-xray-client contributors`). That licence is compatible with the GPL-3.0; those files stay under the terms of their header.
+
+**Third-party software and data.** This repository does not contain them; the installer and the Maintenance tab download them from their own sources, and each stays under its own licence:
+
+| Component | Source | Licence |
+| --- | --- | --- |
+| Xray-core | [XTLS/Xray-core](https://github.com/XTLS/Xray-core) | MPL-2.0 |
+| GeoIP / GeoSite data | Loyalsoldier, runetfreedom, Chocolate4U or your own URLs (see *GeoData Source Preset*) | as published in each repository |
+| OPNsense | [opnsense/core](https://github.com/opnsense/core) | BSD 2-Clause |
+
+**Services and trademarks.** The project is independent and is not affiliated with or endorsed by the Xray / XTLS project, the OPNsense project (Deciso) or Cloudflare. Names such as OPNsense, Xray, WireGuard, Cloudflare and WARP belong to their owners. The WARP features use Cloudflare's public client API: you are responsible for following Cloudflare's terms of service. You are also responsible for using proxies and routing features in accordance with the laws that apply to you.
