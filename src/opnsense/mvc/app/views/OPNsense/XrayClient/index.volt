@@ -1,4 +1,5 @@
 <style>
+    #rule_builtin_top { margin-top: 12px; }
     .rule_builtin { padding: 7px 10px; margin: 6px 0; border: 1px dashed #bbb; border-radius: 3px; background: rgba(128,128,128,0.07); cursor: help; }
     .rule_builtin .rb_seq { display: inline-block; width: 3.2em; text-align: center; opacity: 0.6; }
     .rule_builtin .rb_note { margin-left: 8px; }
@@ -3411,6 +3412,38 @@
             }, 2000);
         });
 
+        // "Browse GeoData" sits in the Rules grid's own action bar, level with
+        // the search box and as tall as it. The grid builds its bar
+        // asynchronously; if it never shows up the button is added above the
+        // table instead.
+        (function placeGeoDataButton() {
+            var tries = 0;
+            function make() {
+                return $('<button type="button" id="btn_geodata_browse" class="btn btn-default"/>')
+                    .attr('title', 'Look into the installed geosite.dat / geoip.dat to find categories for rules')
+                    .html('<i class="fa fa-search"></i> Browse GeoData');
+            }
+            var timer = setInterval(function () {
+                tries++;
+                var $bar = $('#tab_rules .actionBar').first();
+                var $search = $bar.find('.search').first();
+                if ($bar.length && $search.length) {
+                    clearInterval(timer);
+                    var $btn = make().css({ 'float': 'right', 'margin-left': '8px', 'height': ($search.outerHeight() || 36) + 'px' });
+                    $btn.insertBefore($search);
+                    // floats: the earlier element is the right-most one. Keep
+                    // the button on the search box's left whichever way the
+                    // grid orders its parts.
+                    if ($btn.offset().left > $search.offset().left) {
+                        $btn.insertAfter($search);
+                    }
+                } else if (tries >= 40) {
+                    clearInterval(timer);
+                    $('#grid-rules').before(make().css('margin-bottom', '8px'));
+                }
+            }, 250);
+        })();
+
         // Put the nodes toolbar into the grid's own action bar so the tab has
         // one header row (our actions left, search and grid tools right). The
         // grid builds its bar asynchronously; if it never shows up, or has
@@ -4877,9 +4910,8 @@
             <span class="text-muted rb_note">Applies when no rule above matches. Change it in Routing &rarr; Policy &amp; Sniffing &rarr; Default Action.</span>
         </div>
         <div class="col-md-12" style="padding-bottom: 15px;">
-        <div style="margin: 14px 0 8px 0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <div style="margin: 14px 0 8px 0;">
             <span class="text-muted" style="font-size: 15px; line-height: 1.5;">Rules are applied top-to-bottom (&#8593;/&#8595; to reorder). Entries save instantly &mdash; click <b>Apply &amp; Restart Xray</b>.</span>
-            <button type="button" id="btn_geodata_browse" class="btn btn-default btn-sm" title="Look into the installed geosite.dat / geoip.dat to find categories for rules"><i class="fa fa-search"></i> Browse GeoData</button>
         </div>
             <hr/>
             <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves the plugin settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
