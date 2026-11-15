@@ -1462,5 +1462,103 @@ class TestWarpSources(unittest.TestCase):
         self.assertNotIn('cc', by[501])
 
 
+def _pb_varint(n):
+    out = bytearray()
+    while True:
+        b = n & 0x7F
+        n >>= 7
+        if n:
+            out.append(b | 0x80)
+        else:
+            out.append(b)
+            return bytes(out)
+
+
+def _pb_len(field, payload):
+    return _pb_varint(field << 3 | 2) + _pb_varint(len(payload)) + payload
+
+
+def _pb_int(field, value):
+    return _pb_varint(field << 3) + _pb_varint(value)
+
+
+class TestGeodata(unittest.TestCase):
+    """geodata.py reads geosite.dat / geoip.dat without a protobuf package."""
+
+    def setUp(self):
+        import tempfile
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        dom = lambda t, v, attrs=(): (  # noqa: E731
+            _pb_int(1, t) + _pb_len(2, v.encode()) +
+            b''.join(_pb_len(3, _pb_len(1, a.encode())) for a in attrs))
+        site = _pb_len(1, _pb_len(1, b'RU-BLOCKED') +
+                       _pb_len(2, dom(2, 'rutracker.org')) +
+                       _pb_len(2, dom(3, 'www.example.ru', ['ads'])) +
+                       _pb_len(2, dom(0, 'tor'))) + \
+            _pb_len(1, _pb_len(1, b'CATEGORY-ADS-ALL') + _pb_len(2, dom(2, 'ads.example')))
+        cidr = lambda ip, pre: _pb_len(2, _pb_len(1, ip) + _pb_int(2, pre))  # noqa: E731
+        geoip = _pb_len(1, _pb_len(1, b'PRIVATE') +
+                        cidr(bytes([10, 0, 0, 0]), 8) + cidr(bytes([192, 168, 0, 0]), 16)) + \
+            _pb_len(1, _pb_len(1, b'RU'))
+        with open(os.path.join(self.tmp.name, 'geosite.dat'), 'wb') as f:
+            f.write(site)
+        with open(os.path.join(self.tmp.name, 'geoip.dat'), 'wb') as f:
+            f.write(geoip)
+        import geodata
+        self.geodata = geodata
+        patcher = patch.object(geodata, 'ASSET_DIR', self.tmp.name)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_tags_with_counts(self):
+        res = self.geodata.list_tags('site')
+        self.assertEqual(res['tags'], [{'tag': 'category-ads-all', 'count': 1},
+                                       {'tag': 'ru-blocked', 'count': 3}])
+        ip = self.geodata.list_tags('ip')
+        self.assertEqual(ip['tags'], [{'tag': 'private', 'count': 2}, {'tag': 'ru', 'count': 0}])
+
+    def test_site_entries_types_attrs_and_paging(self):
+        res = self.geodata.list_entries('site', 'ru-blocked')
+        self.assertEqual(res['total'], 3)
+        self.assertEqual([(r['type'], r['value']) for r in res['rows']],
+                         [('domain', 'rutracker.org'), ('full', 'www.example.ru'), ('keyword', 'tor')])
+        self.assertEqual(res['rows'][1]['attrs'], ['ads'])
+        res = self.geodata.list_entries('site', 'RU-BLOCKED@ads', offset=1, limit=1)
+        self.assertEqual(res['total'], 3)
+        self.assertEqual(len(res['rows']), 1)
+        self.assertEqual(res['rows'][0]['value'], 'www.example.ru')
+
+    def test_search_filters_and_counts(self):
+        res = self.geodata.list_entries('site', 'ru-blocked', query='RU')
+        self.assertEqual(res['total'], 2)
+
+    def test_ip_entries(self):
+        res = self.geodata.list_entries('ip', 'private')
+        self.assertEqual([r['value'] for r in res['rows']], ['10.0.0.0/8', '192.168.0.0/16'])
+
+    def test_unknown_tag_and_missing_file(self):
+        self.assertEqual(self.geodata.list_entries('site', 'nope')['status'], 'error')
+        os.remove(os.path.join(self.tmp.name, 'geoip.dat'))
+        with self.assertRaises(self.geodata.DatError):
+            self.geodata.list_tags('ip')
+
+    def test_main_rejects_bad_input(self):
+        import io
+        from contextlib import redirect_stdout
+        for argv in (['g', 'entries', 'site', 'a;b'], ['g', 'entries', 'site', 'ok', 'a b'],
+                     ['g', 'tags', 'dns'], ['g']):
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                self.geodata.main(argv)
+            self.assertEqual(json.loads(buf.getvalue())['status'], 'error', argv)
+
+    def test_truncated_data_is_an_error_not_a_crash(self):
+        with open(os.path.join(self.tmp.name, 'geosite.dat'), 'wb') as f:
+            f.write(b'\x0a\xff\x01abc')
+        with self.assertRaises(self.geodata.DatError):
+            self.geodata.list_tags('site')
+
+
 if __name__ == '__main__':
     unittest.main()
