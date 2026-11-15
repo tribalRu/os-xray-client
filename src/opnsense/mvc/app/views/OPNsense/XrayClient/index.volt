@@ -634,8 +634,10 @@
             var $topBox = $top.find('[id="rule.pinned"]');
             var $endBox = $endRow.find('[id="rule.pin_end"]');
             var lbl = function (id, text, pad) {
-                return $('<label style="margin:0 ' + pad + 'px 0 6px;font-weight:normal;vertical-align:middle;"/>').attr('for', id).text(text);
+                return $('<label style="margin:0 ' + pad + 'px 0 6px;font-weight:normal;vertical-align:middle;line-height:1;"/>').attr('for', id).text(text);
             };
+            // Bootstrap gives checkboxes a top margin; align box and text on one line.
+            $topBox.add($endBox).css({'margin': '0', 'vertical-align': 'middle', 'position': 'relative', 'top': '-1px'});
             // Pin to  [ ] top  [ ] end, before any help block
             $topBox.after(lbl('rule.pinned', 'top', 22), $endBox, lbl('rule.pin_end', 'end', 0));
             $top.children('td').eq(0).find('b').first().text('Pin to');
