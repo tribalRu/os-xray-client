@@ -861,7 +861,10 @@
                     // box taller the name stays at the top of the block.
                     var line = Math.min($box.outerHeight(), 38);
                     var pad = ($box.offset().top - $nameCell.offset().top) + (line - $name.outerHeight()) / 2;
-                    $nameCell.css({ 'vertical-align': 'top', 'padding-top': Math.max(0, Math.round(pad)) + 'px' });
+                    // The dialog CSS sets vertical-align: middle !important on every
+                    // cell, so only an !important inline value wins.
+                    $nameCell[0].style.setProperty('vertical-align', 'top', 'important');
+                    $nameCell.css('padding-top', Math.max(0, Math.round(pad)) + 'px');
                 });
             }
             window.geodataAlignLabels = alignGeoLabels;
