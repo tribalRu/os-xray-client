@@ -1,4 +1,7 @@
 <style>
+    .rule_builtin { padding: 7px 10px; margin: 6px 0; border: 1px dashed #bbb; border-radius: 3px; background: rgba(128,128,128,0.07); cursor: help; }
+    .rule_builtin .rb_seq { display: inline-block; width: 3.2em; text-align: center; opacity: 0.6; }
+    .rule_builtin .rb_note { margin-left: 8px; }
     /* OPNsense 26 full-help sidebar squeezes the form into a narrow
        column and the dialog becomes wider than the viewport.
        Keep the dialog centred and the form readable.
@@ -4396,6 +4399,13 @@
         </ul>
         <div class="tab-content">
     <div id="tab_rules" class="tab-pane fade in active">
+        <div id="rule_builtin_top" class="rule_builtin" title="Built-in rule, always first. Xray's stats/API listener (api-in, 127.0.0.1 only) is routed to the internal api outbound. It is required for traffic and latency statistics and for «Show live selection»; it cannot be disabled or removed, otherwise statistics would stop working.">
+            <span class="fa fa-fw fa-lock"></span>
+            <span class="rb_seq">&mdash;</span>
+            <b>Built-in: statistics API</b>
+            <span class="text-muted">inbound <code>api-in</code> &rarr; <code>api</code></span>
+            <span class="text-muted rb_note">Required for statistics and live selection; local only (127.0.0.1). Not editable.</span>
+        </div>
         <table id="grid-rules" class="table table-condensed table-hover table-striped" data-editDialog="DialogRule">
             <thead>
                 <tr>
@@ -4419,6 +4429,13 @@
                 </tr>
             </tfoot>
         </table>
+        <div id="rule_builtin_bottom" class="rule_builtin" title="Built-in rule, always last. Traffic that none of the rules above matched leaves directly (the direct outbound). To send everything else through a proxy, add a rule at the end of the list with no conditions and a proxy node or balancer as its action.">
+            <span class="fa fa-fw fa-lock"></span>
+            <span class="rb_seq">&mdash;</span>
+            <b>Built-in: default</b>
+            <span class="text-muted">any traffic (tcp/udp) &rarr; <code>direct</code></span>
+            <span class="text-muted rb_note">Applies when no rule above matches. To route the rest via a proxy, add a rule without conditions at the end. Not editable.</span>
+        </div>
         <div class="col-md-12" style="padding-bottom: 15px;">
         <div style="margin: 14px 0 8px 0;">
             <span class="text-muted" style="font-size: 15px; line-height: 1.5;">Rules are applied top-to-bottom (&#8593;/&#8595; to reorder). Entries save instantly &mdash; click <b>Apply &amp; Restart Xray</b>.</span>
