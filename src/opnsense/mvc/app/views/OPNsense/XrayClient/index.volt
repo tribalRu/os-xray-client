@@ -545,22 +545,26 @@
                 ru_blocked_ips: { sequence: 13, description: 'Blocked in RU: IP ranges via proxy (geoip:ru-blocked)', domain: [], ip: ['geoip:ru-blocked'], outbound_tag: '' },
                 bittorrent_direct: { sequence: 40, description: 'BitTorrent direct (needs Domain Sniffing)', domain: [], ip: [], protocol: ['bittorrent'], outbound_tag: 'direct' },
                 quic_block: { sequence: 60, description: 'Block QUIC (UDP 443): browsers fall back to TCP', domain: [], ip: [], port: '443', network_proto: 'udp', outbound_tag: 'block' },
-                rest_proxy: { sequence: 9000, description: 'Everything else via proxy (keep last)', domain: [], ip: [], outbound_tag: '' }
+                rest_proxy: { sequence: 9000, description: 'Everything else via proxy', domain: [], ip: [], outbound_tag: '', pin_end: true }
             };
             var $preset = $(
                 '<div id="rule_preset_container" style="display:flex;align-items:center;gap:10px;padding:12px 15px;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:5px;">' +
                     '<label for="rule_preset" style="margin:0;white-space:nowrap;"><b>Built-in preset</b></label>' +
                     '<select id="rule_preset" class="form-control" style="flex:1 1 auto;">' +
                         '<option value="">— Custom (empty form) —</option>' +
-                        '<option value="lan_private">Bypass LAN / private subnets (geoip:private → direct)</option>' +
-                        '<option value="ru_domains">Bypass Russian domains (geosite:ru + .ru/.рф → direct)</option>' +
-                        '<option value="ru_ips">Bypass Russian IP ranges (geoip:ru → direct)</option>' +
-                        '<option value="block_ads">Block ads (geosite:category-ads-all → block)</option>' +
-                        '<option value="ru_blocked_domains">Blocked in RU: domains → proxy (geosite:ru-blocked)</option>' +
-                        '<option value="ru_blocked_ips">Blocked in RU: IP ranges → proxy (geoip:ru-blocked)</option>' +
-                        '<option value="bittorrent_direct">BitTorrent → direct (sniffing: bittorrent)</option>' +
-                        '<option value="quic_block">Block QUIC (UDP 443 → block)</option>' +
-                        '<option value="rest_proxy">Everything else → proxy (no conditions, last)</option>' +
+                        '<optgroup label="General">' +
+                            '<option value="lan_private">Bypass LAN / private subnets (geoip:private → direct)</option>' +
+                            '<option value="block_ads">Block ads (geosite:category-ads-all → block)</option>' +
+                            '<option value="bittorrent_direct">BitTorrent → direct (sniffing: bittorrent)</option>' +
+                            '<option value="quic_block">Block QUIC (UDP 443 → block)</option>' +
+                            '<option value="rest_proxy">Everything else → proxy (no conditions, pinned to end)</option>' +
+                        '</optgroup>' +
+                        '<optgroup label="Russia (geo RU)">' +
+                            '<option value="ru_domains">Bypass Russian domains (geosite:ru + .ru/.рф → direct)</option>' +
+                            '<option value="ru_ips">Bypass Russian IP ranges (geoip:ru → direct)</option>' +
+                            '<option value="ru_blocked_domains">Blocked in RU: domains → proxy (geosite:ru-blocked)</option>' +
+                            '<option value="ru_blocked_ips">Blocked in RU: IP ranges → proxy (geoip:ru-blocked)</option>' +
+                        '</optgroup>' +
                     '</select>' +
                 '</div>'
             );
@@ -608,12 +612,26 @@
                 $('#rule\\.description').val(p.description);
                 setTokens('domain', p.domain);
                 setTokens('ip', p.ip);
+                $('#rule\\.pinned').prop('checked', false);
+                $('#rule\\.pin_end').prop('checked', !!p.pin_end);
                 $('#rule\\.port').val(p.port || '');
                 $('#rule\\.protocol').val(p.protocol || []).selectpicker('refresh');
                 $('#rule\\.network_proto').val(p.network_proto || 'tcp_udp').selectpicker('refresh');
                 $('#rule\\.outbound_tag').val(p.outbound_tag).selectpicker('refresh');
             });
         })();
+
+        // Pin to top and Pin to end exclude each other.
+        $(document).on('change', '#DialogRule [id="rule.pinned"]', function () {
+            if (this.checked) {
+                $('#DialogRule [id="rule.pin_end"]').prop('checked', false);
+            }
+        });
+        $(document).on('change', '#DialogRule [id="rule.pin_end"]', function () {
+            if (this.checked) {
+                $('#DialogRule [id="rule.pinned"]').prop('checked', false);
+            }
+        });
 
         // Built-in DNS server presets in the Add/Edit server dialog.
         // Mirrors the rule dialog pattern: preset box lives outside the
@@ -1604,22 +1622,27 @@
         // The enabled match-everything rule with a lower sequence number that
         // hides this (enabled) rule, or null. Only the rows of the current
         // page are known, which is enough for the usual short rule lists.
+        // 0 = pinned to top, 1 = regular, 2 = pinned to end (top wins).
+        function ruleRank(r) {
+            return String(r.pinned) === '1' ? 0 : (String(r.pin_end) === '1' ? 2 : 1);
+        }
+
         function ruleShadowedBy(row) {
             if (String(row.enabled) !== '1') {
                 return null;
             }
             var seq = parseFloat(row.sequence);
-            var pin = String(row.pinned) === '1';
+            var rank = ruleRank(row);
             var cover = null;
             try {
                 $('#grid-rules').bootgrid('getCurrentRows').forEach(function (r) {
                     var rs = parseFloat(r.sequence);
-                    var rpin = String(r.pinned) === '1';
-                    // Effective order: pinned rules first, then by sequence.
-                    var before = (rpin && !pin) || (rpin === pin && rs < seq);
+                    var rrank = ruleRank(r);
+                    // Effective order: pinned-to-top, regular, pinned-to-end; then by sequence.
+                    var before = rrank < rank || (rrank === rank && rs < seq);
                     if (r.uuid !== row.uuid && String(r.enabled) === '1' && before && ruleMatchParts(r).length === 0 &&
-                        (cover === null || (rpin && String(cover.pinned) !== '1') ||
-                         (rpin === (String(cover.pinned) === '1') && rs < parseFloat(cover.sequence)))) {
+                        (cover === null || rrank < ruleRank(cover) ||
+                         (rrank === ruleRank(cover) && rs < parseFloat(cover.sequence)))) {
                         cover = r;
                     }
                 });
@@ -1657,9 +1680,13 @@
                         // The search API already returns HTML-escaped text (the default cell
                         // renderer inserts it as is), so do not escape it a second time.
                         var d = row.description || '';
-                        return String(row.pinned) === '1'
-                            ? '<span class="fa fa-fw fa-thumb-tack text-info bootgrid-tooltip" title="Pinned: evaluated before all regular rules"></span> ' + d
-                            : d;
+                        if (String(row.pinned) === '1') {
+                            return '<span class="fa fa-fw fa-thumb-tack text-info bootgrid-tooltip" title="Pinned to top: evaluated before all regular rules"></span> ' + d;
+                        }
+                        if (String(row.pin_end) === '1') {
+                            return '<span class="fa fa-fw fa-level-down text-info bootgrid-tooltip" title="Pinned to end: evaluated after all regular rules"></span> ' + d;
+                        }
+                        return d;
                     },
                     // Condensed counts of every condition, e.g.
                     // "domains: 2 · geoip: 1 · port: 443". A rule that sits
@@ -1683,7 +1710,7 @@
                         try {
                             $('#grid-rules').bootgrid('getCurrentRows').forEach(function (r) {
                                 if (r.uuid !== row.uuid && String(r.sequence) === String(row.sequence) &&
-                                    String(r.pinned) === String(row.pinned)) {
+                                    ruleRank(r) === ruleRank(row)) {
                                     dup = true;
                                 }
                             });

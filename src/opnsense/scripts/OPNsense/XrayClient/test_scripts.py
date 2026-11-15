@@ -556,6 +556,15 @@ class TestConfigTemplate(unittest.TestCase):
         self.assertEqual(doms, ['geosite:b', 'geosite:d', 'geosite:c', 'geosite:a'])
         self.assertEqual(cfg['routing']['rules'][0]['inboundTag'], ['api-in'])
 
+    def test_pin_to_end_rules_come_last(self):
+        a = dict(TEST_RULE, sequence='10', domain='geosite:a')
+        e = dict(TEST_RULE, sequence='5', domain='geosite:e', pin_end='1')
+        t = dict(TEST_RULE, sequence='50', domain='geosite:t', pinned='1')
+        both = dict(TEST_RULE, sequence='60', domain='geosite:x', pinned='1', pin_end='1')
+        cfg = render_config(rules=[e, a, t, both])
+        doms = [r['domain'][0] for r in cfg['routing']['rules'][1:-1]]
+        self.assertEqual(doms, ['geosite:t', 'geosite:x', 'geosite:a', 'geosite:e'])
+
     def test_rule_conditions_are_omitted_when_empty(self):
         cfg = render_config(rules=[TEST_RULE])
         rule = cfg['routing']['rules'][1]

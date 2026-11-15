@@ -16,6 +16,12 @@
         <help>Pinned rules are evaluated before all other rules (like floating rules in the firewall), regardless of their sequence; among themselves they keep their sequence order. Useful for exceptions that must always win.</help>
     </field>
     <field>
+        <id>rule.pin_end</id>
+        <label>Pin to end</label>
+        <type>checkbox</type>
+        <help>Pinned-to-end rules are evaluated after all other rules, just before the built-in default (direct), regardless of their sequence. Typical use: «Everything else via proxy». Cannot be combined with Pin to top.</help>
+    </field>
+    <field>
         <id>rule.description</id>
         <label>Rule Description</label>
         <type>text</type>

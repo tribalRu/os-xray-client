@@ -120,24 +120,25 @@ class SettingsController extends ApiMutableModelControllerBase
         $result = $this->searchBase(
             'rules.rule',
             [
-                'enabled', 'pinned', 'sequence', 'description', 'domain', 'ip', 'port', 'network_proto', 'protocol',
+                'enabled', 'pinned', 'pin_end', 'sequence', 'description', 'domain', 'ip', 'port', 'network_proto', 'protocol',
                 'inbound_tag', 'source', 'source_port', 'user', 'rule_tag', 'outbound_tag'
             ],
             'sequence'
         );
-        // Pinned rules are evaluated first: list them first (stable, so the
+        // Pinned-to-top rules are evaluated first, pinned-to-end last: list them so (stable, so the
         // sequence order is kept inside each group).
         if (isset($result['rows']) && is_array($result['rows'])) {
-            $pinned = [];
-            $normal = [];
+            $groups = [0 => [], 1 => [], 2 => []];
             foreach ($result['rows'] as $row) {
                 if ((string)($row['pinned'] ?? '0') === '1') {
-                    $pinned[] = $row;
+                    $groups[0][] = $row;
+                } elseif ((string)($row['pin_end'] ?? '0') === '1') {
+                    $groups[2][] = $row;
                 } else {
-                    $normal[] = $row;
+                    $groups[1][] = $row;
                 }
             }
-            $result['rows'] = array_merge($pinned, $normal);
+            $result['rows'] = array_merge($groups[0], $groups[1], $groups[2]);
         }
         return $result;
     }
@@ -190,13 +191,13 @@ class SettingsController extends ApiMutableModelControllerBase
         $mdl = $this->getModel();
         $rules = [];
         foreach ($mdl->rules->rule->iterateItems() as $key => $rule) {
-            $rules[$key] = [$rule, (int)((string)$rule->sequence), (string)$rule->pinned === '1' ? 0 : 1];
+            $rules[$key] = [$rule, (int)((string)$rule->sequence), (string)$rule->pinned === '1' ? 0 : ((string)$rule->pin_end === '1' ? 2 : 1)];
         }
         if (!isset($rules[$uuid])) {
             return ['status' => 'error', 'message' => 'Rule not found'];
         }
 
-        // Effective order: pinned rules first, then by sequence (stable: PHP
+        // Effective order: pinned-to-top, regular, pinned-to-end; then by sequence (stable: PHP
         // sorts are stable, ties keep config order).
         uasort($rules, function ($a, $b) {
             return [$a[2], $a[1]] <=> [$b[2], $b[1]];
