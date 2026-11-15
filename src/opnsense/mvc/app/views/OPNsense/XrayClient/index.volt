@@ -840,13 +840,42 @@
                         .html('<i class="fa fa-search"></i> Browse ' + f[2] + '&hellip;'),
                     $('<div class="geodata_warn text-warning" style="display:none;margin-top:4px;clear:both;"/>').attr('id', 'geodata_warn_' + f[0])
                 );
-                // the field name sits level with the input box, not with the
-                // vertical middle of the whole cell (links and warning below)
-                $cell.closest('tr').children('td').first().css({ 'vertical-align': 'top', 'padding-top': '17px' });
                 $sel.on('change', checkTags);
+                $sel.on('change', function () { setTimeout(alignGeoLabels, 0); });
             });
+
+            // The field name is centred on the first line of the input box,
+            // not on the whole cell (which also holds the links row and the
+            // warning). Measured from the rendered layout.
+            function alignGeoLabels() {
+                FIELDS.forEach(function (f) {
+                    var $cell = $('#rule\\.' + f[0]).closest('td');
+                    var $row = $cell.closest('tr');
+                    var $nameCell = $row.children('td').first();
+                    var $box = $cell.children(':visible').first();
+                    var $name = $nameCell.children().first();
+                    if (!$box.length || !$name.length || !$box.outerHeight()) {
+                        return;
+                    }
+                    // Centre on the first line only: when many tokens make the
+                    // box taller the name stays at the top of the block.
+                    var line = Math.min($box.outerHeight(), 38);
+                    var pad = ($box.offset().top - $nameCell.offset().top) + (line - $name.outerHeight()) / 2;
+                    // The dialog CSS sets vertical-align: middle !important on every
+                    // cell, so only an !important inline value wins.
+                    $nameCell[0].style.setProperty('vertical-align', 'top', 'important');
+                    $nameCell.css('padding-top', Math.max(0, Math.round(pad)) + 'px');
+                });
+            }
+            window.geodataAlignLabels = alignGeoLabels;
+
             placeBrowseButtons();
-            $('#DialogRule').on('shown.bs.modal', placeBrowseButtons);
+            $('#DialogRule').on('shown.bs.modal', function () {
+                placeBrowseButtons();
+                alignGeoLabels();
+                setTimeout(alignGeoLabels, 300);
+            });
+            $(document).on('change', '#rule_preset', function () { setTimeout(alignGeoLabels, 100); });
             $('#DialogRule').on('shown.bs.modal', checkTags);
             $(document).on('change', '#rule_preset', function () { setTimeout(checkTags, 50); });
 
