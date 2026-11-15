@@ -117,14 +117,30 @@ class SettingsController extends ApiMutableModelControllerBase
     // --- Routing Rules CRUD ---
     public function searchRuleAction()
     {
-        return $this->searchBase(
+        $result = $this->searchBase(
             'rules.rule',
             [
-                'enabled', 'sequence', 'description', 'domain', 'ip', 'port', 'network_proto', 'protocol',
+                'enabled', 'pinned', 'pin_end', 'sequence', 'description', 'domain', 'ip', 'port', 'network_proto', 'protocol',
                 'inbound_tag', 'source', 'source_port', 'user', 'rule_tag', 'outbound_tag'
             ],
             'sequence'
         );
+        // Pinned-to-top rules are evaluated first, pinned-to-end last: list them so (stable, so the
+        // sequence order is kept inside each group).
+        if (isset($result['rows']) && is_array($result['rows'])) {
+            $groups = [0 => [], 1 => [], 2 => []];
+            foreach ($result['rows'] as $row) {
+                if ((string)($row['pinned'] ?? '0') === '1') {
+                    $groups[0][] = $row;
+                } elseif ((string)($row['pin_end'] ?? '0') === '1') {
+                    $groups[2][] = $row;
+                } else {
+                    $groups[1][] = $row;
+                }
+            }
+            $result['rows'] = array_merge($groups[0], $groups[1], $groups[2]);
+        }
+        return $result;
     }
 
     public function getRuleAction($uuid = null)
@@ -175,21 +191,26 @@ class SettingsController extends ApiMutableModelControllerBase
         $mdl = $this->getModel();
         $rules = [];
         foreach ($mdl->rules->rule->iterateItems() as $key => $rule) {
-            $rules[$key] = [$rule, (int)((string)$rule->sequence)];
+            $rules[$key] = [$rule, (int)((string)$rule->sequence), (string)$rule->pinned === '1' ? 0 : ((string)$rule->pin_end === '1' ? 2 : 1)];
         }
         if (!isset($rules[$uuid])) {
             return ['status' => 'error', 'message' => 'Rule not found'];
         }
 
-        // Sort by sequence (stable: PHP sorts are stable, ties keep config order).
+        // Effective order: pinned-to-top, regular, pinned-to-end; then by sequence (stable: PHP
+        // sorts are stable, ties keep config order).
         uasort($rules, function ($a, $b) {
-            return $a[1] <=> $b[1];
+            return [$a[2], $a[1]] <=> [$b[2], $b[1]];
         });
         $order = array_keys($rules);
         $idx = array_search($uuid, $order, true);
         $swapWith = ($direction === 'up') ? $idx - 1 : $idx + 1;
         if ($swapWith < 0 || $swapWith >= count($order)) {
             return ['status' => 'ok', 'message' => 'Already at the edge'];
+        }
+        if ($rules[$order[$swapWith]][2] !== $rules[$uuid][2]) {
+            // Pinned and regular rules form separate groups.
+            return ['status' => 'ok', 'message' => 'Already at the edge of the group'];
         }
         [$order[$idx], $order[$swapWith]] = [$order[$swapWith], $order[$idx]];
 

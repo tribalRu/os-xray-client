@@ -1,4 +1,7 @@
 <style>
+    .rule_builtin { padding: 7px 10px; margin: 6px 0; border: 1px dashed #bbb; border-radius: 3px; background: rgba(128,128,128,0.07); cursor: help; }
+    .rule_builtin .rb_seq { display: inline-block; width: 3.2em; text-align: center; opacity: 0.6; }
+    .rule_builtin .rb_note { margin-left: 8px; }
     /* OPNsense 26 full-help sidebar squeezes the form into a narrow
        column and the dialog becomes wider than the viewport.
        Keep the dialog centred and the form readable.
@@ -535,17 +538,33 @@
                 lan_private: { sequence: 10, description: 'Bypass Local & Private Subnets (geoip:private)', domain: [], ip: ['geoip:private'], outbound_tag: 'direct' },
                 ru_domains: { sequence: 20, description: 'Bypass Russian Domains (geosite:ru + .ru/.рф)', domain: ['geosite:ru', 'domain:ru', 'domain:xn--p1ai'], ip: [], outbound_tag: 'direct' },
                 ru_ips: { sequence: 30, description: 'Bypass Russian IP Ranges (geoip:ru)', domain: [], ip: ['geoip:ru'], outbound_tag: 'direct' },
-                block_ads: { sequence: 90, description: 'Block Ads (geosite:category-ads-all)', domain: ['geosite:category-ads-all'], ip: [], outbound_tag: 'block' }
+                block_ads: { sequence: 90, description: 'Block Ads (geosite:category-ads-all)', domain: ['geosite:category-ads-all'], ip: [], outbound_tag: 'block' },
+                // Blocked in RU: must stay above the "Russian" bypass rules; the
+                // proxy target is picked by the user (outbound_tag '').
+                ru_blocked_domains: { sequence: 12, description: 'Blocked in RU: domains via proxy (geosite:ru-blocked)', domain: ['geosite:ru-blocked'], ip: [], outbound_tag: '' },
+                ru_blocked_ips: { sequence: 13, description: 'Blocked in RU: IP ranges via proxy (geoip:ru-blocked)', domain: [], ip: ['geoip:ru-blocked'], outbound_tag: '' },
+                bittorrent_direct: { sequence: 40, description: 'BitTorrent direct (needs Domain Sniffing)', domain: [], ip: [], protocol: ['bittorrent'], outbound_tag: 'direct' },
+                quic_block: { sequence: 60, description: 'Block QUIC (UDP 443): browsers fall back to TCP', domain: [], ip: [], port: '443', network_proto: 'udp', outbound_tag: 'block' },
+                rest_proxy: { sequence: 9000, description: 'Everything else via proxy', domain: [], ip: [], outbound_tag: '', pin_end: true }
             };
             var $preset = $(
                 '<div id="rule_preset_container" style="display:flex;align-items:center;gap:10px;padding:12px 15px;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:5px;">' +
                     '<label for="rule_preset" style="margin:0;white-space:nowrap;"><b>Built-in preset</b></label>' +
                     '<select id="rule_preset" class="form-control" style="flex:1 1 auto;">' +
                         '<option value="">— Custom (empty form) —</option>' +
-                        '<option value="lan_private">Bypass LAN / private subnets (geoip:private → direct)</option>' +
-                        '<option value="ru_domains">Bypass Russian domains (geosite:ru + .ru/.рф → direct)</option>' +
-                        '<option value="ru_ips">Bypass Russian IP ranges (geoip:ru → direct)</option>' +
-                        '<option value="block_ads">Block ads (geosite:category-ads-all → block)</option>' +
+                        '<optgroup label="General">' +
+                            '<option value="lan_private">Bypass LAN / private subnets (geoip:private → direct)</option>' +
+                            '<option value="block_ads">Block ads (geosite:category-ads-all → block)</option>' +
+                            '<option value="bittorrent_direct">BitTorrent → direct (sniffing: bittorrent)</option>' +
+                            '<option value="quic_block">Block QUIC (UDP 443 → block)</option>' +
+                            '<option value="rest_proxy">Everything else → proxy (no conditions, pinned to end)</option>' +
+                        '</optgroup>' +
+                        '<optgroup label="Russia (geo RU)">' +
+                            '<option value="ru_domains">Bypass Russian domains (geosite:ru + .ru/.рф → direct)</option>' +
+                            '<option value="ru_ips">Bypass Russian IP ranges (geoip:ru → direct)</option>' +
+                            '<option value="ru_blocked_domains">Blocked in RU: domains → proxy (geosite:ru-blocked)</option>' +
+                            '<option value="ru_blocked_ips">Blocked in RU: IP ranges → proxy (geoip:ru-blocked)</option>' +
+                        '</optgroup>' +
                     '</select>' +
                 '</div>'
             );
@@ -593,10 +612,56 @@
                 $('#rule\\.description').val(p.description);
                 setTokens('domain', p.domain);
                 setTokens('ip', p.ip);
-                $('#rule\\.network_proto').val('tcp_udp').selectpicker('refresh');
+                $('#rule\\.pinned').prop('checked', false);
+                $('#rule\\.pin_end').prop('checked', !!p.pin_end);
+                $('#rule\\.port').val(p.port || '');
+                $('#rule\\.protocol').val(p.protocol || []).selectpicker('refresh');
+                $('#rule\\.network_proto').val(p.network_proto || 'tcp_udp').selectpicker('refresh');
                 $('#rule\\.outbound_tag').val(p.outbound_tag).selectpicker('refresh');
             });
         })();
+
+        // Pin to top and Pin to end share one row: the Pin to end checkbox
+        // moves next to the first one (it stays inside the form, so it is
+        // still loaded and saved), its own row is dropped and its help text
+        // is appended to the shared one.
+        (function mergePinRows() {
+            var $top = $('#DialogRule [id="rule.pinned"]').closest('tr');
+            var $endRow = $('#DialogRule [id="rule.pin_end"]').closest('tr');
+            if (!$top.length || !$endRow.length || $top[0] === $endRow[0]) {
+                return;
+            }
+            var $topBox = $top.find('[id="rule.pinned"]');
+            var $endBox = $endRow.find('[id="rule.pin_end"]');
+            var lbl = function (id, text, pad) {
+                return $('<label style="margin:0 ' + pad + 'px 0 6px;font-weight:normal;vertical-align:middle;line-height:1;"/>').attr('for', id).text(text);
+            };
+            // Bootstrap gives checkboxes a top margin; align box and text on one line.
+            $topBox.add($endBox).css({'margin': '0', 'vertical-align': 'middle', 'position': 'relative', 'top': '-1px'});
+            // Pin to  [ ] top  [ ] end, before any help block
+            $topBox.after(lbl('rule.pinned', 'top', 22), $endBox, lbl('rule.pin_end', 'end', 0));
+            $top.children('td').eq(0).find('b').first().text('Pin to');
+            // help text: the row keeps its own help block, the other one is appended
+            var $help = $endRow.find('[data-for], .help-block').first();
+            var $topHelp = $top.find('[data-for], .help-block').first();
+            if ($help.length && $topHelp.length) {
+                var $inner = $topHelp.children().first().length ? $topHelp.children().first() : $topHelp;
+                $inner.append('<br/>').append($help.text());
+            }
+            $endRow.hide();
+        })();
+
+        // Pin to top and Pin to end exclude each other.
+        $(document).on('change', '#DialogRule [id="rule.pinned"]', function () {
+            if (this.checked) {
+                $('#DialogRule [id="rule.pin_end"]').prop('checked', false);
+            }
+        });
+        $(document).on('change', '#DialogRule [id="rule.pin_end"]', function () {
+            if (this.checked) {
+                $('#DialogRule [id="rule.pinned"]').prop('checked', false);
+            }
+        });
 
         // Built-in DNS server presets in the Add/Edit server dialog.
         // Mirrors the rule dialog pattern: preset box lives outside the
@@ -1587,17 +1652,27 @@
         // The enabled match-everything rule with a lower sequence number that
         // hides this (enabled) rule, or null. Only the rows of the current
         // page are known, which is enough for the usual short rule lists.
+        // 0 = pinned to top, 1 = regular, 2 = pinned to end (top wins).
+        function ruleRank(r) {
+            return String(r.pinned) === '1' ? 0 : (String(r.pin_end) === '1' ? 2 : 1);
+        }
+
         function ruleShadowedBy(row) {
             if (String(row.enabled) !== '1') {
                 return null;
             }
             var seq = parseFloat(row.sequence);
+            var rank = ruleRank(row);
             var cover = null;
             try {
                 $('#grid-rules').bootgrid('getCurrentRows').forEach(function (r) {
                     var rs = parseFloat(r.sequence);
-                    if (r.uuid !== row.uuid && String(r.enabled) === '1' && rs < seq && ruleMatchParts(r).length === 0 &&
-                        (cover === null || rs < parseFloat(cover.sequence))) {
+                    var rrank = ruleRank(r);
+                    // Effective order: pinned-to-top, regular, pinned-to-end; then by sequence.
+                    var before = rrank < rank || (rrank === rank && rs < seq);
+                    if (r.uuid !== row.uuid && String(r.enabled) === '1' && before && ruleMatchParts(r).length === 0 &&
+                        (cover === null || rrank < ruleRank(cover) ||
+                         (rrank === ruleRank(cover) && rs < parseFloat(cover.sequence)))) {
                         cover = r;
                     }
                 });
@@ -1630,6 +1705,19 @@
                             return '<span style="cursor: pointer;" class="fa fa-fw fa-toggle-off text-muted command-toggle bootgrid-tooltip" data-value="0" data-row-id="' + row.uuid + '"></span>';
                         }
                     },
+                    // Description with a pin mark for pinned rules.
+                    "rulename": function (column, row) {
+                        // The search API already returns HTML-escaped text (the default cell
+                        // renderer inserts it as is), so do not escape it a second time.
+                        var d = row.description || '';
+                        if (String(row.pinned) === '1') {
+                            return '<span class="fa fa-fw fa-thumb-tack text-info bootgrid-tooltip" title="Pinned to top: evaluated before all regular rules"></span> ' + d;
+                        }
+                        if (String(row.pin_end) === '1') {
+                            return '<span class="fa fa-fw fa-level-down text-info bootgrid-tooltip" title="Pinned to end: evaluated after all regular rules"></span> ' + d;
+                        }
+                        return d;
+                    },
                     // Condensed counts of every condition, e.g.
                     // "domains: 2 · geoip: 1 · port: 443". A rule that sits
                     // below an enabled match-everything rule is marked: it
@@ -1651,7 +1739,8 @@
                         var dup = false;
                         try {
                             $('#grid-rules').bootgrid('getCurrentRows').forEach(function (r) {
-                                if (r.uuid !== row.uuid && String(r.sequence) === String(row.sequence)) {
+                                if (r.uuid !== row.uuid && String(r.sequence) === String(row.sequence) &&
+                                    ruleRank(r) === ruleRank(row)) {
                                     dup = true;
                                 }
                             });
@@ -4396,13 +4485,20 @@
         </ul>
         <div class="tab-content">
     <div id="tab_rules" class="tab-pane fade in active">
+        <div id="rule_builtin_top" class="rule_builtin" title="Built-in rule, always first. Xray's stats/API listener (api-in, 127.0.0.1 only) is routed to the internal api outbound. It is required for traffic and latency statistics and for «Show live selection»; it cannot be disabled or removed, otherwise statistics would stop working.">
+            <span class="fa fa-fw fa-lock"></span>
+            <span class="rb_seq">&mdash;</span>
+            <b>Built-in: statistics API</b>
+            <span class="text-muted">inbound <code>api-in</code> &rarr; <code>api</code></span>
+            <span class="text-muted rb_note">Required for statistics and live selection; local only (127.0.0.1). Not editable.</span>
+        </div>
         <table id="grid-rules" class="table table-condensed table-hover table-striped" data-editDialog="DialogRule">
             <thead>
                 <tr>
                     <th data-column-id="uuid" data-type="string" data-identifier="true" data-visible="false">ID</th>
                     <th data-column-id="enabled" data-width="6em" data-type="string" data-formatter="rowtoggle">Enabled</th>
                     <th data-column-id="sequence" data-width="4em" data-type="numeric" data-formatter="ruleseq">#</th>
-                    <th data-column-id="description" data-type="string">Description</th>
+                    <th data-column-id="description" data-type="string" data-formatter="rulename">Description</th>
                     <th data-column-id="domain" data-type="string" data-formatter="rulematch" data-sortable="false">Match</th>
                     <th data-column-id="outbound_tag" data-width="10em" data-type="string">Action (Outbound)</th>
                     <th data-column-id="commands" data-width="12em" data-formatter="commands" data-sortable="false">Actions</th>
@@ -4419,6 +4515,13 @@
                 </tr>
             </tfoot>
         </table>
+        <div id="rule_builtin_bottom" class="rule_builtin" title="Built-in rule, always last. Traffic that none of the rules above matched leaves directly (the direct outbound). To send everything else through a proxy, add a rule at the end of the list with no conditions and a proxy node or balancer as its action.">
+            <span class="fa fa-fw fa-lock"></span>
+            <span class="rb_seq">&mdash;</span>
+            <b>Built-in: default</b>
+            <span class="text-muted">any traffic (tcp/udp) &rarr; <code>direct</code></span>
+            <span class="text-muted rb_note">Applies when no rule above matches. To route the rest via a proxy, add a rule without conditions at the end. Not editable.</span>
+        </div>
         <div class="col-md-12" style="padding-bottom: 15px;">
         <div style="margin: 14px 0 8px 0;">
             <span class="text-muted" style="font-size: 15px; line-height: 1.5;">Rules are applied top-to-bottom (&#8593;/&#8595; to reorder). Entries save instantly &mdash; click <b>Apply &amp; Restart Xray</b>.</span>

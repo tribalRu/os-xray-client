@@ -828,8 +828,11 @@
         "outboundTag": "api"
       }
 {% if not helpers.empty('OPNsense.XrayClient.rules.rule') %}
+{#  Pinned-to-top rules first, then regular ones, then pinned-to-end; each group ordered by sequence. #}
+{%   for _pin in ['top', 'mid', 'end'] %}
 {%   for rule in helpers.toList('OPNsense.XrayClient.rules.rule', 'sequence', 'int') %}
-{%     if rule.enabled == '1' %}
+{%     set _grp = 'top' if (rule.pinned or '0') == '1' else ('end' if (rule.pin_end or '0') == '1' else 'mid') %}
+{%     if rule.enabled == '1' and _grp == _pin %}
       ,{
         "type": "field",
 {%       if rule.domain %}
@@ -883,6 +886,7 @@
 {%       endif %}
       }
 {%     endif %}
+{%   endfor %}
 {%   endfor %}
 {% endif %}
       ,{

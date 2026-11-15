@@ -279,8 +279,12 @@ class _FakeHelpers:
         return value is None or value == [] or value == ''
 
     def toList(self, path, sort_key=None, order=None):
-        value = self._resolve(path)
-        return list(value) if value else []
+        value = list(self._resolve(path) or [])
+        if sort_key:
+            # Like the real helper: sort by the given field (stable).
+            conv = int if order == 'int' else str
+            value.sort(key=lambda item: conv(item.get(sort_key, 0)))
+        return value
 
 
 def render_config(general_overrides=None, nodes=None, rules=None,
@@ -541,6 +545,25 @@ class TestConfigTemplate(unittest.TestCase):
         self.assertEqual(cfg['dns']['disableFallbackIfMatch'], True)
         self.assertEqual(cfg['dns']['enableParallelQuery'], True)
         self.assertEqual(cfg['dns']['useSystemHosts'], False)
+
+    def test_pinned_rules_come_first(self):
+        a = dict(TEST_RULE, sequence='10', domain='geosite:a', pinned='0')
+        b = dict(TEST_RULE, sequence='20', domain='geosite:b', pinned='1')
+        c = dict(TEST_RULE, sequence='5', domain='geosite:c')  # no field: not pinned
+        d = dict(TEST_RULE, sequence='30', domain='geosite:d', pinned='1')
+        cfg = render_config(rules=[a, b, c, d])
+        doms = [r['domain'][0] for r in cfg['routing']['rules'][1:-1]]
+        self.assertEqual(doms, ['geosite:b', 'geosite:d', 'geosite:c', 'geosite:a'])
+        self.assertEqual(cfg['routing']['rules'][0]['inboundTag'], ['api-in'])
+
+    def test_pin_to_end_rules_come_last(self):
+        a = dict(TEST_RULE, sequence='10', domain='geosite:a')
+        e = dict(TEST_RULE, sequence='5', domain='geosite:e', pin_end='1')
+        t = dict(TEST_RULE, sequence='50', domain='geosite:t', pinned='1')
+        both = dict(TEST_RULE, sequence='60', domain='geosite:x', pinned='1', pin_end='1')
+        cfg = render_config(rules=[e, a, t, both])
+        doms = [r['domain'][0] for r in cfg['routing']['rules'][1:-1]]
+        self.assertEqual(doms, ['geosite:t', 'geosite:x', 'geosite:a', 'geosite:e'])
 
     def test_rule_conditions_are_omitted_when_empty(self):
         cfg = render_config(rules=[TEST_RULE])
