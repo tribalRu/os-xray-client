@@ -636,8 +636,8 @@
             var lbl = function (id, text, pad) {
                 return $('<label style="margin:0 ' + pad + 'px 0 6px;font-weight:normal;vertical-align:middle;"/>').attr('for', id).text(text);
             };
-            // [ ] Pin to top   [ ] Pin to end, before any help block
-            $topBox.after(lbl('rule.pinned', 'Pin to top', 22), $endBox, lbl('rule.pin_end', 'Pin to end', 0));
+            // Pin to  [ ] top  [ ] end, before any help block
+            $topBox.after(lbl('rule.pinned', 'top', 22), $endBox, lbl('rule.pin_end', 'end', 0));
             $top.children('td').eq(0).find('b').first().text('Pin to');
             // help text: the row keeps its own help block, the other one is appended
             var $help = $endRow.find('[data-for], .help-block').first();
