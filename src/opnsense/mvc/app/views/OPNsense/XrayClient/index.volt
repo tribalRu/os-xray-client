@@ -538,7 +538,14 @@
                 lan_private: { sequence: 10, description: 'Bypass Local & Private Subnets (geoip:private)', domain: [], ip: ['geoip:private'], outbound_tag: 'direct' },
                 ru_domains: { sequence: 20, description: 'Bypass Russian Domains (geosite:ru + .ru/.рф)', domain: ['geosite:ru', 'domain:ru', 'domain:xn--p1ai'], ip: [], outbound_tag: 'direct' },
                 ru_ips: { sequence: 30, description: 'Bypass Russian IP Ranges (geoip:ru)', domain: [], ip: ['geoip:ru'], outbound_tag: 'direct' },
-                block_ads: { sequence: 90, description: 'Block Ads (geosite:category-ads-all)', domain: ['geosite:category-ads-all'], ip: [], outbound_tag: 'block' }
+                block_ads: { sequence: 90, description: 'Block Ads (geosite:category-ads-all)', domain: ['geosite:category-ads-all'], ip: [], outbound_tag: 'block' },
+                // Blocked in RU: must stay above the "Russian" bypass rules; the
+                // proxy target is picked by the user (outbound_tag '').
+                ru_blocked_domains: { sequence: 12, description: 'Blocked in RU: domains via proxy (geosite:ru-blocked)', domain: ['geosite:ru-blocked'], ip: [], outbound_tag: '' },
+                ru_blocked_ips: { sequence: 13, description: 'Blocked in RU: IP ranges via proxy (geoip:ru-blocked)', domain: [], ip: ['geoip:ru-blocked'], outbound_tag: '' },
+                bittorrent_direct: { sequence: 40, description: 'BitTorrent direct (needs Domain Sniffing)', domain: [], ip: [], protocol: ['bittorrent'], outbound_tag: 'direct' },
+                quic_block: { sequence: 60, description: 'Block QUIC (UDP 443): browsers fall back to TCP', domain: [], ip: [], port: '443', network_proto: 'udp', outbound_tag: 'block' },
+                rest_proxy: { sequence: 9000, description: 'Everything else via proxy (keep last)', domain: [], ip: [], outbound_tag: '' }
             };
             var $preset = $(
                 '<div id="rule_preset_container" style="display:flex;align-items:center;gap:10px;padding:12px 15px;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:5px;">' +
@@ -549,6 +556,11 @@
                         '<option value="ru_domains">Bypass Russian domains (geosite:ru + .ru/.рф → direct)</option>' +
                         '<option value="ru_ips">Bypass Russian IP ranges (geoip:ru → direct)</option>' +
                         '<option value="block_ads">Block ads (geosite:category-ads-all → block)</option>' +
+                        '<option value="ru_blocked_domains">Blocked in RU: domains → proxy (geosite:ru-blocked)</option>' +
+                        '<option value="ru_blocked_ips">Blocked in RU: IP ranges → proxy (geoip:ru-blocked)</option>' +
+                        '<option value="bittorrent_direct">BitTorrent → direct (sniffing: bittorrent)</option>' +
+                        '<option value="quic_block">Block QUIC (UDP 443 → block)</option>' +
+                        '<option value="rest_proxy">Everything else → proxy (no conditions, last)</option>' +
                     '</select>' +
                 '</div>'
             );
@@ -596,7 +608,9 @@
                 $('#rule\\.description').val(p.description);
                 setTokens('domain', p.domain);
                 setTokens('ip', p.ip);
-                $('#rule\\.network_proto').val('tcp_udp').selectpicker('refresh');
+                $('#rule\\.port').val(p.port || '');
+                $('#rule\\.protocol').val(p.protocol || []).selectpicker('refresh');
+                $('#rule\\.network_proto').val(p.network_proto || 'tcp_udp').selectpicker('refresh');
                 $('#rule\\.outbound_tag').val(p.outbound_tag).selectpicker('refresh');
             });
         })();
