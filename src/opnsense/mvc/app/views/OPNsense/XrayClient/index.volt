@@ -2,7 +2,6 @@
     .rule_builtin { padding: 7px 10px; margin: 6px 0; border: 1px dashed #bbb; border-radius: 3px; background: rgba(128,128,128,0.07); cursor: help; }
     .rule_builtin .rb_seq { display: inline-block; width: 3.2em; text-align: center; opacity: 0.6; }
     .rule_builtin .rb_note { margin-left: 8px; }
-    .geodata_bar { margin-top: 6px; }
     #DialogGeoData .list-group-item { padding: 5px 10px; }
     /* OPNsense 26 full-help sidebar squeezes the form into a narrow
        column and the dialog becomes wider than the viewport.
@@ -804,21 +803,50 @@
                 });
             }
 
+            // The browse button sits in the line of the tokenizer's own
+            // "Clear All / Copy / Text" links, flush right. Those links are
+            // created by the framework (possibly after this runs), so the
+            // placement is retried whenever the dialog opens; until then the
+            // button simply sits under the field.
+            function placeBrowseButtons() {
+                FIELDS.forEach(function (f) {
+                    var $btn = $('#DialogRule .geodata_open[data-field="' + f[0] + '"]');
+                    var $cell = $('#rule\\.' + f[0]).closest('td');
+                    if (!$btn.length || !$cell.length) {
+                        return;
+                    }
+                    var $clear = $cell.find('a').filter(function () {
+                        return /clear all/i.test($(this).text());
+                    }).first();
+                    if (!$clear.length) {
+                        return;
+                    }
+                    var $links = $clear.parent().children('a');
+                    $btn.css({ 'float': 'right', 'margin': '0 0 0 8px' });
+                    $links.last().after($btn);
+                });
+            }
+
             FIELDS.forEach(function (f) {
                 var $sel = $('#rule\\.' + f[0]);
                 var $cell = $sel.closest('td');
                 if (!$cell.length) {
                     return;
                 }
-                var $bar = $('<div class="geodata_bar"/>').append(
+                $cell.append(
                     $('<button type="button" class="btn btn-xs btn-default geodata_open"/>')
                         .attr('data-field', f[0]).attr('data-kind', f[1])
+                        .css('margin-top', '6px')
                         .html('<i class="fa fa-search"></i> Browse ' + f[2] + '&hellip;'),
-                    $('<div class="geodata_warn text-warning" style="display:none;margin-top:4px;"/>').attr('id', 'geodata_warn_' + f[0])
+                    $('<div class="geodata_warn text-warning" style="display:none;margin-top:4px;clear:both;"/>').attr('id', 'geodata_warn_' + f[0])
                 );
-                $cell.append($bar);
+                // the field name sits level with the input box, not with the
+                // vertical middle of the whole cell (links and warning below)
+                $cell.closest('tr').children('td').first().css({ 'vertical-align': 'top', 'padding-top': '17px' });
                 $sel.on('change', checkTags);
             });
+            placeBrowseButtons();
+            $('#DialogRule').on('shown.bs.modal', placeBrowseButtons);
             $('#DialogRule').on('shown.bs.modal', checkTags);
             $(document).on('change', '#rule_preset', function () { setTimeout(checkTags, 50); });
 
