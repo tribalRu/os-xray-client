@@ -1654,7 +1654,9 @@
                     },
                     // Description with a pin mark for pinned rules.
                     "rulename": function (column, row) {
-                        var d = escHtml(row.description || '');
+                        // The search API already returns HTML-escaped text (the default cell
+                        // renderer inserts it as is), so do not escape it a second time.
+                        var d = row.description || '';
                         return String(row.pinned) === '1'
                             ? '<span class="fa fa-fw fa-thumb-tack text-info bootgrid-tooltip" title="Pinned: evaluated before all regular rules"></span> ' + d
                             : d;
