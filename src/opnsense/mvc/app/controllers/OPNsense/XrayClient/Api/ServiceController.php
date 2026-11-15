@@ -743,6 +743,47 @@ class ServiceController extends ApiMutableServiceControllerBase
     }
 
     /**
+     * Categories of the installed geosite.dat / geoip.dat with their entry
+     * counts (GeoData browser and the tag check in the rule dialog).
+     */
+    public function geodataTagsAction($kind = 'site')
+    {
+        if (!in_array($kind, ['site', 'ip'], true)) {
+            return ['status' => 'error', 'message' => 'Invalid kind (expected site|ip)'];
+        }
+        $backend = new Backend();
+        $data = json_decode(trim((string)$backend->configdpRun('xrayclient geodata_tags', [$kind])), true);
+        return is_array($data) ? $data : ['status' => 'error', 'message' => 'GeoData listing returned no result.'];
+    }
+
+    /**
+     * Entries of one category (search text and paging are optional).
+     */
+    public function geodataEntriesAction()
+    {
+        $kind = (string)$this->request->get('kind', null, 'site');
+        $tag = (string)$this->request->get('tag', null, '');
+        $query = trim((string)$this->request->get('q', null, ''));
+        $offset = (string)$this->request->get('offset', null, '0');
+        $limit = (string)$this->request->get('limit', null, '100');
+        if (!in_array($kind, ['site', 'ip'], true) || !preg_match('/^[A-Za-z0-9@!._-]{1,128}$/', $tag)) {
+            return ['status' => 'error', 'message' => 'Invalid category.'];
+        }
+        if (!preg_match('/^[A-Za-z0-9@!._:\/*-]{0,128}$/', $query)) {
+            return ['status' => 'error', 'message' => 'The search text may contain letters, digits and . _ - : / @ only.'];
+        }
+        if (!ctype_digit($offset) || !ctype_digit($limit)) {
+            return ['status' => 'error', 'message' => 'Invalid paging.'];
+        }
+        $backend = new Backend();
+        $data = json_decode(trim((string)$backend->configdpRun(
+            'xrayclient geodata_entries',
+            [$kind, $tag, $query === '' ? '-' : $query, $offset, $limit]
+        )), true);
+        return is_array($data) ? $data : ['status' => 'error', 'message' => 'GeoData listing returned no result.'];
+    }
+
+    /**
      * Branches of the plugin repository, for the branch picker on the
      * Maintenance tab (default branch first).
      */
