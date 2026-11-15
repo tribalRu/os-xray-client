@@ -889,10 +889,15 @@
 {%   endfor %}
 {%   endfor %}
 {% endif %}
+{%   set _default = (general.default_action or 'direct') | string | trim %}
       ,{
         "type": "field",
         "network": "tcp,udp",
-        "outboundTag": "direct"
+{%   if _default in balancer_tags %}
+        "balancerTag": {{ _default | tojson }}
+{%   else %}
+        "outboundTag": {{ _default | tojson }}
+{%   endif %}
       }
     ]
   }

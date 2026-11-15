@@ -10,6 +10,12 @@
         <help>How Xray matches domain rules that fell through to IP matching: IPIfNonMatch (default) — resolve and retry; IPOnDemand — resolve only when an IP rule actually needs it; AsIs — never resolve (cheapest, leaks nothing to DNS, but geoip/country rules never match a bare domain).</help>
     </field>
     <field>
+        <id>xrayclient.general.default_action</id>
+        <label>Default Action</label>
+        <type>dropdown</type>
+        <help>Where traffic goes that none of the routing rules matched (the built-in last rule): «direct» (default), «block», a node or a balancer. Choose a node or balancer to send everything through a proxy and list only the exceptions (e.g. Russia direct) in the rules.</help>
+    </field>
+    <field>
         <type>header</type>
         <label>Domain Sniffing</label>
     </field>

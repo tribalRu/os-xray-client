@@ -546,6 +546,18 @@ class TestConfigTemplate(unittest.TestCase):
         self.assertEqual(cfg['dns']['enableParallelQuery'], True)
         self.assertEqual(cfg['dns']['useSystemHosts'], False)
 
+    def test_default_action_is_configurable(self):
+        cfg = render_config()
+        self.assertEqual(cfg['routing']['rules'][-1], {'type': 'field', 'network': 'tcp,udp', 'outboundTag': 'direct'})
+        cfg = render_config({'default_action': 'block'})
+        self.assertEqual(cfg['routing']['rules'][-1]['outboundTag'], 'block')
+        node = 'node_' + TEST_NODE['@uuid']
+        cfg = render_config({'default_action': node}, nodes=[TEST_NODE])
+        self.assertEqual(cfg['routing']['rules'][-1]['outboundTag'], node)
+        cfg = render_config({'default_action': 'auto'}, balancers=[TEST_BALANCER])
+        self.assertEqual(cfg['routing']['rules'][-1]['balancerTag'], 'auto')
+        self.assertNotIn('outboundTag', cfg['routing']['rules'][-1])
+
     def test_pinned_rules_come_first(self):
         a = dict(TEST_RULE, sequence='10', domain='geosite:a', pinned='0')
         b = dict(TEST_RULE, sequence='20', domain='geosite:b', pinned='1')

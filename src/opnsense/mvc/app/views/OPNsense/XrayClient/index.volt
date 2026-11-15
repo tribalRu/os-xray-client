@@ -499,7 +499,18 @@
                 toggleExpertTab(expertTabWanted());
             }
             toggleGeneralRows();
+            updateDefaultActionRow();
         });
+        $(document).on('change', '[id="xrayclient.general.default_action"]', updateDefaultActionRow);
+
+        // The locked bottom row of the Rules table shows the configured
+        // Default Action (Routing Policy), not a fixed "direct".
+        function updateDefaultActionRow() {
+            var $sel = $('[id="xrayclient.general.default_action"]');
+            var val = $sel.val() || 'direct';
+            var label = $sel.find('option:selected').first().text() || val;
+            $('#rule_default_target').text(val === 'direct' || val === 'block' ? val : label);
+        }
 
         updateServiceControlUI('xrayclient');
 
@@ -4515,12 +4526,12 @@
                 </tr>
             </tfoot>
         </table>
-        <div id="rule_builtin_bottom" class="rule_builtin" title="Built-in rule, always last. Traffic that none of the rules above matched leaves directly (the direct outbound). To send everything else through a proxy, add a rule at the end of the list with no conditions and a proxy node or balancer as its action.">
+        <div id="rule_builtin_bottom" class="rule_builtin" title="Built-in rule, always last. Traffic that none of the rules above matched goes to the Default Action (direct unless changed in Routing &rarr; Policy &amp; Sniffing). Set a node or balancer there to send everything else through a proxy.">
             <span class="fa fa-fw fa-lock"></span>
             <span class="rb_seq">&mdash;</span>
             <b>Built-in: default</b>
-            <span class="text-muted">any traffic (tcp/udp) &rarr; <code>direct</code></span>
-            <span class="text-muted rb_note">Applies when no rule above matches. To route the rest via a proxy, add a rule without conditions at the end. Not editable.</span>
+            <span class="text-muted">any traffic (tcp/udp) &rarr; <code id="rule_default_target">direct</code></span>
+            <span class="text-muted rb_note">Applies when no rule above matches. Change it in Routing &rarr; Policy &amp; Sniffing &rarr; Default Action.</span>
         </div>
         <div class="col-md-12" style="padding-bottom: 15px;">
         <div style="margin: 14px 0 8px 0;">
