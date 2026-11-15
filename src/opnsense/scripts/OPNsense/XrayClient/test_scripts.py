@@ -1166,6 +1166,83 @@ class TestWarpProbe(unittest.TestCase):
         self.assertLess(st['attempts'], 20)
         self.assertEqual([r['status'] for r in st['results']], ['verified'] * len(st['results']))
 
+    def sni_probe(self, works_with):
+        calls = []
+
+        def probe(mode, host, port, cred, own_ip, sni=None, finalmask=None):
+            calls.append((host, sni))
+            ok = sni == works_with
+            res = {'host': host, 'port': port, 'status': 'verified' if ok else 'failed', 'ms': 40, 'kbps': 900,
+                   'checks': '4/4'}
+            if sni:
+                res['sni'] = sni
+            return res
+        probe.calls = calls
+        return probe
+
+    def test_sni_search_finds_a_name_that_works_and_keeps_using_it(self):
+        probe = self.sni_probe('one.one.one.one')
+        st = self.run_search({'mode': 'masque_h3', 'credentials': self.CRED_MQ, 'want': 2, 'max_attempts': 20,
+                              'sni_search': True}, probe, 'sni1')
+        self.assertEqual(st['sni'], 'one.one.one.one')
+        self.assertEqual(st['verified'], 2)
+        self.assertTrue(all(r['sni'] == 'one.one.one.one' for r in st['results']))
+        # after the name is found the default one is not tried any more
+        later = [c for c in probe.calls[4:] if c[1] is None]
+        self.assertEqual(later, [])
+
+    def test_sni_search_is_off_by_default_and_never_for_wireguard(self):
+        probe = self.sni_probe('www.cloudflare.com')
+        st = self.run_search({'mode': 'masque_h3', 'credentials': self.CRED_MQ, 'want': 1, 'max_attempts': 5}, probe, 'sni2')
+        self.assertEqual(st['verified'], 0)
+        self.assertTrue(all(c[1] is None for c in probe.calls))
+        self.assertNotIn('sni', st)
+
+    def test_sni_search_tries_only_a_few_candidates(self):
+        probe = self.sni_probe('no-such-name')
+        st = self.run_search({'mode': 'masque_h3', 'credentials': self.CRED_MQ, 'want': 1, 'max_attempts': 10,
+                              'sni_search': True}, probe, 'sni3')
+        alt_calls = [c for c in probe.calls if c[1] is not None]
+        self.assertEqual(len(alt_calls), self.wp.SNI_TRIAL_CANDIDATES * len(self.wp.SNI_FALLBACKS))
+        self.assertNotIn('sni', st)
+
+    def test_recheck_uses_the_sni_that_worked(self):
+        probe = self.sni_probe('www.cloudflare.com')
+        st = self.run_search({'mode': 'masque_h3', 'credentials': self.CRED_MQ,
+                              'endpoints': [{'host': '162.159.198.2', 'port': 443, 'sni': 'www.cloudflare.com'}]},
+                             probe, 'sni4')
+        self.assertEqual(st['verified'], 1)
+        self.assertEqual(probe.calls, [('162.159.198.2', 'www.cloudflare.com')])
+
+    def test_validate_rejects_a_bad_sni_in_a_recheck(self):
+        req = {'mode': 'masque_h3', 'credentials': self.CRED_MQ,
+               'endpoints': [{'host': '162.159.198.2', 'port': 443, 'sni': 'a b;c'}]}
+        with self.assertRaises(ValueError):
+            self.wp.validate_request(req)
+
+    def test_other_sni_keeps_certificate_verification(self):
+        calls = []
+
+        class Inst:
+            port = 1
+            def __init__(self, cfg):
+                calls.append(cfg)
+            def close(self):
+                pass
+            def wait_ready(self):
+                return False
+        orig = self.wp.XrayInstance
+        self.wp.XrayInstance = Inst
+        try:
+            self.wp.probe_endpoint('masque_h3', '162.159.198.2', 443,
+                                   {'masque_warp_private_key': 'k' * 44, 'masque_warp_address': '172.16.0.2/32'},
+                                   None, sni='www.cloudflare.com')
+        finally:
+            self.wp.XrayInstance = orig
+        tls = calls[0]['outbounds'][0]['streamSettings']['tlsSettings']
+        self.assertEqual(tls['serverName'], 'www.cloudflare.com')
+        self.assertEqual(tls['verifyPeerCertByName'], 'consumer-masque.cloudflareclient.com')
+
     def test_search_respects_the_attempt_limit(self):
         def never(mode, host, port, cred, own_ip):
             return {'host': host, 'port': port, 'status': 'failed'}

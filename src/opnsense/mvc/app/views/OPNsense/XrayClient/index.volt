@@ -4152,6 +4152,7 @@
                         'No MASQUE list is published: the addresses of the external lists below are tried on port 443') + '"><input type="checkbox" class="wp-src"> Use external lists</label>' +
                     ' <label class="checkbox-inline" title="Normally only Cloudflare addresses are tested: a list could point the handshake at any host"><input type="checkbox" class="wp-any"> Also test addresses outside Cloudflare ranges</label>' +
                     (kind === 'wg' ? '' : ' <label class="checkbox-inline" title="Send the probe the way this node would: the FinalMask rows of the dialog are applied. Needed where the connection is filtered"><input type="checkbox" class="wp-fm" checked> Apply this node\'s FinalMask</label>') +
+                    (kind === 'wg' ? '' : ' <label class="checkbox-inline" title="For connections where the first packets get through and then nothing: the first failing candidates are retried with other SNI names (www.cloudflare.com, one.one.one.one, cloudflare-dns.com); a name that works is used for the rest of the search and filled into the node by Use"><input type="checkbox" class="wp-sni"> Try other SNI names</label>') +
                     (kind === 'wg' ? '' : ' <label class="checkbox-inline" title="Experimental: other WARP ranges (162.159.192.x, 162.159.195.x and the WireGuard ranges) with the MASQUE ports"><input type="checkbox" class="wp-wide"> Also try other WARP ranges</label>') +
                     '<div class="wp-src-box" style="display:none; margin-top: 6px;">' +
                     '<div class="text-muted" style="font-size: 12px; margin-bottom: 2px;">External endpoint lists, one https:// URL per line. Saved with the plugin settings, shared by WireGuard and MASQUE searches.</div>' +
@@ -4244,6 +4245,9 @@
                                 .attr('title', warpPlaceTitle(r)).text(warpFlag(r.cc) || r.colo));
                         }
                         $ep.append(document.createTextNode(r.host + ':' + r.port + ' ')).append($(label));
+                        if (r.sni) {
+                            $ep.append($('<div class="text-muted" style="font-size: 11px;"/>').text('SNI ' + r.sni));
+                        }
                         var $tr = $('<tr/>').append($ep)
                             .append($('<td/>').text(r.ms ? r.ms + ' ms' : '-'))
                             .append($('<td/>').text(r.kbps ? (r.kbps >= 1000 ? (r.kbps / 1000).toFixed(1) + ' Mbit/s' : r.kbps + ' kbit/s') : '-'))
@@ -4252,7 +4256,7 @@
                         var $use = $('<button type="button" class="btn btn-xs btn-default" style="margin-right: 4px;">Use</button>')
                             .prop('disabled', r.status === 'failed').on('click', function () { use(r); });
                         var $re = $('<button type="button" class="btn btn-xs btn-default">Re-check</button>')
-                            .on('click', function () { start([{ host: r.host, port: r.port }]); });
+                            .on('click', function () { start([r.sni ? { host: r.host, port: r.port, sni: r.sni } : { host: r.host, port: r.port }]); });
                         var $acts = $('<td/>').append($use).append($re);
                         if (r.log && r.log.length) {
                             var $logRow = $('<tr class="wp-log" style="display:none;"><td colspan="6"><pre style="margin: 0; font-size: 11px; white-space: pre-wrap;"></pre></td></tr>');
@@ -4289,6 +4293,15 @@
                         }
                         if (r.edge_key) {
                             $('#node\\.masque_warp_public_key').val(r.edge_key);
+                        }
+                        if (r.sni) {
+                            // the name that got through the filter; the certificate is
+                            // still checked against the real server name
+                            $('#node\\.sni').val(r.sni);
+                            var $byName = $('#node\\.tls_verify_peer_cert_by_name');
+                            if ($byName.length && !$.trim($byName.val() || '') && !$.trim($('#node\\.masque_warp_public_key').val() || '')) {
+                                $byName.val(WARP_MASQUE_SNI);
+                            }
                         }
                     }
                     closeDialog();
@@ -4362,6 +4375,9 @@
                     }
                     if (kind !== 'wg' && $wrap.find('.wp-wide').is(':checked')) {
                         data.wide = '1';
+                    }
+                    if (kind !== 'wg' && $wrap.find('.wp-sni').is(':checked')) {
+                        data.sni_search = '1';
                     }
                     if (kind !== 'wg' && $wrap.find('.wp-fm').is(':checked')) {
                         data.fm = fmValues();
