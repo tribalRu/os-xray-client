@@ -844,10 +844,9 @@
                 $sel.on('change', function () { setTimeout(alignGeoLabels, 0); });
             });
 
-            // The field name is centred on the input box itself, not on the
-            // whole cell (which also holds the links row and the warning).
-            // Measured from the rendered layout, so it follows the box when
-            // tokens make it taller.
+            // The field name is centred on the first line of the input box,
+            // not on the whole cell (which also holds the links row and the
+            // warning). Measured from the rendered layout.
             function alignGeoLabels() {
                 FIELDS.forEach(function (f) {
                     var $cell = $('#rule\\.' + f[0]).closest('td');
@@ -858,7 +857,10 @@
                     if (!$box.length || !$name.length || !$box.outerHeight()) {
                         return;
                     }
-                    var pad = ($box.offset().top - $nameCell.offset().top) + ($box.outerHeight() - $name.outerHeight()) / 2;
+                    // Centre on the first line only: when many tokens make the
+                    // box taller the name stays at the top of the block.
+                    var line = Math.min($box.outerHeight(), 38);
+                    var pad = ($box.offset().top - $nameCell.offset().top) + (line - $name.outerHeight()) / 2;
                     $nameCell.css({ 'vertical-align': 'top', 'padding-top': Math.max(0, Math.round(pad)) + 'px' });
                 });
             }
