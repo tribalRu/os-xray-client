@@ -18,7 +18,8 @@ Typical use: a home or office firewall that sends some traffic through a VLESS /
 - **Transparent routing** — Xray creates a native TUN interface; point an OPNsense gateway and a firewall rule at it and whole LAN segments go through the proxy.
 - **Local proxies** — optional SOCKS5 and HTTP listeners on the firewall.
 - **Built-in DNS** — Xray's own resolver with per-domain servers (for example Russian domains to a Russian resolver).
-- **WARP** — one-click Cloudflare WARP (WireGuard or MASQUE) with an endpoint finder for networks where the default one is blocked.
+- **WARP** — one-click Cloudflare WARP (WireGuard or MASQUE).
+- **Working-address finder for WARP and WARP MASQUE** — when the default WARP address is blocked, the *Find working endpoint* button searches for addresses and ports that really work from your router (see below).
 - **Monitoring** — latency check per node, traffic counters, live rates, a dashboard widget and a log viewer.
 - **Maintenance** — update Xray-core, GeoIP/GeoSite and the plugin itself from the UI, with a progress window and error reporting.
 - **Safe apply** — the generated config is validated with `xray run -test` before the service is restarted; a broken config rolls back to the previous one.
@@ -68,6 +69,17 @@ Xray checks the rules **from top to bottom** and uses the first one that matches
 - A rule with no conditions matches everything, so anything below it is never reached. The UI marks such rules with a warning.
 - Pins work like floating rules in the OPNsense firewall: a pinned rule keeps its position no matter what sequence number others have.
 - `geosite:` / `geoip:` tags need a GeoData set that contains them, otherwise Xray refuses the config. The tag check in the rule dialog and the GeoData browser help with this.
+
+## Finding a working WARP address
+
+Providers that filter Cloudflare often block the default WARP address, or let a connection start and then cut it. In the node dialog of a **WARP (WireGuard)** node or a **MASQUE node in WARP mode**, the **Find working endpoint** button looks for an address and port that work from *your* router:
+
+- **A real test, not a ping.** Every candidate is tried through a temporary Xray with your keys and has to reach the internet through WARP; the result is confirmed with extra requests and a 300 KB download, plus a final request after a short pause. Addresses that answer once and then hang are shown as *cut mid-stream* and cannot be applied.
+- **Ranges and ports** come from the community list of WARP endpoints (WireGuard) and the known MASQUE ranges; your own lists can be added, and unusual ranges tried as an option.
+- **Filtered nodes and SNI.** Candidates that land on a filtered Cloudflare node (the Moscow node `DME` by default) are skipped, and MASQUE can try other SNI names when the first packets pass and then nothing arrives.
+- **Convenient results.** A window shows every checked endpoint with a flag, the Cloudflare data center, speed and delay; *Use* fills the endpoint into the node dialog, *Re-check* repeats the test, and working endpoints are remembered on the router.
+
+Details of every option are in the [reference](docs/REFERENCE.md).
 
 ## A tour of the tabs
 
