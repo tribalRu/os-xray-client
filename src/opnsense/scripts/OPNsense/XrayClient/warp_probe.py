@@ -21,7 +21,9 @@ Request: {"mode": "wg"|"masque_h2"|"masque_h3", "credentials": {...},
           "endpoints": [{"host": "...", "port": 443}],   # re-check only
           "ignore_cache": false,
           "sources": ["https://..."],      # external lists (WireGuard only)
-          "any_address": false}            # probe non-Cloudflare entries too
+          "any_address": false,            # probe non-Cloudflare entries too
+          "exclude_colos": ["DME"],        # drop candidates landing on these nodes
+          "sni_search": false}             # MASQUE: try other SNI names
 """
 import ipaddress
 import json
@@ -54,6 +56,23 @@ PROBE_TIMEOUT = 5
 CONFIRM_REQUESTS = 3
 MAX_ATTEMPTS_LIMIT = 300
 SNI = 'consumer-masque.cloudflareclient.com'
+# Some providers filter on the SNI of the handshake: the first packets get
+# through and the rest is dropped. With "sni_search" the first candidates that
+# fail are retried with these names; the first name that makes one work is then
+# used for the rest of the search. The names are the ones the warpscout project
+# (MIT) measured as getting past such filters.
+SNI_FALLBACKS = ['www.apple.com', 'www.google.com', 'www.microsoft.com', 'cdn.jsdelivr.net']
+# A DPI that cuts a tunnel does so after it has seen some traffic, so a result
+# is only trusted if one more request still works after this pause (warpscout
+# likewise tests durability after a real request, with spaced probes).
+LATE_CHECK_DELAY = 2.0
+# Cloudflare edge nodes (airport codes of the trace "colo") whose traffic is
+# known to be filtered from some networks: the Moscow node DME since April 2026
+# (reported by the warpscout project). A candidate that lands on one is dropped
+# as soon as the first answer names it.
+COLO_RE = re.compile(r'^[A-Z]{3}$')
+SNI_TRIAL_CANDIDATES = 3
+SNI_RE = re.compile(r'^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$')
 
 # Ranges and ports of the community list of WARP endpoints (any address of a
 # range with any port of the list is expected to answer).
@@ -469,11 +488,11 @@ def free_port():
         return sock.getsockname()[1]
 
 
-def tls_prefilter(host, port, timeout=3):
+def tls_prefilter(host, port, timeout=3, sni=None):
     """HTTP/2 candidates: a TLS handshake is a cheap test before the full one.
     Returns the SubjectPublicKeyInfo base64 of the edge certificate or None."""
     try:
-        out = subprocess.run(['openssl', 's_client', '-connect', '%s:%d' % (host, port), '-servername', SNI,
+        out = subprocess.run(['openssl', 's_client', '-connect', '%s:%d' % (host, port), '-servername', sni or SNI,
                               '-alpn', 'h2', '-tls1_3'], input='', capture_output=True, text=True,
                              timeout=timeout).stdout
         cert = re.search(r'-----BEGIN CERTIFICATE-----.+?-----END CERTIFICATE-----', out, re.S)
@@ -549,16 +568,25 @@ def median(values):
     return values[len(values) // 2] if values else None
 
 
-def probe_endpoint(mode, host, port, cred, own_ip, confirm_only=False, finalmask=None):
-    """Returns {'status': 'verified'|'unstable'|'failed', 'ms', 'kbps', 'checks', 'edge_key'?}."""
+def probe_endpoint(mode, host, port, cred, own_ip, confirm_only=False, finalmask=None, sni=None, exclude=()):
+    """Returns {'status': 'verified'|'unstable'|'failed', 'ms', 'kbps', 'checks', 'edge_key'?}.
+
+    sni: send this name in the handshake instead of the node's own one."""
     cred = dict(cred)
     result = {'host': host, 'port': port}
+    if sni:
+        cred['sni'] = sni
+        result['sni'] = sni
     if mode == 'masque_h2':
-        edge = tls_prefilter(host, port)
+        edge = tls_prefilter(host, port, sni=sni)
         if not edge:
             return dict(result, status='failed', reason='no TLS answer')
         cred['edge_key'] = edge
         result['edge_key'] = edge
+    if sni and not (cred.get('edge_key') or cred.get('masque_warp_public_key')
+                    or cred.get('tls_pinned_peer_cert_sha256') or cred.get('tls_verify_peer_cert_by_name')):
+        # another SNI must not weaken the check of the server certificate
+        cred['tls_verify_peer_cert_by_name'] = SNI
     # MASQUE: keep Xray's own log, so that an endpoint that answers once and
     # then stalls can be explained (shown as the Log of that row)
     logfile = None
@@ -567,7 +595,7 @@ def probe_endpoint(mode, host, port, cred, own_ip, confirm_only=False, finalmask
         os.close(os.open(logfile, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600))
     inst = XrayInstance(build_xray_config(mode, host, port, cred, free_port(), logfile, finalmask))
     try:
-        res = _probe_instance(inst, mode, result, own_ip)
+        res = _probe_instance(inst, mode, result, own_ip, exclude)
         if logfile and res['status'] != 'verified':
             res['log'] = read_log(logfile, cred)
         return res
@@ -624,7 +652,7 @@ def _masque_confirm(inst, own_ip, times):
     return ok, times, kbps
 
 
-def _probe_instance(inst, mode, result, own_ip):
+def _probe_instance(inst, mode, result, own_ip, exclude=()):
     host, port = result['host'], result['port']
     try:
         if not inst.wait_ready():
@@ -642,6 +670,8 @@ def _probe_instance(inst, mode, result, own_ip):
         colo = parse_trace(body.decode('utf-8', 'replace')).get('colo', '')
         if re.match(r'^[A-Z]{3}$', colo):
             result['colo'] = colo
+            if colo in exclude:
+                return dict(result, status='failed', reason='node %s excluded' % colo, excluded=True)
         total = 1 + CONFIRM_REQUESTS
         kbps = None
         if mode == 'wg':
@@ -667,11 +697,25 @@ def _probe_instance(inst, mode, result, own_ip):
                 # The tunnel came up and the first request went through WARP,
                 # but a second flow is never answered (debug log: dispatched,
                 # nothing follows). Reported as it is, and not as verified.
-                return dict(result, status='unstable', ms=int(median(times) * 1000), kbps=None,
+                return dict(result, status='unstable', ms=int(median(times) * 1000), kbps=None, torn=True,
                             checks='1/%d, tunnel up, later requests stalled' % total)
         status = 'verified' if ok == total and kbps else 'unstable'
+        if status == 'verified' and LATE_CHECK_DELAY > 0:
+            # everything passed; does the tunnel still pass traffic a moment later?
+            time.sleep(LATE_CHECK_DELAY)
+            try:
+                body, secs = http_get(TRACE_URL, inst.port, PROBE_TIMEOUT)
+                late = trace_is_warp(parse_trace(body.decode('utf-8', 'replace')), own_ip)
+            except Exception:
+                late = False
+            if not late:
+                return dict(result, status='unstable', ms=int(median(times) * 1000), kbps=kbps, torn=True,
+                            checks='%d/%d, cut after %ds' % (ok, total, int(LATE_CHECK_DELAY)))
+        # "torn": the first answer came and nothing else did, the typical
+        # picture of a connection cut by a filter after the first packets
         return dict(result, status=status, ms=int(median(times) * 1000), kbps=kbps,
-                    checks='%d/%d%s' % (ok, total, '' if kbps else ', no data'))
+                    checks='%d/%d%s' % (ok, total, '' if kbps else ', no data'),
+                    **({'torn': True} if status == 'unstable' and ok == 1 else {}))
     except Exception as exc:  # keep the Log of the instance
         return dict(result, status='failed', reason=str(exc)[:80])
 
@@ -751,6 +795,10 @@ class Search:
         self.want = max(1, min(int(request.get('want') or 5), 20))
         self.max_attempts = max(1, min(int(request.get('max_attempts') or 80), MAX_ATTEMPTS_LIMIT))
         self.lock = threading.Lock()
+        self.exclude = tuple(c for c in (request.get('exclude_colos') or []) if COLO_RE.match(str(c)))
+        self.sni_search = bool(request.get('sni_search')) and self.mode != 'wg'
+        self.sni_chosen = None
+        self.sni_trials = 0
         self.state = {'status': 'running', 'mode': self.mode, 'started': int(time.time()), 'attempts': 0,
                       'max_attempts': self.max_attempts, 'want': self.want, 'verified': 0, 'results': [],
                       'recheck': bool(request.get('endpoints'))}
@@ -761,16 +809,45 @@ class Search:
     def save_state(self):
         _write_json(self.state_path, self.state)
 
-    def _one(self, host, port, own_ip):
+    def _probe(self, host, port, own_ip, sni=None):
+        kwargs = {}
+        if self.req.get('finalmask'):
+            kwargs['finalmask'] = self.req['finalmask']
+        if sni:
+            kwargs['sni'] = sni
+        if self.exclude:
+            kwargs['exclude'] = self.exclude
         try:
-            if self.req.get('finalmask'):
-                res = self.probe(self.mode, host, port, self.req['credentials'], own_ip, finalmask=self.req['finalmask'])
-            else:
-                res = self.probe(self.mode, host, port, self.req['credentials'], own_ip)
+            return self.probe(self.mode, host, port, self.req['credentials'], own_ip, **kwargs)
         except Exception as exc:  # a broken probe must not kill the search
-            res = {'host': host, 'port': port, 'status': 'failed', 'reason': str(exc)[:80]}
+            return {'host': host, 'port': port, 'status': 'failed', 'reason': str(exc)[:80]}
+
+    def _one(self, host, port, own_ip, sni=None):
+        sni = sni or self.sni_chosen
+        res = self._probe(host, port, own_ip, sni)
+        if (self.sni_search and not sni and self.sni_chosen is None and res['status'] != 'verified'
+                and self.sni_trials < SNI_TRIAL_CANDIDATES and not self.cancelled()):
+            # Filtering by SNI hits every address alike, so a few candidates are
+            # enough to find out whether another name helps.
+            with self.lock:
+                self.sni_trials += 1
+            for alt in SNI_FALLBACKS:
+                if self.cancelled():
+                    break
+                other = self._probe(host, port, own_ip, alt)
+                if other['status'] == 'verified':
+                    with self.lock:
+                        self.sni_chosen = alt
+                        self.state['sni'] = alt
+                    res = other
+                    break
+        if self.exclude and res.get('colo') in self.exclude and res['status'] != 'failed':
+            res = dict(res, status='failed', reason='node %s excluded' % res['colo'], excluded=True)
         with self.lock:
             self.state['attempts'] += 1
+            if res.get('excluded'):
+                skipped = self.state.setdefault('excluded', {})
+                skipped[res['colo']] = skipped.get(res['colo'], 0) + 1
             key = candidate_key(self.mode, host, port)
             if res['status'] == 'failed':
                 self.cache.mark_bad(key)
@@ -788,7 +865,7 @@ class Search:
 
     def run(self, own_ip=None):
         self.colos = load_colos(self.cache, self.colo_fetch)
-        explicit = [(e['host'], int(e['port'])) for e in (self.req.get('endpoints') or [])]
+        explicit = [(e['host'], int(e['port']), e.get('sni') or None) for e in (self.req.get('endpoints') or [])]
         if explicit:
             candidates = iter(explicit)
             self.max_attempts = len(explicit)
@@ -812,11 +889,13 @@ class Search:
                 while (len(pending) < workers and submitted < self.max_attempts
                        and (explicit or self.state['verified'] < self.want) and not self.cancelled()):
                     try:
-                        host, port = next(candidates)
+                        cand = next(candidates)
                     except StopIteration:
                         break
+                    host, port = cand[0], cand[1]
+                    sni = cand[2] if len(cand) > 2 else None
                     submitted += 1
-                    pending.add(pool.submit(self._one, host, port, own_ip))
+                    pending.add(pool.submit(self._one, host, port, own_ip, sni))
                 if not pending:
                     break
                 done, pending = wait(pending, timeout=1, return_when=FIRST_COMPLETED)
@@ -845,6 +924,9 @@ def validate_request(req):
     if not isinstance(sources, list) or len(sources) > MAX_SOURCES or \
             any(not str(u).startswith('https://') or re.search(r'\s', str(u)) for u in sources):
         raise ValueError('invalid source list')
+    colos = req.get('exclude_colos') or []
+    if not isinstance(colos, list) or len(colos) > 20 or any(not COLO_RE.match(str(c)) for c in colos):
+        raise ValueError('invalid node list')
     fm = req.get('finalmask') or {}
     if not isinstance(fm, dict) or len(fm) > 80 or any(
             not re.match(r'^(fm_[a-z0-9_]{1,40}|finalmask)$', str(k)) or not isinstance(v, str) or len(v) > 4000
@@ -852,6 +934,8 @@ def validate_request(req):
         raise ValueError('invalid finalmask')
     for ep in req.get('endpoints') or []:
         if not IP_RE.match(str(ep.get('host', ''))) or not 0 < int(ep.get('port', 0)) < 65536:
+            raise ValueError('invalid endpoint')
+        if ep.get('sni') and not SNI_RE.match(str(ep['sni'])):
             raise ValueError('invalid endpoint')
     return req
 

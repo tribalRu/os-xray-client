@@ -1166,6 +1166,156 @@ class TestWarpProbe(unittest.TestCase):
         self.assertLess(st['attempts'], 20)
         self.assertEqual([r['status'] for r in st['results']], ['verified'] * len(st['results']))
 
+    def sni_probe(self, works_with):
+        calls = []
+
+        def probe(mode, host, port, cred, own_ip, sni=None, finalmask=None):
+            calls.append((host, sni))
+            ok = sni == works_with
+            res = {'host': host, 'port': port, 'status': 'verified' if ok else 'failed', 'ms': 40, 'kbps': 900,
+                   'checks': '4/4'}
+            if sni:
+                res['sni'] = sni
+            return res
+        probe.calls = calls
+        return probe
+
+    def test_sni_search_finds_a_name_that_works_and_keeps_using_it(self):
+        probe = self.sni_probe('www.google.com')
+        st = self.run_search({'mode': 'masque_h3', 'credentials': self.CRED_MQ, 'want': 2, 'max_attempts': 20,
+                              'sni_search': True}, probe, 'sni1')
+        self.assertEqual(st['sni'], 'www.google.com')
+        self.assertEqual(st['verified'], 2)
+        self.assertTrue(all(r['sni'] == 'www.google.com' for r in st['results']))
+        # after the name is found the default one is not tried any more
+        later = [c for c in probe.calls[4:] if c[1] is None]
+        self.assertEqual(later, [])
+
+    def test_sni_search_is_off_by_default_and_never_for_wireguard(self):
+        probe = self.sni_probe('www.cloudflare.com')
+        st = self.run_search({'mode': 'masque_h3', 'credentials': self.CRED_MQ, 'want': 1, 'max_attempts': 5}, probe, 'sni2')
+        self.assertEqual(st['verified'], 0)
+        self.assertTrue(all(c[1] is None for c in probe.calls))
+        self.assertNotIn('sni', st)
+
+    def test_sni_search_tries_only_a_few_candidates(self):
+        probe = self.sni_probe('no-such-name')
+        st = self.run_search({'mode': 'masque_h3', 'credentials': self.CRED_MQ, 'want': 1, 'max_attempts': 10,
+                              'sni_search': True}, probe, 'sni3')
+        alt_calls = [c for c in probe.calls if c[1] is not None]
+        self.assertEqual(len(alt_calls), self.wp.SNI_TRIAL_CANDIDATES * len(self.wp.SNI_FALLBACKS))
+        self.assertNotIn('sni', st)
+
+    def test_recheck_uses_the_sni_that_worked(self):
+        probe = self.sni_probe('www.cloudflare.com')
+        st = self.run_search({'mode': 'masque_h3', 'credentials': self.CRED_MQ,
+                              'endpoints': [{'host': '162.159.198.2', 'port': 443, 'sni': 'www.cloudflare.com'}]},
+                             probe, 'sni4')
+        self.assertEqual(st['verified'], 1)
+        self.assertEqual(probe.calls, [('162.159.198.2', 'www.cloudflare.com')])
+
+    def test_validate_rejects_a_bad_sni_in_a_recheck(self):
+        req = {'mode': 'masque_h3', 'credentials': self.CRED_MQ,
+               'endpoints': [{'host': '162.159.198.2', 'port': 443, 'sni': 'a b;c'}]}
+        with self.assertRaises(ValueError):
+            self.wp.validate_request(req)
+
+    def test_other_sni_keeps_certificate_verification(self):
+        calls = []
+
+        class Inst:
+            port = 1
+            def __init__(self, cfg):
+                calls.append(cfg)
+            def close(self):
+                pass
+            def wait_ready(self):
+                return False
+        orig = self.wp.XrayInstance
+        self.wp.XrayInstance = Inst
+        try:
+            self.wp.probe_endpoint('masque_h3', '162.159.198.2', 443,
+                                   {'masque_warp_private_key': 'k' * 44, 'masque_warp_address': '172.16.0.2/32'},
+                                   None, sni='www.cloudflare.com')
+        finally:
+            self.wp.XrayInstance = orig
+        tls = calls[0]['outbounds'][0]['streamSettings']['tlsSettings']
+        self.assertEqual(tls['serverName'], 'www.cloudflare.com')
+        self.assertEqual(tls['verifyPeerCertByName'], 'consumer-masque.cloudflareclient.com')
+
+    def probe_instance(self, answers, mode='masque_h3', exclude=()):
+        from unittest.mock import patch
+        wp = self.wp
+
+        class Inst:
+            port = 1
+
+            def wait_ready(self):
+                return True
+
+        calls = []
+
+        def http(url, port, timeout):
+            calls.append(url)
+            a = answers(url, len(calls))
+            if isinstance(a, Exception):
+                raise a
+            return a
+
+        with patch.object(wp, 'http_get', http), patch.object(wp, 'LATE_CHECK_DELAY', 0.01):
+            return wp._probe_instance(Inst(), mode, {'host': '162.159.198.2', 'port': 443}, '93.1.1.1', exclude), calls
+
+    def test_excluded_node_stops_the_probe_at_the_first_answer(self):
+        trace = b'ip=104.28.1.1\nwarp=on\ncolo=DME\n'
+        res, calls = self.probe_instance(lambda url, n: (trace, 0.2), exclude=('DME',))
+        self.assertEqual((res['status'], res['reason'], res['colo']), ('failed', 'node DME excluded', 'DME'))
+        self.assertTrue(res['excluded'])
+        self.assertEqual(len(calls), 1)  # no confirmation requests were spent
+        res, calls = self.probe_instance(lambda url, n: (trace, 0.2) if 'trace' in url else (b'x' * 300000, 1.0),
+                                         exclude=('FRA',))
+        self.assertEqual(res['status'], 'verified')
+
+    def test_connection_cut_after_the_first_answer_is_marked_torn(self):
+        def answers(url, n):
+            if n == 1:
+                return b'ip=104.28.1.1\nwarp=on\ncolo=FRA\n', 0.2
+            return OSError('timed out')
+        res, _ = self.probe_instance(answers)
+        self.assertEqual(res['status'], 'unstable')
+        self.assertTrue(res['torn'])
+        good, _ = self.probe_instance(lambda url, n: (b'ip=104.28.1.1\nwarp=on\n', 0.2) if 'trace' in url
+                                      else (b'x' * 300000, 1.0))
+        self.assertEqual(good['status'], 'verified')
+        self.assertNotIn('torn', good)
+
+    def test_validate_rejects_bad_node_codes(self):
+        with self.assertRaises(ValueError):
+            self.wp.validate_request({'mode': 'masque_h3', 'credentials': self.CRED_MQ, 'exclude_colos': ['dme;']})
+
+    def test_tunnel_cut_shortly_after_a_good_result_is_not_verified(self):
+        seen = {'late': 0}
+
+        def answers(url, n):
+            if 'trace' in url and n > 5:  # the request after the confirmation round
+                seen['late'] += 1
+                return OSError('timed out')
+            return (b'ip=104.28.1.1\nwarp=on\n', 0.2) if 'trace' in url else (b'x' * 300000, 1.0)
+        res, calls = self.probe_instance(answers)
+        self.assertEqual(res['status'], 'unstable')
+        self.assertTrue(res['checks'].startswith('4/4, cut after'))
+        self.assertTrue(res['torn'])
+        self.assertEqual(seen['late'], 1)
+
+    def test_search_drops_and_counts_excluded_nodes(self):
+        def probe(mode, host, port, cred, own_ip, exclude=()):
+            return {'host': host, 'port': port, 'status': 'verified', 'ms': 30, 'kbps': 900, 'checks': '4/4',
+                    'colo': 'DME' if port % 2 else 'FRA'}
+        st = self.run_search({'mode': 'masque_h3', 'credentials': self.CRED_MQ, 'want': 2, 'max_attempts': 40,
+                              'exclude_colos': ['DME']}, probe, 'ex1')
+        self.assertEqual(st['verified'], 2)
+        self.assertTrue(all(r['colo'] == 'FRA' for r in st['results']))
+        self.assertGreater(st['excluded']['DME'], 0)
+
     def test_search_respects_the_attempt_limit(self):
         def never(mode, host, port, cred, own_ip):
             return {'host': host, 'port': port, 'status': 'failed'}

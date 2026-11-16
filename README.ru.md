@@ -113,4 +113,6 @@ Copyright (C) 2026 os-xray-client contributors.
 | Данные GeoIP / GeoSite | Loyalsoldier, runetfreedom, Chocolate4U или ваши URL (см. *GeoData Source Preset*) | как указано в каждом репозитории |
 | OPNsense | [opnsense/core](https://github.com/opnsense/core) | BSD 2-Clause |
 
+**Благодарности.** Поиск endpoint'ов WARP использует идеи и список SNI-имён, проходящих через фильтры, из проекта [vernette/warpscout](https://github.com/vernette/warpscout) (MIT): пропуск фильтруемого московского узла, перебор других SNI и отношение к туннелям, оборванным после первых пакетов, как к нерабочим. Код того проекта в плагин не включён.
+
 **Сервисы и товарные знаки.** Это неофициальный плагин: проект независим и не связан с проектами Xray / XTLS, OPNsense (Deciso) и компанией Cloudflare и не одобрен ими. Названия OPNsense, Xray, WireGuard, Cloudflare и WARP принадлежат их владельцам. Функции WARP используют публичный клиентский API Cloudflare: соблюдать условия использования Cloudflare вы должны самостоятельно. Вы также сами отвечаете за то, чтобы использование прокси и маршрутизации соответствовало законам, действующим для вас.
