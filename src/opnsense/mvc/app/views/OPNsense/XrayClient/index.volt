@@ -4154,6 +4154,7 @@
                     (kind === 'wg' ? '' : ' <label class="checkbox-inline" title="Send the probe the way this node would: the FinalMask rows of the dialog are applied. Needed where the connection is filtered"><input type="checkbox" class="wp-fm" checked> Apply this node\'s FinalMask</label>') +
                     (kind === 'wg' ? '' : ' <label class="checkbox-inline" title="For connections where the first packets get through and then nothing: the first failing candidates are retried with other SNI names (www.cloudflare.com, one.one.one.one, cloudflare-dns.com); a name that works is used for the rest of the search and filled into the node by Use"><input type="checkbox" class="wp-sni"> Try other SNI names</label>') +
                     (kind === 'wg' ? '' : ' <label class="checkbox-inline" title="Experimental: other WARP ranges (162.159.192.x, 162.159.195.x and the WireGuard ranges) with the MASQUE ports"><input type="checkbox" class="wp-wide"> Also try other WARP ranges</label>') +
+                    ' <label class="checkbox-inline" title="Cloudflare edge nodes (airport codes, comma separated) to skip. Traffic through the Moscow node DME has been filtered by DPI since April 2026: an endpoint that lands there connects and then hangs. Empty = skip nothing">Skip nodes <input type="text" class="wp-excl form-control" style="width: 8em; display: inline-block;" value="DME" maxlength="40" spellcheck="false"></label>' +
                     '<div class="wp-src-box" style="display:none; margin-top: 6px;">' +
                     '<div class="text-muted" style="font-size: 12px; margin-bottom: 2px;">External endpoint lists, one https:// URL per line. Saved with the plugin settings, shared by WireGuard and MASQUE searches.</div>' +
                     '<textarea class="form-control wp-src-urls" rows="3" spellcheck="false" style="max-width: none; font-family: monospace; font-size: 12px;" placeholder="https://example.com/warp-endpoints.json"></textarea>' +
@@ -4174,6 +4175,7 @@
                     '<div class="wp-m-status text-muted"></div>' +
                     '<div class="progress" style="margin: 10px 0;"><div class="progress-bar wp-bar" style="width: 0%;"></div></div>' +
                     '<div class="wp-m-src text-muted" style="font-size: 12px; margin-bottom: 8px;"></div>' +
+                    '<div class="wp-m-info text-muted" style="font-size: 12px; margin: -4px 0 8px 0;"></div>' +
                     '<table class="table table-condensed wp-table" style="display:none;"><thead><tr>' +
                     '<th>Endpoint</th><th>Latency</th><th>Speed</th><th>Checks</th><th>Verified</th><th></th></tr></thead><tbody></tbody></table>' +
                     '<div class="wp-empty text-muted" style="display:none;">Nothing has answered yet.</div></div>' +
@@ -4230,6 +4232,16 @@
                         .toggleClass('progress-bar-success', !!done && (st.verified || 0) > 0)
                         .toggleClass('progress-bar-danger', !!done && !(st.verified || 0));
                     $dlg.find('.wp-m-src').text(warpSourcesText(st && st.sources));
+                    var info = [];
+                    if (st && st.sni) {
+                        info.push('SNI in use: ' + st.sni);
+                    }
+                    if (st && st.excluded) {
+                        var parts = [];
+                        $.each(st.excluded, function (colo, n) { parts.push(n + ' on ' + colo); });
+                        info.push('Skipped (filtered node): ' + parts.join(', '));
+                    }
+                    $dlg.find('.wp-m-info').text(info.join(' \u00b7 '));
                 }
 
                 function render(state) {
@@ -4237,7 +4249,8 @@
                     var $tb = $dlg.find('.wp-table tbody').empty();
                     rows.forEach(function (r) {
                         var label = r.status === 'verified' ? '<span class="label label-success">verified</span>'
-                                  : (r.status === 'unstable' ? '<span class="label label-warning">unstable</span>'
+                                  : (r.torn ? '<span class="label label-warning" title="Connected and passed data, then was cut: the typical picture of a filter">cut mid-stream</span>'
+                                  : r.status === 'unstable' ? '<span class="label label-warning">unstable</span>'
                                   : '<span class="label label-danger">failed</span>');
                         var $ep = $('<td/>');
                         if (r.cc || r.colo) {
@@ -4254,7 +4267,9 @@
                             .append($('<td/>').text(r.checks || '-'))
                             .append($('<td/>').text(warpAgeText(r.ts)));
                         var $use = $('<button type="button" class="btn btn-xs btn-default" style="margin-right: 4px;">Use</button>')
-                            .prop('disabled', r.status === 'failed').on('click', function () { use(r); });
+                            .prop('disabled', r.status === 'failed' || !!r.torn)
+                            .attr('title', r.torn ? 'Cut mid-stream: not offered, it would hang as a VPN' : '')
+                            .on('click', function () { use(r); });
                         var $re = $('<button type="button" class="btn btn-xs btn-default">Re-check</button>')
                             .on('click', function () { start([r.sni ? { host: r.host, port: r.port, sni: r.sni } : { host: r.host, port: r.port }]); });
                         var $acts = $('<td/>').append($use).append($re);
@@ -4379,6 +4394,7 @@
                     if (kind !== 'wg' && $wrap.find('.wp-sni').is(':checked')) {
                         data.sni_search = '1';
                     }
+                    data.exclude_colos = $.trim($wrap.find('.wp-excl').val() || '');
                     if (kind !== 'wg' && $wrap.find('.wp-fm').is(':checked')) {
                         data.fm = fmValues();
                     }

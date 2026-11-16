@@ -632,9 +632,18 @@ class ServiceController extends ApiMutableServiceControllerBase
             }
             $endpoints[] = $epSni !== '' ? ['host' => $h, 'port' => $port, 'sni' => $epSni] : ['host' => $h, 'port' => $port];
         }
+        // Cloudflare nodes (airport codes) to drop, e.g. DME.
+        $exclude = [];
+        foreach (preg_split('/[\s,]+/', strtoupper(trim((string)$this->request->getPost('exclude_colos', 'string', ''))), -1, PREG_SPLIT_NO_EMPTY) as $code) {
+            if (!preg_match('/^[A-Z]{3}$/', $code)) {
+                return ['status' => 'error', 'message' => 'Node codes are three letters, e.g. DME.'];
+            }
+            $exclude[] = $code;
+        }
         $request = [
             'mode' => $mode,
             'credentials' => $cred,
+            'exclude_colos' => array_values(array_unique(array_slice($exclude, 0, 20))),
             'zero_trust' => $this->request->getPost('zero_trust', 'string', '0') === '1',
             'want' => max(1, min(20, (int)$this->request->getPost('want', 'string', '5'))),
             'max_attempts' => max(1, min(300, (int)$this->request->getPost('max_attempts', 'string', '80'))),

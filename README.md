@@ -113,4 +113,6 @@ The software is provided **as is, without warranty of any kind**, express or imp
 | GeoIP / GeoSite data | Loyalsoldier, runetfreedom, Chocolate4U or your own URLs (see *GeoData Source Preset*) | as published in each repository |
 | OPNsense | [opnsense/core](https://github.com/opnsense/core) | BSD 2-Clause |
 
+**Acknowledgements.** The WARP endpoint search borrows ideas, and the list of SNI names that get past filters, from [vernette/warpscout](https://github.com/vernette/warpscout) (MIT): skipping the filtered Moscow node, trying other SNI names, and treating tunnels that get cut after the first packets as not working. No code of that project is included.
+
 **Services and trademarks.** This is an unofficial plugin: the project is independent and is not affiliated with or endorsed by the Xray / XTLS project, the OPNsense project (Deciso) or Cloudflare. Names such as OPNsense, Xray, WireGuard, Cloudflare and WARP belong to their owners. The WARP features use Cloudflare's public client API: you are responsible for following Cloudflare's terms of service. You are also responsible for using proxies and routing features in accordance with the laws that apply to you.
