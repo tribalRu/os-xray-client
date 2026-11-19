@@ -40,6 +40,12 @@
         <help>Query all matching servers at once and use the first answer. Higher traffic, faster answers, but can downgrade a domestic resolver's accuracy.</help>
     </field>
     <field>
+        <id>xrayclient.general.dns_tag</id>
+        <label>DNS Tag</label>
+        <type>text</type>
+        <help>Optional. Tags the queries of the built-in DNS so a routing rule can steer them: create a rule with this value in Inbound Tags (e.g. <code>dns-out</code>) and pick a node as outbound, and all DNS lookups go through that node instead of leaving directly. Leave empty to keep DNS untagged.</help>
+    </field>
+    <field>
         <id>xrayclient.general.dns_use_system_hosts</id>
         <label>Use System Hosts</label>
         <type>checkbox</type>

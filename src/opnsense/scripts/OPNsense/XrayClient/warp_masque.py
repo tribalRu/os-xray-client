@@ -17,7 +17,7 @@ endpoint, or {"status": "error", "message": "..."}. Python standard library
 plus the openssl command only.
 
 The API version and client headers can be overridden in
-/usr/local/etc/xray/warp.json (masque_api_base, masque_client_version,
+/usr/local/etc/xray/warp.json (masque_api_base, masque_api_base_fallback, masque_client_version,
 masque_user_agent), for the day Cloudflare retires the built-in ones.
 """
 import base64
@@ -36,6 +36,8 @@ socket.setdefaulttimeout(12)
 WARP_CONFIG_FILE = '/usr/local/etc/xray/warp.json'
 _DEFAULTS = {
     'masque_api_base': 'https://api.cloudflareclient.com/v0a4471',
+    # Tried when the main address cannot be reached at all (not on an HTTP error).
+    'masque_api_base_fallback': 'https://api.devices.cloudflare.com/v0a4471',
     'masque_client_version': 'a-6.35-4471',
     'masque_user_agent': 'WARP for Android',
 }
@@ -45,6 +47,10 @@ PEM_LINE = re.compile(r'-----[^-]+-----')
 
 class WarpError(Exception):
     pass
+
+
+class WarpUnreachable(WarpError):
+    """The API host could not be reached (DNS, connection, timeout)."""
 
 
 def load_config(path=WARP_CONFIG_FILE):
@@ -106,7 +112,7 @@ def api_call(cfg, method, path, body, token=None):
             detail = ''
         raise WarpError('Cloudflare answered HTTP %d%s' % (exc.code, (': ' + detail) if detail else ''))
     except (urllib.error.URLError, OSError, ValueError) as exc:
-        raise WarpError('Cloudflare API unreachable: %s' % exc)
+        raise WarpUnreachable('Cloudflare API unreachable: %s' % exc)
     if not isinstance(data, dict):
         raise WarpError('unexpected answer from the Cloudflare API')
     return data
@@ -176,7 +182,15 @@ def extract(config):
 def build_result(cfg=None):
     cfg = cfg or load_config()
     private_b64, public_b64 = generate_p256_keys()
-    device_id, token = register(cfg)
+    try:
+        device_id, token = register(cfg)
+    except WarpUnreachable:
+        fallback = cfg.get('masque_api_base_fallback')
+        if not fallback or fallback.rstrip('/') == cfg['masque_api_base'].rstrip('/'):
+            raise
+        # The same device is then enrolled through the same host.
+        cfg = dict(cfg, masque_api_base=fallback)
+        device_id, token = register(cfg)
     config = enroll(cfg, device_id, token, public_b64)
     edge_key, addresses, host = extract(config)
     return {

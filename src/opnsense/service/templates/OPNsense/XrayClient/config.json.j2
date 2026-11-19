@@ -643,6 +643,10 @@
 {% set _dns_json = (general.dns_json or '') | trim %}
 {% if dns_enabled and (active_dns | length > 0 or _hosts_json != '') %}
   "dns": {
+{% set _dns_tag = (general.dns_tag | default('') | string | trim) %}
+{% if _dns_tag != '' %}
+    "tag": {{ _dns_tag | tojson }},
+{% endif %}
 {% if active_dns %}
     "servers": [
 {%   for server in active_dns %}
