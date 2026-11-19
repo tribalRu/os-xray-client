@@ -1071,6 +1071,27 @@ class TestWarpMasque(unittest.TestCase):
         with self.assertRaises(self.wm.WarpError):
             self.wm.build_result(cfg)
 
+    def test_unreachable_main_api_falls_back(self):
+        cfg = dict(self.cfg, masque_api_base='http://127.0.0.1:1/x',
+                   masque_api_base_fallback=self.cfg['masque_api_base'])
+        res = self.wm.build_result(cfg)
+        self.assertEqual(res['status'], 'ok')
+        self.assertEqual(self.seen['patch'][0], '/v0a4471/reg/dev-1')
+
+    def test_http_error_does_not_fall_back(self):
+        calls = []
+
+        def refuse(cfg):
+            calls.append(cfg['masque_api_base'])
+            raise self.wm.WarpError('Cloudflare answered HTTP 403')
+        original, self.wm.register = self.wm.register, refuse
+        try:
+            with self.assertRaises(self.wm.WarpError):
+                self.wm.build_result(dict(self.cfg, masque_api_base_fallback='http://127.0.0.1:2/y'))
+        finally:
+            self.wm.register = original
+        self.assertEqual(len(calls), 1)
+
     def test_answer_without_addresses_is_an_error(self):
         with self.assertRaises(self.wm.WarpError):
             self.wm.extract({'peers': [{'public_key': 'AAAA'}], 'interface': {}})
