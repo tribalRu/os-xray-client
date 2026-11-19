@@ -871,17 +871,33 @@
                     alignFieldLabel('#rule\\.' + f[0]);
                 });
             }
-            // The same for the token fields of the DNS server dialog.
-            function alignDnsLabels() {
-                ['domains', 'expected_ips', 'unexpected_ips'].forEach(function (name) {
-                    alignFieldLabel('#server\\.' + name);
+            // The same for every token field and text area of the other
+            // dialogs (node, balancer, DNS server) and of the General tab.
+            function alignAllLabels(scope) {
+                $(scope).find('select[multiple], textarea').each(function () {
+                    alignFieldLabel(this);
                 });
             }
-            $('#DialogDnsServer').on('shown.bs.modal', function () {
-                alignDnsLabels();
-                setTimeout(alignDnsLabels, 300);
+            ['#DialogNode', '#DialogBalancer', '#DialogDnsServer'].forEach(function (dlg) {
+                $(dlg).on('shown.bs.modal', function () {
+                    alignAllLabels(dlg);
+                    setTimeout(function () { alignAllLabels(dlg); }, 300);
+                });
+                $(dlg).on('change', 'select, input', function () {
+                    setTimeout(function () { alignAllLabels(dlg); }, 50);
+                });
             });
-            $('#DialogDnsServer').on('change', 'select', function () { setTimeout(alignDnsLabels, 0); });
+            var PAGE_FIELDS = '#tab_general, #tab_routing_policy';
+            $('a[data-toggle="tab"]').on('shown.bs.tab', function () {
+                alignAllLabels(PAGE_FIELDS);
+                setTimeout(function () { alignAllLabels(PAGE_FIELDS); }, 300);
+            });
+            $(PAGE_FIELDS).on('change', 'select', function () {
+                setTimeout(function () { alignAllLabels(PAGE_FIELDS); }, 50);
+            });
+            // The forms are filled by an Ajax call after the page is ready.
+            setTimeout(function () { alignAllLabels(PAGE_FIELDS); }, 1000);
+            setTimeout(function () { alignAllLabels(PAGE_FIELDS); }, 2500);
             window.geodataAlignLabels = alignGeoLabels;
 
             placeBrowseButtons();
