@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>2.34.0</version>
+    <version>2.35.0</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -1473,8 +1473,8 @@
                 <tag type="TextField">
                     <default>auto</default>
                     <Required>Y</Required>
-                    <Mask>/^(?!direct$|block$|api$|node_)[A-Za-z0-9_.-]{1,64}$/</Mask>
-                    <ValidationMessage>Tag must be 1-64 characters (letters, digits, _ . -); direct, block and api are reserved, and node_ is the prefix of node tags.</ValidationMessage>
+                    <Mask>/^(?!direct$|block$|api$|node_|chain_)[A-Za-z0-9_.-]{1,64}$/</Mask>
+                    <ValidationMessage>Tag must be 1-64 characters (letters, digits, _ . -); direct, block and api are reserved, and node_ and chain_ are the prefixes of node and chain tags.</ValidationMessage>
                 </tag>
                 <selector type="CSVListField">
                     <default>node_</default>
@@ -1501,6 +1501,42 @@
                 </fallback_tag>
             </balancer>
         </balancers>
+
+        <!-- ====== Outbound chains ======
+             A chain passes traffic through several nodes in order: hop 1 is
+             the first one the client connects to, the last filled hop is
+             the exit. The template writes a copy of every hop whose
+             dialerProxy is the previous hop and tags the last one
+             chain_<uuid>; routing rules select a chain by that tag. -->
+        <chains>
+            <chain type="ArrayField">
+                <enabled type="BooleanField">
+                    <default>1</default>
+                    <Required>Y</Required>
+                </enabled>
+                <name type="TextField">
+                    <default>Chain</default>
+                    <Required>Y</Required>
+                    <Mask>/^[A-Za-z0-9\s._\-()\[\]@#\/&amp;!+:;,"]{1,192}$/</Mask>
+                    <ValidationMessage>Chain name must be 1-192 characters: letters, digits, spaces and . _ - ( ) [ ] @ # / &amp; ! + : ; , &quot; only.</ValidationMessage>
+                </name>
+                <hop1 type=".\NodeRefField">
+                    <Required>Y</Required>
+                </hop1>
+                <hop2 type=".\NodeRefField">
+                    <Required>Y</Required>
+                </hop2>
+                <hop3 type=".\NodeRefField">
+                    <Required>N</Required>
+                </hop3>
+                <hop4 type=".\NodeRefField">
+                    <Required>N</Required>
+                </hop4>
+                <hop5 type=".\NodeRefField">
+                    <Required>N</Required>
+                </hop5>
+            </chain>
+        </chains>
 
         <!-- ====== Built-in DNS servers ======
              Servers with a domains list are used only for those domains

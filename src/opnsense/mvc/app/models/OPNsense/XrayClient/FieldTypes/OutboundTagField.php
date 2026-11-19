@@ -34,7 +34,7 @@ use OPNsense\Core\Config;
  * changes across add/remove/reorder, so a saved routing rule always
  * points at the same node. "direct" and "block" are the core's
  * built-in outbounds (optgroup "Standard"), enabled balancers are
- * offered by their tag (optgroup "Balancers"). No aliases are emitted:
+ * offered by their tag (optgroup "Balancers") and chains as chain_<uuid>. No aliases are emitted:
  * one node, one tag.
  */
 class OutboundTagField extends OptionField
@@ -72,9 +72,20 @@ class OutboundTagField extends OptionField
             $doc = Config::getInstance()->object();
             $nodes = $doc ? $doc->xpath('//OPNsense/XrayClient/nodes/node[enabled="1"]') : [];
             $balancers = $doc ? $doc->xpath('//OPNsense/XrayClient/balancers/balancer[enabled="1"]') : [];
+            $chains = $doc ? $doc->xpath('//OPNsense/XrayClient/chains/chain[enabled="1"]') : [];
         } catch (\Throwable $e) {
             $nodes = [];
             $balancers = [];
+            $chains = [];
+        }
+
+        // A chain is an outbound of its own: chain_<uuid> (see config.json.j2).
+        foreach ($chains as $chain) {
+            $name = trim((string)$chain->name);
+            $list['chain_' . (string)$chain['uuid']] = [
+                'value' => ($name !== '' ? $name : (string)$chain['uuid']) . ' — ' . gettext('chain'),
+                'optgroup' => gettext('Chains (nodes in order)'),
+            ];
         }
 
         // A balancer tag is used verbatim: the template writes it as
