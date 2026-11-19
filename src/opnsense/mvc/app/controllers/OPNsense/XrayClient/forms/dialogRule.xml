@@ -89,7 +89,7 @@
         <type>select_multiple</type>
         <style>tokenize</style>
         <allownew>true</allownew>
-        <help>Type and press Enter. Only traffic from these inbounds matches: <code>tun-in</code> (transparent VPN gateway), <code>socks-in</code> / <code>http-in</code> (local proxies), <code>api-in</code> (stats). Example: <code>socks-in</code> to always route local SOCKS clients via one node.</help>
+        <help>Type and press Enter. Only traffic from these inbounds matches: <code>tun-in</code> (transparent VPN gateway), <code>socks-in</code> / <code>http-in</code> (local proxies), <code>api-in</code> (stats), or the DNS Tag from General → DNS (queries of the built-in DNS). Example: <code>socks-in</code> to always route local SOCKS clients via one node.</help>
     </field>
     <field>
         <id>rule.source</id>

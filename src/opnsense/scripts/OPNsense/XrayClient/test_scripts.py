@@ -488,6 +488,24 @@ class TestConfigTemplate(unittest.TestCase):
         self.assertEqual(cfg['dns']['hosts'], {})
         self.assertEqual(cfg['dns']['queryStrategy'], 'useIp')
 
+    def test_dns_tag_emitted_when_set(self):
+        cfg = render_config({'dns_enabled': '1', 'dns_tag': ' speede-dns '},
+                            dns_servers=[TEST_DNS_SERVER])
+        self.assertEqual(cfg['dns']['tag'], 'speede-dns')
+        self.assertEqual(cfg['dns']['servers'][0]['address'],
+                         'https://1.1.1.1/dns-query')
+
+    def test_dns_tag_omitted_when_empty(self):
+        cfg = render_config({'dns_enabled': '1', 'dns_tag': ''},
+                            dns_servers=[TEST_DNS_SERVER])
+        self.assertNotIn('tag', cfg['dns'])
+
+    def test_dns_tag_with_hosts_only(self):
+        cfg = render_config({'dns_enabled': '1', 'dns_tag': 'dns-out',
+                             'dns_hosts_json': '{"a.example": "192.0.2.1"}'})
+        self.assertEqual(cfg['dns']['tag'], 'dns-out')
+        self.assertEqual(cfg['dns']['servers'], [])
+
     def test_dns_server_full_fields(self):
         cfg = render_config({'dns_enabled': '1'}, dns_servers=[TEST_DNS_RU])
         server = cfg['dns']['servers'][0]
