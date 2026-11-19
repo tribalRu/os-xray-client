@@ -2096,6 +2096,10 @@
                         // The search API already returns HTML-escaped text (the default cell
                         // renderer inserts it as is), so do not escape it a second time.
                         var d = row.description || '';
+                        // A rule that sends traffic to a chain gets a link icon first.
+                        if (String(row.outbound_tag || '').indexOf('chain_') === 0) {
+                            d = '<span class="fa fa-fw fa-link text-info bootgrid-tooltip" title="Chain: traffic goes through several nodes in order"></span> ' + d;
+                        }
                         if (String(row.pinned) === '1') {
                             return '<span class="fa fa-fw fa-thumb-tack text-info bootgrid-tooltip" title="Pinned to top: evaluated before all regular rules"></span> ' + d;
                         }
@@ -2103,16 +2107,6 @@
                             return '<span class="fa fa-fw fa-level-down text-info bootgrid-tooltip" title="Pinned to end: evaluated after all regular rules"></span> ' + d;
                         }
                         return d;
-                    },
-                    // Action column: a chain gets a link icon so it stands out
-                    // from a plain node, balancer, direct or block.
-                    "ruleout": function (column, row) {
-                        var raw = String(row.outbound_tag === undefined || row.outbound_tag === null ? '' : row.outbound_tag);
-                        var label = row['%outbound_tag'] !== undefined && row['%outbound_tag'] !== '' ? row['%outbound_tag'] : escHtml(raw);
-                        if (raw.indexOf('chain_') === 0) {
-                            return '<span class="fa fa-fw fa-link text-info bootgrid-tooltip" style="margin-right: 4px;" title="Chain: traffic goes through several nodes in order"></span>' + label;
-                        }
-                        return label;
                     },
                     // Condensed counts of every condition, e.g.
                     // "domains: 2 · geoip: 1 · port: 443". A rule that sits
@@ -4996,7 +4990,7 @@
                     <th data-column-id="sequence" data-width="4em" data-type="numeric" data-formatter="ruleseq">#</th>
                     <th data-column-id="description" data-type="string" data-formatter="rulename">Description</th>
                     <th data-column-id="domain" data-type="string" data-formatter="rulematch" data-sortable="false">Match</th>
-                    <th data-column-id="outbound_tag" data-width="10em" data-type="string" data-formatter="ruleout">Action (Outbound)</th>
+                    <th data-column-id="outbound_tag" data-width="10em" data-type="string">Action (Outbound)</th>
                     <th data-column-id="commands" data-width="12em" data-formatter="commands" data-sortable="false">Actions</th>
                 </tr>
             </thead>
