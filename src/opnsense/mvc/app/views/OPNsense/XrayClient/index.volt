@@ -853,19 +853,31 @@
                 var $cell = $(fieldSel).closest('td');
                 var $row = $cell.closest('tr');
                 var $nameCell = $row.children('td').first();
+                if (!$nameCell.length) {
+                    return;
+                }
+                // Start from a clean state: a stale value (computed while the
+                // row was hidden or the layout was still moving) must never
+                // survive, it shows up as an empty gap between fields.
+                $nameCell.css('padding-top', '');
                 var $box = $cell.children(':visible').first();
                 var $name = $nameCell.children().first();
-                if (!$box.length || !$name.length || !$box.outerHeight()) {
+                if (!$row.is(':visible') || !$box.length || !$name.length || !$box.outerHeight()) {
                     return;
                 }
                 // Centre on the first line only: when many tokens make the
                 // box taller the name stays at the top of the block.
                 var line = Math.min($box.outerHeight(), 38);
                 var pad = ($box.offset().top - $nameCell.offset().top) + (line - $name.outerHeight()) / 2;
+                // The name is only ever nudged by a few pixels; a bigger value
+                // means the measurement was taken in a transient layout.
+                if (!isFinite(pad) || pad < 0 || pad > 40) {
+                    return;
+                }
                 // The dialog CSS sets vertical-align: middle !important on every
                 // cell, so only an !important inline value wins.
                 $nameCell[0].style.setProperty('vertical-align', 'top', 'important');
-                $nameCell.css('padding-top', Math.max(0, Math.round(pad)) + 'px');
+                $nameCell.css('padding-top', Math.round(pad) + 'px');
             }
             function alignGeoLabels() {
                 FIELDS.forEach(function (f) {
