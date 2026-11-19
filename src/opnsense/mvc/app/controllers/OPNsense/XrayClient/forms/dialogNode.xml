@@ -713,7 +713,7 @@
         <label>Sockopt Dialer Proxy</label>
         <type>text</type>
         <style>stream_sockopt</style>
-        <help>Optional outbound tag used as dialer for this connection (chained proxy), e.g. proxy-out.</help>
+        <help>Optional chained proxy: the name of another enabled node (exactly as shown in the node list) through which this node connects, e.g. <code>DE VPS</code>. Traffic that a rule sends to this node then goes through that node first. A raw outbound tag such as <code>node_&lt;uuid&gt;</code> is passed through unchanged.</help>
     </field>
     <field>
         <id>node.sockopt_interface</id>

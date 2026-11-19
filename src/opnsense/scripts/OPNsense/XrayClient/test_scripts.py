@@ -642,6 +642,22 @@ class TestConfigTemplate(unittest.TestCase):
         socks = [i for i in cfg['inbounds'] if i['tag'] == 'socks-in'][0]
         self.assertEqual(socks['settings']['users'][0]['pass'], pw)
 
+    def _dialer(self, value, first_enabled='1'):
+        first = dict(TEST_NODE, name='DE VPS', enabled=first_enabled)
+        chained = dict(XDRIVE_NODE, sockopt_dialer_proxy=value)
+        cfg = render_config(nodes=[first, chained])
+        out = [o for o in cfg['outbounds'] if o['tag'] == 'node_' + XDRIVE_NODE['@uuid']][0]
+        return out['streamSettings']['sockopt']['dialerProxy']
+
+    def test_dialer_proxy_accepts_node_name(self):
+        self.assertEqual(self._dialer('DE VPS'), 'node_' + TEST_NODE['@uuid'])
+
+    def test_dialer_proxy_raw_tag_passes_through(self):
+        self.assertEqual(self._dialer('node_abc'), 'node_abc')
+
+    def test_dialer_proxy_name_of_disabled_node_is_not_resolved(self):
+        self.assertEqual(self._dialer('DE VPS', first_enabled='0'), 'DE VPS')
+
     def test_tls_use_system_ca_only_when_enabled(self):
         node = dict(XDRIVE_NODE)
         stream = render_config(nodes=[node])['outbounds'][0]['streamSettings']
