@@ -35,7 +35,7 @@ socket.setdefaulttimeout(12)
 
 WARP_CONFIG_FILE = '/usr/local/etc/xray/warp.json'
 _DEFAULTS = {
-    'masque_api_base': 'https://api.cloudflareclient.com/v0a4471',
+    'masque_api_base': 'https://api.devices.cloudflare.com/v0a4471',
     'masque_client_version': 'a-6.35-4471',
     'masque_user_agent': 'WARP for Android',
 }
