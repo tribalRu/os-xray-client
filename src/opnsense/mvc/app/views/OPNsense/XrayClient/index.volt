@@ -848,26 +848,40 @@
             // The field name is centred on the first line of the input box,
             // not on the whole cell (which also holds the links row and the
             // warning). Measured from the rendered layout.
+            function alignFieldLabel(fieldSel) {
+                var $cell = $(fieldSel).closest('td');
+                var $row = $cell.closest('tr');
+                var $nameCell = $row.children('td').first();
+                var $box = $cell.children(':visible').first();
+                var $name = $nameCell.children().first();
+                if (!$box.length || !$name.length || !$box.outerHeight()) {
+                    return;
+                }
+                // Centre on the first line only: when many tokens make the
+                // box taller the name stays at the top of the block.
+                var line = Math.min($box.outerHeight(), 38);
+                var pad = ($box.offset().top - $nameCell.offset().top) + (line - $name.outerHeight()) / 2;
+                // The dialog CSS sets vertical-align: middle !important on every
+                // cell, so only an !important inline value wins.
+                $nameCell[0].style.setProperty('vertical-align', 'top', 'important');
+                $nameCell.css('padding-top', Math.max(0, Math.round(pad)) + 'px');
+            }
             function alignGeoLabels() {
                 FIELDS.forEach(function (f) {
-                    var $cell = $('#rule\\.' + f[0]).closest('td');
-                    var $row = $cell.closest('tr');
-                    var $nameCell = $row.children('td').first();
-                    var $box = $cell.children(':visible').first();
-                    var $name = $nameCell.children().first();
-                    if (!$box.length || !$name.length || !$box.outerHeight()) {
-                        return;
-                    }
-                    // Centre on the first line only: when many tokens make the
-                    // box taller the name stays at the top of the block.
-                    var line = Math.min($box.outerHeight(), 38);
-                    var pad = ($box.offset().top - $nameCell.offset().top) + (line - $name.outerHeight()) / 2;
-                    // The dialog CSS sets vertical-align: middle !important on every
-                    // cell, so only an !important inline value wins.
-                    $nameCell[0].style.setProperty('vertical-align', 'top', 'important');
-                    $nameCell.css('padding-top', Math.max(0, Math.round(pad)) + 'px');
+                    alignFieldLabel('#rule\\.' + f[0]);
                 });
             }
+            // The same for the token fields of the DNS server dialog.
+            function alignDnsLabels() {
+                ['domains', 'expected_ips', 'unexpected_ips'].forEach(function (name) {
+                    alignFieldLabel('#server\\.' + name);
+                });
+            }
+            $('#DialogDnsServer').on('shown.bs.modal', function () {
+                alignDnsLabels();
+                setTimeout(alignDnsLabels, 300);
+            });
+            $('#DialogDnsServer').on('change', 'select', function () { setTimeout(alignDnsLabels, 0); });
             window.geodataAlignLabels = alignGeoLabels;
 
             placeBrowseButtons();
