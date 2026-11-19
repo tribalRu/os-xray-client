@@ -2104,6 +2104,16 @@
                         }
                         return d;
                     },
+                    // Action column: a chain gets a link icon so it stands out
+                    // from a plain node, balancer, direct or block.
+                    "ruleout": function (column, row) {
+                        var raw = String(row.outbound_tag === undefined || row.outbound_tag === null ? '' : row.outbound_tag);
+                        var label = row['%outbound_tag'] !== undefined && row['%outbound_tag'] !== '' ? row['%outbound_tag'] : escHtml(raw);
+                        if (raw.indexOf('chain_') === 0) {
+                            return '<span class="fa fa-fw fa-link text-info bootgrid-tooltip" style="margin-right: 4px;" title="Chain: traffic goes through several nodes in order"></span>' + label;
+                        }
+                        return label;
+                    },
                     // Condensed counts of every condition, e.g.
                     // "domains: 2 · geoip: 1 · port: 443". A rule that sits
                     // below an enabled match-everything rule is marked: it
@@ -2113,9 +2123,9 @@
                         var html = parts.length ? parts.join(' · ') : '<span class="text-muted">any traffic</span>';
                         var cover = ruleShadowedBy(row);
                         if (cover) {
-                            html += ' <i class="fa fa-exclamation-triangle text-warning bootgrid-tooltip" title="Never reached: rule ' +
+                            html = '<i class="fa fa-exclamation-triangle text-warning bootgrid-tooltip" style="margin-right: 6px;" title="Never reached: rule ' +
                                 escHtml(String(cover.sequence)) + (cover.description ? ' (' + escHtml(cover.description) + ')' : '') +
-                                ' above matches all traffic first."></i>';
+                                ' above matches all traffic first."></i>' + html;
                         }
                         return html;
                     },
@@ -4986,7 +4996,7 @@
                     <th data-column-id="sequence" data-width="4em" data-type="numeric" data-formatter="ruleseq">#</th>
                     <th data-column-id="description" data-type="string" data-formatter="rulename">Description</th>
                     <th data-column-id="domain" data-type="string" data-formatter="rulematch" data-sortable="false">Match</th>
-                    <th data-column-id="outbound_tag" data-width="10em" data-type="string">Action (Outbound)</th>
+                    <th data-column-id="outbound_tag" data-width="10em" data-type="string" data-formatter="ruleout">Action (Outbound)</th>
                     <th data-column-id="commands" data-width="12em" data-formatter="commands" data-sortable="false">Actions</th>
                 </tr>
             </thead>
