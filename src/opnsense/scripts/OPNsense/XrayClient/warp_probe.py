@@ -61,7 +61,8 @@ SNI = 'consumer-masque.cloudflareclient.com'
 # fail are retried with these names; the first name that makes one work is then
 # used for the rest of the search. The names are the ones the warpscout project
 # (MIT) measured as getting past such filters.
-SNI_FALLBACKS = ['www.apple.com', 'www.google.com', 'www.microsoft.com', 'cdn.jsdelivr.net']
+SNI_FALLBACKS = ['speed.cloudflare.com', 'api.devices.cloudflare.com', 'www.apple.com',
+                 'www.google.com', 'www.microsoft.com', 'cdn.jsdelivr.net']
 # A DPI that cuts a tunnel does so after it has seen some traffic, so a result
 # is only trusted if one more request still works after this pause (warpscout
 # likewise tests durability after a real request, with spaced probes).
