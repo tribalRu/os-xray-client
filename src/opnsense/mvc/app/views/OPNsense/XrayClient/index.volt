@@ -848,26 +848,56 @@
             // The field name is centred on the first line of the input box,
             // not on the whole cell (which also holds the links row and the
             // warning). Measured from the rendered layout.
+            function alignFieldLabel(fieldSel) {
+                var $cell = $(fieldSel).closest('td');
+                var $row = $cell.closest('tr');
+                var $nameCell = $row.children('td').first();
+                var $box = $cell.children(':visible').first();
+                var $name = $nameCell.children().first();
+                if (!$box.length || !$name.length || !$box.outerHeight()) {
+                    return;
+                }
+                // Centre on the first line only: when many tokens make the
+                // box taller the name stays at the top of the block.
+                var line = Math.min($box.outerHeight(), 38);
+                var pad = ($box.offset().top - $nameCell.offset().top) + (line - $name.outerHeight()) / 2;
+                // The dialog CSS sets vertical-align: middle !important on every
+                // cell, so only an !important inline value wins.
+                $nameCell[0].style.setProperty('vertical-align', 'top', 'important');
+                $nameCell.css('padding-top', Math.max(0, Math.round(pad)) + 'px');
+            }
             function alignGeoLabels() {
                 FIELDS.forEach(function (f) {
-                    var $cell = $('#rule\\.' + f[0]).closest('td');
-                    var $row = $cell.closest('tr');
-                    var $nameCell = $row.children('td').first();
-                    var $box = $cell.children(':visible').first();
-                    var $name = $nameCell.children().first();
-                    if (!$box.length || !$name.length || !$box.outerHeight()) {
-                        return;
-                    }
-                    // Centre on the first line only: when many tokens make the
-                    // box taller the name stays at the top of the block.
-                    var line = Math.min($box.outerHeight(), 38);
-                    var pad = ($box.offset().top - $nameCell.offset().top) + (line - $name.outerHeight()) / 2;
-                    // The dialog CSS sets vertical-align: middle !important on every
-                    // cell, so only an !important inline value wins.
-                    $nameCell[0].style.setProperty('vertical-align', 'top', 'important');
-                    $nameCell.css('padding-top', Math.max(0, Math.round(pad)) + 'px');
+                    alignFieldLabel('#rule\\.' + f[0]);
                 });
             }
+            // The same for every token field and text area of the other
+            // dialogs (node, balancer, DNS server) and of the General tab.
+            function alignAllLabels(scope) {
+                $(scope).find('select[multiple], textarea').each(function () {
+                    alignFieldLabel(this);
+                });
+            }
+            ['#DialogNode', '#DialogBalancer', '#DialogDnsServer'].forEach(function (dlg) {
+                $(dlg).on('shown.bs.modal', function () {
+                    alignAllLabels(dlg);
+                    setTimeout(function () { alignAllLabels(dlg); }, 300);
+                });
+                $(dlg).on('change', 'select, input', function () {
+                    setTimeout(function () { alignAllLabels(dlg); }, 50);
+                });
+            });
+            var PAGE_FIELDS = '#tab_general, #tab_routing_policy';
+            $('a[data-toggle="tab"]').on('shown.bs.tab', function () {
+                alignAllLabels(PAGE_FIELDS);
+                setTimeout(function () { alignAllLabels(PAGE_FIELDS); }, 300);
+            });
+            $(PAGE_FIELDS).on('change', 'select', function () {
+                setTimeout(function () { alignAllLabels(PAGE_FIELDS); }, 50);
+            });
+            // The forms are filled by an Ajax call after the page is ready.
+            setTimeout(function () { alignAllLabels(PAGE_FIELDS); }, 1000);
+            setTimeout(function () { alignAllLabels(PAGE_FIELDS); }, 2500);
             window.geodataAlignLabels = alignGeoLabels;
 
             placeBrowseButtons();
