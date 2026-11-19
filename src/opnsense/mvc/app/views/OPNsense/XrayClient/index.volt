@@ -2096,6 +2096,10 @@
                         // The search API already returns HTML-escaped text (the default cell
                         // renderer inserts it as is), so do not escape it a second time.
                         var d = row.description || '';
+                        // A rule that sends traffic to a chain gets a link icon first.
+                        if (String(row.outbound_tag || '').indexOf('chain_') === 0) {
+                            d = '<span class="fa fa-fw fa-link text-info bootgrid-tooltip" title="Chain: traffic goes through several nodes in order"></span> ' + d;
+                        }
                         if (String(row.pinned) === '1') {
                             return '<span class="fa fa-fw fa-thumb-tack text-info bootgrid-tooltip" title="Pinned to top: evaluated before all regular rules"></span> ' + d;
                         }
@@ -2113,9 +2117,9 @@
                         var html = parts.length ? parts.join(' · ') : '<span class="text-muted">any traffic</span>';
                         var cover = ruleShadowedBy(row);
                         if (cover) {
-                            html += ' <i class="fa fa-exclamation-triangle text-warning bootgrid-tooltip" title="Never reached: rule ' +
+                            html = '<i class="fa fa-exclamation-triangle text-warning bootgrid-tooltip" style="margin-right: 6px;" title="Never reached: rule ' +
                                 escHtml(String(cover.sequence)) + (cover.description ? ' (' + escHtml(cover.description) + ')' : '') +
-                                ' above matches all traffic first."></i>';
+                                ' above matches all traffic first."></i>' + html;
                         }
                         return html;
                     },
