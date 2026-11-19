@@ -5062,18 +5062,6 @@
         </div>
     </div>
 
-    <div id="tab_routing_policy" class="tab-pane fade in">
-        {{ partial("layout_partials/base_form", ['fields': routingForm, 'id': 'frm_general_route']) }}
-        <div class="col-md-12" style="padding-bottom: 15px;">
-            <hr/>
-            <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves the plugin settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
-                <b>Apply &amp; Restart Xray</b> <i class="fa fa-spinner fa-pulse" style="display: none;"></i>
-            </button>
-        </div>
-    </div>
-        </div>
-    </div>
-
     <div id="tab_chains" class="tab-pane fade in">
         <table id="grid-chains" class="table table-condensed table-hover table-striped" data-editDialog="DialogChain">
             <thead>
@@ -5104,6 +5092,18 @@
             <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves the plugin settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
                 <b>Apply &amp; Restart Xray</b> <i class="fa fa-spinner fa-pulse" style="display: none;"></i>
             </button>
+        </div>
+    </div>
+
+    <div id="tab_routing_policy" class="tab-pane fade in">
+        {{ partial("layout_partials/base_form", ['fields': routingForm, 'id': 'frm_general_route']) }}
+        <div class="col-md-12" style="padding-bottom: 15px;">
+            <hr/>
+            <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves the plugin settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
+                <b>Apply &amp; Restart Xray</b> <i class="fa fa-spinner fa-pulse" style="display: none;"></i>
+            </button>
+        </div>
+    </div>
         </div>
     </div>
 
