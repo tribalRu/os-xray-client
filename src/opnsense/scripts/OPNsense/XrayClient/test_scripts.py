@@ -288,7 +288,7 @@ class _FakeHelpers:
 
 
 def render_config(general_overrides=None, nodes=None, rules=None,
-                  balancers=None, dns_servers=None):
+                  balancers=None, dns_servers=None, chains=None):
     """Render config.json.j2 with sample data and return the parsed JSON."""
     general = {
         'config_mode': 'ui',
@@ -345,6 +345,7 @@ def render_config(general_overrides=None, nodes=None, rules=None,
         'nodes': {'node': nodes or []},
         'rules': {'rule': rules or []},
         'balancers': {'balancer': balancers or []},
+        'chains': {'chain': chains or []},
         'dns': {'server': dns_servers or []},
     }}}
     with open(TEMPLATE_PATH, encoding='utf-8') as handle:
@@ -648,6 +649,50 @@ class TestConfigTemplate(unittest.TestCase):
         cfg = render_config(nodes=[first, chained])
         out = [o for o in cfg['outbounds'] if o['tag'] == 'node_' + XDRIVE_NODE['@uuid']][0]
         return out['streamSettings']['sockopt']['dialerProxy']
+
+    def _chain_cfg(self, **chain_over):
+        a = dict(XDRIVE_NODE, **{'@uuid': 'aaaaaaaa-0000-0000-0000-00000000000a', 'name': 'A'})
+        b = dict(XDRIVE_NODE, **{'@uuid': 'bbbbbbbb-0000-0000-0000-00000000000b', 'name': 'B'})
+        c = dict(XDRIVE_NODE, **{'@uuid': 'cccccccc-0000-0000-0000-00000000000c', 'name': 'C'})
+        chain = {'@uuid': 'chain0001', 'enabled': '1', 'name': 'AB', 'hop1': a['@uuid'],
+                 'hop2': b['@uuid'], 'hop3': '', 'hop4': '', 'hop5': ''}
+        chain.update(chain_over)
+        return render_config(nodes=[a, b, c], chains=[chain])
+
+    @staticmethod
+    def _by_tag(cfg):
+        return {o['tag']: o for o in cfg['outbounds']}
+
+    def test_chain_two_hops(self):
+        out = self._by_tag(self._chain_cfg())
+        exit_hop = out['chain_chain0001']
+        self.assertEqual(exit_hop['streamSettings']['sockopt']['dialerProxy'], 'chain_chain0001_1')
+        self.assertNotIn('sockopt', out['chain_chain0001_1']['streamSettings'])
+        # The original nodes are untouched.
+        self.assertIn('node_aaaaaaaa-0000-0000-0000-00000000000a', out)
+
+    def test_chain_three_hops_link_in_order(self):
+        out = self._by_tag(self._chain_cfg(hop3='cccccccc-0000-0000-0000-00000000000c'))
+        self.assertEqual(out['chain_chain0001_2']['streamSettings']['sockopt']['dialerProxy'], 'chain_chain0001_1')
+        self.assertEqual(out['chain_chain0001']['streamSettings']['sockopt']['dialerProxy'], 'chain_chain0001_2')
+
+    def test_chain_with_missing_node_is_skipped(self):
+        out = self._by_tag(self._chain_cfg(hop2='dddddddd-0000-0000-0000-00000000000d'))
+        self.assertFalse([t for t in out if t.startswith('chain_')])
+
+    def test_disabled_chain_is_skipped(self):
+        out = self._by_tag(self._chain_cfg(enabled='0'))
+        self.assertFalse([t for t in out if t.startswith('chain_')])
+
+    def test_rule_can_target_chain(self):
+        rule = {'@uuid': 'r1', 'enabled': '1', 'sequence': '1', 'description': 'x',
+                'domain': 'example.com', 'outbound_tag': 'chain_chain0001', 'network_proto': 'tcp_udp'}
+        a = dict(XDRIVE_NODE, **{'@uuid': 'a', 'name': 'A'})
+        b = dict(XDRIVE_NODE, **{'@uuid': 'b', 'name': 'B'})
+        chain = {'@uuid': 'chain0001', 'enabled': '1', 'name': 'AB', 'hop1': 'a', 'hop2': 'b'}
+        cfg = render_config(nodes=[a, b], chains=[chain], rules=[rule])
+        targets = [r.get('outboundTag') for r in cfg['routing']['rules']]
+        self.assertIn('chain_chain0001', targets)
 
     def test_dialer_proxy_accepts_node_name(self):
         self.assertEqual(self._dialer('DE VPS'), 'node_' + TEST_NODE['@uuid'])

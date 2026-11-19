@@ -80,6 +80,40 @@ class SettingsController extends ApiMutableModelControllerBase
         return $this->toggleBase('dns.server', $uuid, $enabled);
     }
 
+    // --- Outbound chains CRUD ---
+    public function searchChainAction()
+    {
+        return $this->searchBase(
+            'chains.chain',
+            ['enabled', 'name', 'hop1', 'hop2', 'hop3', 'hop4', 'hop5']
+        );
+    }
+
+    public function getChainAction($uuid = null)
+    {
+        return $this->getBase('chain', 'chains.chain', $uuid);
+    }
+
+    public function addChainAction()
+    {
+        return $this->addBase('chain', 'chains.chain');
+    }
+
+    public function setChainAction($uuid)
+    {
+        return $this->setBase('chain', 'chains.chain', $uuid);
+    }
+
+    public function delChainAction($uuid)
+    {
+        return $this->delBase('chains.chain', $uuid);
+    }
+
+    public function toggleChainAction($uuid, $enabled = null)
+    {
+        return $this->toggleBase('chains.chain', $uuid, $enabled);
+    }
+
     // --- Load Balancers CRUD ---
     public function searchBalancerAction()
     {

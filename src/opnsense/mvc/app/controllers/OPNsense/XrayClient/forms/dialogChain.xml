@@ -1,0 +1,44 @@
+<form>
+    <field>
+        <id>chain.enabled</id>
+        <label>Enabled</label>
+        <type>checkbox</type>
+        <help>A disabled chain is kept in the list but is not written to config.json.</help>
+    </field>
+    <field>
+        <id>chain.name</id>
+        <label>Name</label>
+        <type>text</type>
+        <help>Shown in the routing rules under «Chains» in Target Outbound.</help>
+    </field>
+    <field>
+        <id>chain.hop1</id>
+        <label>Hop 1 (entry)</label>
+        <type>dropdown</type>
+        <help>The first node the traffic goes to. Pick enabled nodes only.</help>
+    </field>
+    <field>
+        <id>chain.hop2</id>
+        <label>Hop 2</label>
+        <type>dropdown</type>
+        <help>The next node: the connection to it goes through hop 1. With two hops this is the exit node, the one that connects to the Internet.</help>
+    </field>
+    <field>
+        <id>chain.hop3</id>
+        <label>Hop 3</label>
+        <type>dropdown</type>
+        <help>Optional. Leave empty if the chain ends at hop 2.</help>
+    </field>
+    <field>
+        <id>chain.hop4</id>
+        <label>Hop 4</label>
+        <type>dropdown</type>
+        <help>Optional. Fill only if hop 3 is filled.</help>
+    </field>
+    <field>
+        <id>chain.hop5</id>
+        <label>Hop 5</label>
+        <type>dropdown</type>
+        <help>Optional. The last filled hop is the exit node. Stream-based nodes (VLESS, VMess, Trojan, Shadowsocks) are the safe choice for hops; check that WireGuard or MASQUE nodes work as a hop before relying on them.</help>
+    </field>
+</form>

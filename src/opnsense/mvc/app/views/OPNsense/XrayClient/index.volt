@@ -102,7 +102,8 @@
     #frm_DialogNode td,
     #frm_DialogRule td,
     #frm_DialogBalancer td,
-    #frm_DialogDnsServer td {
+    #frm_DialogDnsServer td,
+    #frm_DialogChain td {
         vertical-align: middle !important;
     }
     /* Collapsible sections in the node and rule dialogs use the native
@@ -403,60 +404,60 @@
         width: 68% !important;
     }
     /* The balancer dialog mirrors the node/rule dialog geometry. */
-    #DialogBalancer .modal-dialog , #DialogDnsServer .modal-dialog {
+    #DialogBalancer .modal-dialog , #DialogDnsServer .modal-dialog , #DialogChain .modal-dialog {
         width: 95%;
         max-width: 675px;
         margin: 62px auto 10px;
     }
-    #DialogBalancer .modal-dialog .modal-content , #DialogDnsServer .modal-dialog .modal-content {
+    #DialogBalancer .modal-dialog .modal-content , #DialogDnsServer .modal-dialog .modal-content , #DialogChain .modal-dialog .modal-content {
         display: flex;
         flex-direction: column;
         max-height: calc(100vh - 72px);
         max-height: calc(100dvh - 72px);
     }
-    #DialogBalancer .modal-body , #DialogDnsServer .modal-body {
+    #DialogBalancer .modal-body , #DialogDnsServer .modal-body , #DialogChain .modal-body {
         flex: 1 1 auto;
         min-height: 0;
         max-height: none;
         overflow-y: auto;
         overscroll-behavior: contain;
     }
-    #DialogBalancer .modal-header, #DialogDnsServer .modal-header,
-    #DialogBalancer .modal-footer , #DialogDnsServer .modal-footer {
+    #DialogBalancer .modal-header, #DialogDnsServer .modal-header, #DialogChain .modal-header,
+    #DialogBalancer .modal-footer , #DialogDnsServer .modal-footer , #DialogChain .modal-footer {
         flex: 0 0 auto;
     }
-    #DialogBalancer .form-search-section, #DialogDnsServer .form-search-section,
-    #frm_DialogBalancer, #frm_DialogDnsServer {
+    #DialogBalancer .form-search-section, #DialogDnsServer .form-search-section, #DialogChain .form-search-section,
+    #frm_DialogBalancer, #frm_DialogDnsServer, #frm_DialogChain {
         width: 100%;
     }
-    #DialogBalancer .modal-body .form-group , #DialogDnsServer .modal-body .form-group {
+    #DialogBalancer .modal-body .form-group , #DialogDnsServer .modal-body .form-group , #DialogChain .modal-body .form-group {
         margin-bottom: 10px;
     }
-    #DialogBalancer colgroup > col:nth-child(2) , #DialogDnsServer colgroup > col:nth-child(2) { width: 58% !important; }
-    #DialogBalancer colgroup > col:nth-child(3) , #DialogDnsServer colgroup > col:nth-child(3) { width: 17% !important; }
-    #DialogBalancer .form-control , #DialogDnsServer .form-control { max-width: none; }
-    #DialogBalancer textarea , #DialogDnsServer textarea { max-width: none !important; width: 100%; }
-    #DialogBalancer .bootstrap-select , #DialogDnsServer .bootstrap-select { width: 100% !important; max-width: none; }
-    #DialogBalancer .modal-header , #DialogDnsServer .modal-header {
+    #DialogBalancer colgroup > col:nth-child(2) , #DialogDnsServer colgroup > col:nth-child(2) , #DialogChain colgroup > col:nth-child(2) { width: 58% !important; }
+    #DialogBalancer colgroup > col:nth-child(3) , #DialogDnsServer colgroup > col:nth-child(3) , #DialogChain colgroup > col:nth-child(3) { width: 17% !important; }
+    #DialogBalancer .form-control , #DialogDnsServer .form-control , #DialogChain .form-control { max-width: none; }
+    #DialogBalancer textarea , #DialogDnsServer textarea , #DialogChain textarea { max-width: none !important; width: 100%; }
+    #DialogBalancer .bootstrap-select , #DialogDnsServer .bootstrap-select , #DialogChain .bootstrap-select { width: 100% !important; max-width: none; }
+    #DialogBalancer .modal-header , #DialogDnsServer .modal-header , #DialogChain .modal-header {
         display: flex !important;
         align-items: center !important;
         gap: 10px;
         min-height: 48px;
         padding: 6px 10px !important;
     }
-    #DialogBalancer .modal-header .model-header-icon , #DialogDnsServer .modal-header .model-header-icon { order: 0; }
-    #DialogBalancer .modal-header h4 , #DialogDnsServer .modal-header h4 { order: 1; flex: 1 1 auto; margin: 0 !important; }
-    #DialogBalancer .modal-header .form-search , #DialogDnsServer .modal-header .form-search {
+    #DialogBalancer .modal-header .model-header-icon , #DialogDnsServer .modal-header .model-header-icon , #DialogChain .modal-header .model-header-icon { order: 0; }
+    #DialogBalancer .modal-header h4 , #DialogDnsServer .modal-header h4 , #DialogChain .modal-header h4 { order: 1; flex: 1 1 auto; margin: 0 !important; }
+    #DialogBalancer .modal-header .form-search , #DialogDnsServer .modal-header .form-search , #DialogChain .modal-header .form-search {
         order: 2;
         margin: 0 !important;
         float: none !important;
         width: 230px !important;
     }
-    #DialogBalancer .modal-header .close , #DialogDnsServer .modal-header .close { order: 3; margin: 0 !important; float: none !important; }
-    #DialogBalancer.help-collapsed colgroup > col:nth-child(3) , #DialogDnsServer.help-collapsed colgroup > col:nth-child(3) { display: none; }
-    #DialogBalancer.help-collapsed tr > td:nth-child(3) , #DialogDnsServer.help-collapsed tr > td:nth-child(3) { display: none; }
-    #DialogBalancer.help-collapsed colgroup > col:first-child , #DialogDnsServer.help-collapsed colgroup > col:first-child { width: 32% !important; }
-    #DialogBalancer.help-collapsed colgroup > col:nth-child(2) , #DialogDnsServer.help-collapsed colgroup > col:nth-child(2) { width: 68% !important; }
+    #DialogBalancer .modal-header .close , #DialogDnsServer .modal-header .close , #DialogChain .modal-header .close { order: 3; margin: 0 !important; float: none !important; }
+    #DialogBalancer.help-collapsed colgroup > col:nth-child(3) , #DialogDnsServer.help-collapsed colgroup > col:nth-child(3) , #DialogChain.help-collapsed colgroup > col:nth-child(3) { display: none; }
+    #DialogBalancer.help-collapsed tr > td:nth-child(3) , #DialogDnsServer.help-collapsed tr > td:nth-child(3) , #DialogChain.help-collapsed tr > td:nth-child(3) { display: none; }
+    #DialogBalancer.help-collapsed colgroup > col:first-child , #DialogDnsServer.help-collapsed colgroup > col:first-child , #DialogChain.help-collapsed colgroup > col:first-child { width: 32% !important; }
+    #DialogBalancer.help-collapsed colgroup > col:nth-child(2) , #DialogDnsServer.help-collapsed colgroup > col:nth-child(2) , #DialogChain.help-collapsed colgroup > col:nth-child(2) { width: 68% !important; }
 </style>
 
 <script>
@@ -473,7 +474,7 @@
                 var CLEANUP_VERSION = '7';
                 if (localStorage.getItem('osxray_tabulator_cleanup') !== CLEANUP_VERSION) {
                     Object.keys(localStorage).filter(function (k) {
-                        return /^tabulator-.*#grid-(nodes|rules|balancers|dns)-columns$/.test(k);
+                        return /^tabulator-.*#grid-(nodes|rules|balancers|chains|dns)-columns$/.test(k);
                     }).forEach(function (k) {
                         localStorage.removeItem(k);
                     });
@@ -530,7 +531,7 @@
                 });
                 $dialog.toggleClass('help-collapsed', !anyContent);
             }
-            $('#DialogNode, #DialogRule, #DialogBalancer, #DialogDnsServer').each(function () {
+            $('#DialogNode, #DialogRule, #DialogBalancer, #DialogDnsServer, #DialogChain').each(function () {
                 var $dialog = $(this);
                 refresh($dialog);
                 var observer = new MutationObserver(function () {
@@ -878,7 +879,7 @@
                     alignFieldLabel(this);
                 });
             }
-            ['#DialogNode', '#DialogBalancer', '#DialogDnsServer'].forEach(function (dlg) {
+            ['#DialogNode', '#DialogBalancer', '#DialogDnsServer', '#DialogChain'].forEach(function (dlg) {
                 $(dlg).on('shown.bs.modal', function () {
                     alignAllLabels(dlg);
                     setTimeout(function () { alignAllLabels(dlg); }, 300);
@@ -2160,6 +2161,41 @@
                         } else {
                             return '<span style="cursor: pointer;" class="fa fa-fw fa-toggle-off text-muted command-toggle bootgrid-tooltip" data-value="0" data-row-id="' + row.uuid + '"></span>';
                         }
+                    }
+                }
+            }
+        });
+
+        $("#grid-chains").UIBootgrid({
+            search: '/api/xrayclient/settings/searchChain',
+            get: '/api/xrayclient/settings/getChain/',
+            set: '/api/xrayclient/settings/setChain/',
+            add: '/api/xrayclient/settings/addChain/',
+            del: '/api/xrayclient/settings/delChain/',
+            toggle: '/api/xrayclient/settings/toggleChain/',
+            options: {
+                formatters: {
+                    "commands": function (column, row) {
+                        return '<button type="button" class="btn btn-xs btn-default command-edit bootgrid-tooltip" data-row-id="' + row.uuid + '"><span class="fa fa-fw fa-pencil"></span></button> ' +
+                               '<button type="button" class="btn btn-xs btn-default command-copy bootgrid-tooltip" data-row-id="' + row.uuid + '"><span class="fa fa-fw fa-clone"></span></button> ' +
+                               '<button type="button" class="btn btn-xs btn-default command-delete bootgrid-tooltip" data-row-id="' + row.uuid + '"><span class="fa fa-fw fa-trash-o"></span></button>';
+                    },
+                    "rowtoggle": function (column, row) {
+                        if (parseInt(row[column.id], 2) === 1) {
+                            return '<span style="cursor: pointer;" class="fa fa-fw fa-toggle-on text-success command-toggle bootgrid-tooltip" data-value="1" data-row-id="' + row.uuid + '"></span>';
+                        } else {
+                            return '<span style="cursor: pointer;" class="fa fa-fw fa-toggle-off text-muted command-toggle bootgrid-tooltip" data-value="0" data-row-id="' + row.uuid + '"></span>';
+                        }
+                    },
+                    "chainhops": function (column, row) {
+                        var names = [];
+                        ['hop1', 'hop2', 'hop3', 'hop4', 'hop5'].forEach(function (k) {
+                            var label = row['%' + k];
+                            if (label) {
+                                names.push($('<div/>').text(String(label)).html());
+                            }
+                        });
+                        return names.join(' &rarr; ');
                     }
                 }
             }
@@ -4570,7 +4606,7 @@
         // Rules, Balancers and Policy & Sniffing are sub-tabs of Routing:
         // bring the parent tab to the front first.
         function showTab(href) {
-            if (['#tab_rules', '#tab_balancers', '#tab_routing_policy'].indexOf(href) !== -1) {
+            if (['#tab_rules', '#tab_balancers', '#tab_chains', '#tab_routing_policy'].indexOf(href) !== -1) {
                 $('a[href="#tab_routing"]').tab('show');
             }
             $('a[href="' + href + '"]').tab('show');
@@ -4930,6 +4966,7 @@
         <ul class="nav nav-pills" id="routingtabs">
             <li class="active"><a data-toggle="tab" href="#tab_rules"><b>Rules</b></a></li>
             <li><a data-toggle="tab" href="#tab_balancers"><b>Balancers</b></a></li>
+            <li><a data-toggle="tab" href="#tab_chains"><b>Chains</b></a></li>
             <li><a data-toggle="tab" href="#tab_routing_policy"><b>Policy &amp; Sniffing</b></a></li>
         </ul>
         <div class="tab-content">
@@ -5034,6 +5071,39 @@
             </button>
         </div>
     </div>
+        </div>
+    </div>
+
+    <div id="tab_chains" class="tab-pane fade in">
+        <table id="grid-chains" class="table table-condensed table-hover table-striped" data-editDialog="DialogChain">
+            <thead>
+                <tr>
+                    <th data-column-id="uuid" data-type="string" data-identifier="true" data-visible="false">ID</th>
+                    <th data-column-id="enabled" data-width="6em" data-type="string" data-formatter="rowtoggle">Enabled</th>
+                    <th data-column-id="name" data-width="16em" data-type="string">Name</th>
+                    <th data-column-id="hops" data-type="string" data-formatter="chainhops" data-sortable="false">Nodes in order (entry &rarr; exit)</th>
+                    <th data-column-id="commands" data-width="10em" data-formatter="commands" data-sortable="false">Actions</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+            <tfoot>
+                <tr>
+                    <td></td>
+                    <td>
+                        <button data-action="add" type="button" class="btn btn-xs btn-primary"><span class="fa fa-fw fa-plus"></span></button>
+                        <button data-action="deleteSelected" type="button" class="btn btn-xs btn-default"><span class="fa fa-fw fa-trash-o"></span></button>
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+        <div class="col-md-12" style="padding-bottom: 15px;">
+        <div style="margin: 14px 0 8px 0;">
+            <span class="text-muted" style="font-size: 15px; line-height: 1.5;">A chain sends traffic through several nodes one after another: pick the nodes in order (entry first, exit last). Rules choose the chain from the &laquo;Chains&raquo; group in Target Outbound. Entries save instantly &mdash; click <b>Apply &amp; Restart Xray</b>.</span>
+        </div>
+            <hr/>
+            <button class="btn btn-primary btn_save_apply" type="button" title="Entries in this grid are saved immediately on every add/edit/delete. This button saves the plugin settings, regenerates /usr/local/etc/xray/config.json from the UI template and restarts Xray.">
+                <b>Apply &amp; Restart Xray</b> <i class="fa fa-spinner fa-pulse" style="display: none;"></i>
+            </button>
         </div>
     </div>
 
@@ -5157,6 +5227,7 @@
 {{ partial("layout_partials/base_dialog", ['fields': formDialogNode, 'id': 'DialogNode', 'label': 'Edit Outbound Server Node']) }}
 {{ partial("layout_partials/base_dialog", ['fields': formDialogRule, 'id': 'DialogRule', 'label': 'Edit Routing Rule']) }}
 {{ partial("layout_partials/base_dialog", ['fields': formDialogBalancer, 'id': 'DialogBalancer', 'label': 'Edit Load Balancer']) }}
+{{ partial("layout_partials/base_dialog", ['fields': formDialogChain, 'id': 'DialogChain', 'label': 'Edit Chain']) }}
 {{ partial("layout_partials/base_dialog", ['fields': formDialogDnsServer, 'id': 'DialogDnsServer', 'label': 'Edit DNS Server']) }}
 
 <div class="modal fade" id="DialogGeoData" tabindex="-1" role="dialog">
