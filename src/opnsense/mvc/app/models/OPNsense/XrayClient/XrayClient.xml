@@ -1,7 +1,7 @@
 <model>
     <mount>//OPNsense/XrayClient</mount>
     <description>Xray Client Plugin Configuration Model</description>
-    <version>2.33.0</version>
+    <version>2.34.0</version>
     <items>
         <general>
             <enabled type="BooleanField">
@@ -794,8 +794,8 @@
                 <sockopt_dialer_proxy type="TextField">
                     <default></default>
                     <Required>N</Required>
-                    <Mask>/^$|^[A-Za-z0-9._-]{1,64}$/</Mask>
-                    <ValidationMessage>Dialer proxy must be an outbound tag (letters, digits, dot, underscore, hyphen, max 64).</ValidationMessage>
+                    <Mask>/^$|^[A-Za-z0-9\s._\-()\[\]@#\/&amp;!+:;,"]{1,192}$/</Mask>
+                    <ValidationMessage>Dialer proxy must be the name of an outbound node or an outbound tag (max 192 characters).</ValidationMessage>
                 </sockopt_dialer_proxy>
                 <sockopt_interface type="TextField">
                     <default></default>
