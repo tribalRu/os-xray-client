@@ -52,7 +52,7 @@ Then open **VPN → Xray Client**.
 5. **Send traffic into Xray.**
    - *Transparent mode (TUN):* enable *Native TUN Inbound* in *General*, apply, then in OPNsense:
      1. *Interfaces → Assignments*: pick `tun_xray0` in *New interface* (it is listed only while Xray is running), add a description such as `XRAY`, click **+** and **Save**.
-     2. *Interfaces → [XRAY]*: tick **Enable**, leave *IPv4 Configuration Type* = **None** (Xray puts the address `10.255.0.2/30` on the interface itself), **Save** and **Apply changes**.
+     2. *Interfaces → [XRAY]*: tick **Enable** and **Lock** (*Prevent interface removal*), leave *IPv4 Configuration Type* = **None** (Xray puts the address `10.255.0.2/30` on the interface itself), **Save** and **Apply changes**.
      3. *System → Gateways → Configuration → +*: *Interface* `XRAY`, *IP address* `10.255.0.1`, tick **Disable Gateway Monitoring**, leave *Upstream Gateway* unticked, **Save** and **Apply changes**.
      4. *Firewall → Rules → LAN*: a rule for the wanted traffic with *Advanced → Gateway* = the new gateway.
 
