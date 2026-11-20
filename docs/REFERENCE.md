@@ -27,10 +27,12 @@ Xray-core **creates the TUN interface itself** while the service runs (FreeBSD `
 1. In **General > TUN Interface**, enable *Enable Native TUN Inbound* (default interface `tun_xray0`; the name must start with `tun_`, because OPNsense does not see TUN interfaces named otherwise; gateway prefix `10.255.0.1/30`, MTU `1500`).
    - `TUN Tunnel Subnet` is the **gateway prefix** Xray uses for the tunnel: Xray keeps the gateway address (`10.255.0.1`) as the in-tunnel endpoint and assigns the next address to the interface (`10.255.0.2` for a `/30`). CIDR must be `1..31` so a local address exists inside the prefix.
 2. Click **Apply & Restart Xray**. The prestart hook removes a stale interface left by an older plugin version / an unclean Xray crash, then Xray creates `tun_xray0` itself.
-3. Assign it under **Interfaces > Assignments**, save, enable it (e.g. `opt5`), and create a gateway pointing at `10.255.0.1` **with gateway monitoring disabled** (the far end has no real host to ping).
-4. Add a LAN firewall rule that routes selected (or all) traffic to that gateway (Firewall > Rules > LAN > Advanced > Gateway).
-5. To use domain rules (`geosite:ru`, …) keep *Enable Domain Sniffing* on.
-6. Traffic is decided per connection by Xray's routing rules (`node_<uuid>` / `direct` / `block`); `direct` traffic exits via the normal WAN route.
+3. **Assign the interface.** *Interfaces > Assignments*: the device `tun_xray0` appears in the *New interface* drop-down only while Xray is running (step 2). Select it, give it a description (for example `XRAY`), click **+**, then **Save**. The assignment survives restarts and reboots.
+4. **Enable the interface.** Open *Interfaces > [XRAY]* (it got a name like `opt5`), tick **Enable**, leave *IPv4 Configuration Type* = **None** (and IPv6 = None): Xray puts `10.255.0.2/30` on the interface itself, so do not configure a static address in OPNsense. Leave *Block private networks* and *Block bogon networks* unticked, **Save** and **Apply changes**.
+5. **Add the gateway.** *System > Gateways > Configuration > +*: *Name* `XRAY_GW`, *Interface* `XRAY`, *Address Family* IPv4, *IP address* `10.255.0.1` (the Xray end of the tunnel), tick **Disable Gateway Monitoring** (the far end has no real host to ping), leave *Upstream Gateway* **unticked** (this is not a WAN, it must not become the default route), **Save** and **Apply changes**.
+6. **Route traffic to it.** Add a LAN firewall rule that sends selected (or all) traffic to that gateway (*Firewall > Rules > LAN > rule > Advanced > Gateway* = `XRAY_GW`); keep the rule above the default allow rule, **Save** and **Apply changes**.
+7. To use domain rules (`geosite:ru`, …) keep *Enable Domain Sniffing* on.
+8. Traffic is decided per connection by Xray's routing rules (`node_<uuid>` / `direct` / `block`); `direct` traffic exits via the normal WAN route.
 
 Full-tunnel auto-routing (`autoSystemRoutingTable`, which replaces the system routing table and binds outbounds to a physical interface via a second FIB) is not wired up yet: on FreeBSD it requires `net.fibs=2` in `/boot/loader.conf` and a reboot. Manual policy routing above works out of the box.
 
