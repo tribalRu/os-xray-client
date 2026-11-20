@@ -52,7 +52,7 @@ fetch -o /tmp/main.tar.gz https://github.com/tribalRu/os-xray-client/archive/ref
 5. **Направьте трафик в Xray.**
    - *Прозрачный режим (TUN):* включите *Native TUN Inbound* в *General*, примените, затем в OPNsense:
      1. *Interfaces → Assignments*: выберите `tun_xray0` в *New interface* (он в списке только пока Xray запущен), задайте описание, например `XRAY`, нажмите **+** и **Save**.
-     2. *Interfaces → [XRAY]*: поставьте **Enable**, *IPv4 Configuration Type* оставьте **None** (адрес `10.255.0.2/30` на интерфейс ставит сам Xray), **Save** и **Apply changes**.
+     2. *Interfaces → [XRAY]*: поставьте **Enable** и **Lock** (*Prevent interface removal*), *IPv4 Configuration Type* оставьте **None** (адрес `10.255.0.2/30` на интерфейс ставит сам Xray), **Save** и **Apply changes**.
      3. *System → Gateways → Configuration → +*: *Interface* `XRAY`, *IP address* `10.255.0.1`, включите **Disable Gateway Monitoring**, *Upstream Gateway* не отмечайте, **Save** и **Apply changes**.
      4. *Firewall → Rules → LAN*: правило для нужного трафика с *Advanced → Gateway* = созданный шлюз.
 
