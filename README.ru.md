@@ -50,7 +50,13 @@ fetch -o /tmp/main.tar.gz https://github.com/tribalRu/os-xray-client/archive/ref
 3. **Настройте маршрутизацию.** *Routing → Rules* → **+** → выберите пресет или соберите своё правило. Для «РФ напрямую, остальное через прокси» добавьте пресеты *Bypass Russian domains*, *Bypass Russian IP ranges* и *Everything else → proxy* (в последнем выберите свой сервер как цель). Либо задайте **Default Action** на свой сервер в *Routing → Policy & Sniffing* и перечислите только исключения.
 4. **Примените.** Нажмите **Apply & Restart Xray**. Если Xray отклонит конфиг, вы увидите точную ошибку, а прежний конфиг останется на месте.
 5. **Направьте трафик в Xray.**
-   - *Прозрачный режим (TUN):* включите *Native TUN Inbound* в *General*, примените, назначьте интерфейс `tun_xray0` в *Interfaces → Assignments*, создайте шлюз на `10.255.0.1` **с отключённым мониторингом** и направьте нужный трафик LAN на этот шлюз правилом файрвола (*Firewall → Rules → LAN → Advanced → Gateway*). Оставьте *Domain Sniffing* включённым, иначе доменные правила не сработают.
+   - *Прозрачный режим (TUN):* включите *Native TUN Inbound* в *General*, примените, затем в OPNsense:
+     1. *Interfaces → Assignments*: выберите `tun_xray0` в *New interface* (он в списке только пока Xray запущен), задайте описание, например `XRAY`, нажмите **+** и **Save**.
+     2. *Interfaces → [XRAY]*: поставьте **Enable**, *IPv4 Configuration Type* оставьте **None** (адрес `10.255.0.2/30` на интерфейс ставит сам Xray), **Save** и **Apply changes**.
+     3. *System → Gateways → Configuration → +*: *Interface* `XRAY`, *IP address* `10.255.0.1`, включите **Disable Gateway Monitoring**, *Upstream Gateway* не отмечайте, **Save** и **Apply changes**.
+     4. *Firewall → Rules → LAN*: правило для нужного трафика с *Advanced → Gateway* = созданный шлюз.
+
+     Оставьте *Domain Sniffing* включённым, иначе доменные правила не сработают. Подробности и разбор проблем: [docs/REFERENCE.md](docs/REFERENCE.md).
    - *Режим прокси:* включите локальный SOCKS5 / HTTP и укажите его в настройках клиентов.
 
 ## Как работает маршрутизация за две минуты

@@ -50,7 +50,13 @@ Then open **VPN → Xray Client**.
 3. **Set up routing.** *Routing → Rules* → **+** → choose a preset, or build your own rule. For *"Russia direct, the rest through the proxy"* add these presets: *Bypass Russian domains*, *Bypass Russian IP ranges*, *Everything else → proxy* (and pick your server as the target of the last one). Or set the **Default Action** to your server in *Routing → Policy & Sniffing* and list only the exceptions.
 4. **Apply.** Click **Apply & Restart Xray**. If Xray rejects the config you get the exact error and the previous config stays in place.
 5. **Send traffic into Xray.**
-   - *Transparent mode (TUN):* enable *Native TUN Inbound* in *General*, apply, assign the `tun_xray0` interface under *Interfaces → Assignments*, create a gateway pointing at `10.255.0.1` **with monitoring disabled**, and route the wanted LAN traffic to that gateway with a firewall rule (*Firewall → Rules → LAN → Advanced → Gateway*). Keep *Domain Sniffing* on so domain rules work.
+   - *Transparent mode (TUN):* enable *Native TUN Inbound* in *General*, apply, then in OPNsense:
+     1. *Interfaces → Assignments*: pick `tun_xray0` in *New interface* (it is listed only while Xray is running), add a description such as `XRAY`, click **+** and **Save**.
+     2. *Interfaces → [XRAY]*: tick **Enable**, leave *IPv4 Configuration Type* = **None** (Xray puts the address `10.255.0.2/30` on the interface itself), **Save** and **Apply changes**.
+     3. *System → Gateways → Configuration → +*: *Interface* `XRAY`, *IP address* `10.255.0.1`, tick **Disable Gateway Monitoring**, leave *Upstream Gateway* unticked, **Save** and **Apply changes**.
+     4. *Firewall → Rules → LAN*: a rule for the wanted traffic with *Advanced → Gateway* = the new gateway.
+
+     Keep *Domain Sniffing* on so domain rules work. More detail and troubleshooting: [docs/REFERENCE.md](docs/REFERENCE.md).
    - *Proxy mode:* enable the local SOCKS5 / HTTP listener and point your clients at it.
 
 ## How routing works in two minutes
