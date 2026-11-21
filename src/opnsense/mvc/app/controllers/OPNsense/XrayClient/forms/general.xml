@@ -60,7 +60,7 @@
         <id>xrayclient.general.tun_address</id>
         <label>TUN Tunnel Subnet</label>
         <type>text</type>
-        <help>Gateway prefix for the TUN inbound (default: 10.255.0.1/30, CIDR 1..31). Xray keeps the gateway address for itself as the in-tunnel endpoint and assigns the next address to the interface (10.255.0.2 for a /30). Route traffic to the gateway via an assigned gateway + policy rule.</help>
+        <help>Gateway prefix for the TUN inbound (default: 10.255.0.1/30, CIDR 1..31). Xray keeps the gateway address for itself as the in-tunnel endpoint and assigns the next address to the interface (10.255.0.2 for a /30). Route traffic to the gateway via an assigned gateway + policy rule. If you change the subnet, set the same gateway address (the first address of the subnet) in System -&gt; Gateways -&gt; Configuration, otherwise policy rules that use the old gateway stop working.</help>
     </field>
     <field>
         <id>xrayclient.general.tun_mtu</id>

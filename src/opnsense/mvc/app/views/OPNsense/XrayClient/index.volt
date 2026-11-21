@@ -503,6 +503,8 @@
             }
             toggleGeneralRows();
             updateDefaultActionRow();
+            tunSubnetSaved = $.trim(tunAddressField().val() || '');
+            loadTunGateway();
         });
         $(document).on('change', '[id="xrayclient.general.default_action"]', updateDefaultActionRow);
 
@@ -4677,6 +4679,15 @@
                 return;
             }
             var $btn = $(this);
+            var change = tunSubnetChange();
+            if (change) {
+                showTunSubnetDialog(change, function () { doSaveApply($btn); });
+                return;
+            }
+            doSaveApply($btn);
+        });
+
+        function doSaveApply($btn) {
             var originalHtml = $btn.html();
             $btn.prop('disabled', true).find('.fa-spinner').show();
             // The settings are spread over several forms (General, Routing,
@@ -4697,6 +4708,7 @@
                 }
                 saveFormToEndpoint("/api/xrayclient/settings/set", saveSteps[i][0], function () {
                     if (i === 0) {
+                        tunSubnetSaved = $.trim(tunAddressField().val() || '');
                         // (re)start background telemetry polling with the new interval
                         startTelemetryAutoRefresh();
                     }
@@ -4710,6 +4722,7 @@
             function applyAfterSave() {
                 ajaxCall("/api/xrayclient/service/reconfigure", {}, function (data) {
                     updateServiceControlUI('xrayclient');
+                    loadTunGateway();
                     if (data && data.status === 'ok') {
                         $btn.html('<b>Applied <span class="fa fa-check"></span></b>');
                         setTimeout(function () {
@@ -4723,7 +4736,7 @@
                     }
                 });
             }
-        });
+        }
 
         function loadVersionInfo() {
             loadServiceInfo();
@@ -4761,6 +4774,74 @@
 
         function loadServiceInfo() {
             ajaxCall('/api/xrayclient/service/serviceInfo', {}, renderServiceInfo);
+        }
+
+        // TUN gateway check: the OPNsense gateway of the TUN interface has to
+        // be the first address of "TUN Tunnel Subnet". A mismatch (usually
+        // after the subnet was changed) is shown under the field.
+        var tunGatewayState = null;
+        var tunSubnetSaved = null;
+
+        function tunAddressField() {
+            return $('[id="xrayclient.general.tun_address"]');
+        }
+
+        function tunGatewayList(info) {
+            return ((info && info.gateways) || []).map(function (g) {
+                return g.name + ' (' + g.address + ')';
+            }).join(', ');
+        }
+
+        function renderTunGateway(info) {
+            tunGatewayState = info || null;
+            var $row = $('#tun_gw_warning_row');
+            if ($row.length === 0) {
+                var $anchor = tunAddressField().closest('tr');
+                if ($anchor.length === 0) {
+                    return;
+                }
+                $row = $('<tr id="tun_gw_warning_row" style="display: none;"><td colspan="3"><div class="alert alert-warning" style="margin: 6px 0 0 0;"><span class="fa fa-fw fa-exclamation-triangle"></span> <span class="tun_gw_text"></span></div></td></tr>');
+                $anchor.after($row);
+            }
+            var tunOn = !!$('[id="xrayclient.general.enable_tun"]').prop('checked');
+            if (!tunOn || !info || info.status !== 'mismatch') {
+                $row.hide();
+                return;
+            }
+            $row.find('.tun_gw_text').text('The gateway ' + tunGatewayList(info) + ' for the interface ' +
+                (info.descr || info.interface) + ' does not match the TUN subnet (expected ' + info.expected +
+                '). Policy rules that use this gateway will not work. Fix the gateway address in System -> Gateways -> Configuration.');
+            $row.show();
+        }
+
+        function loadTunGateway() {
+            ajaxCall('/api/xrayclient/service/tunGateway', {}, renderTunGateway);
+        }
+        $(document).on('change', '[id="xrayclient.general.enable_tun"]', function () {
+            renderTunGateway(tunGatewayState);
+        });
+
+        // Does Save & Apply change the TUN subnet while TUN is on?
+        function tunSubnetChange() {
+            var now = $.trim(tunAddressField().val() || '');
+            var tunOn = !!$('[id="xrayclient.general.enable_tun"]').prop('checked');
+            if (!tunOn || tunSubnetSaved === null || now === '' || now === tunSubnetSaved) {
+                return null;
+            }
+            return { from: tunSubnetSaved, to: now };
+        }
+
+        function showTunSubnetDialog(change, onConfirm) {
+            var gw = tunGatewayList(tunGatewayState);
+            $('#tun_subnet_from').text(change.from);
+            $('#tun_subnet_to').text(change.to);
+            $('#tun_subnet_gw, #tun_subnet_gw2').text(change.to.split('/')[0]);
+            $('#tun_subnet_current').text(gw ? 'The gateway now configured for this interface: ' + gw + '.' : '');
+            $('#btn_tun_subnet_confirm').off('click').on('click', function () {
+                $('#DialogTunSubnet').modal('hide');
+                onConfirm();
+            });
+            $('#DialogTunSubnet').modal('show');
         }
 
         function renderUpdateRow(prefix, info) {
@@ -5356,6 +5437,27 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="DialogTunSubnet" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                <h4 class="modal-title"><span class="fa fa-fw fa-exclamation-triangle text-warning"></span> Change the TUN subnet?</h4>
+            </div>
+            <div class="modal-body">
+                <p>TUN Tunnel Subnet changes from <b id="tun_subnet_from"></b> to <b id="tun_subnet_to"></b>.</p>
+                <p>Xray will use <b id="tun_subnet_gw"></b> as the tunnel gateway address. The gateway you created in System -&gt; Gateways -&gt; Configuration is not changed automatically: set its address to <b id="tun_subnet_gw2"></b> too, otherwise firewall rules and policies that use that gateway stop working.</p>
+                <p class="text-muted" id="tun_subnet_current"></p>
+                <p class="text-muted">The TUN interface itself needs no change: its IPv4 and IPv6 type stays None, Xray assigns the address.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="btn_tun_subnet_confirm">Save and apply</button>
             </div>
         </div>
     </div>
