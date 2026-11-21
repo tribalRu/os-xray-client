@@ -46,6 +46,20 @@ The gateway must be the **Xray end** of the `/30` (`10.255.0.1` for the default 
 
 Fix: System → Gateways → Configuration → edit the `XRAY_GW` → *Gateway address* = `10.255.0.1` → Apply → `pfctl -F states` to drop stale SYN_SENT states.
 
+## Backup and rollback of plugin updates
+
+Before `install.sh` (and so *Update plugin* in Maintenance) copies anything, it saves the installed plugin files and `/conf/config.xml` to `/root/os-xray-client-backup-<date-time>/` (mode 700, the last 3 are kept; a fresh installation has nothing to save). If the installation fails, for example when a model migration errors out, the previous files are put back automatically (and `config.xml` too when the failure happened during the migration), configd is restarted and the running Xray is left alone.
+
+To go back by hand after a successful update:
+
+```sh
+sh /usr/local/opnsense/scripts/OPNsense/XrayClient/plugin_backup.sh restore /root/os-xray-client-backup-<date-time>        # files only
+sh /usr/local/opnsense/scripts/OPNsense/XrayClient/plugin_backup.sh restore /root/os-xray-client-backup-<date-time> config # files and config.xml
+service configd restart && configctl template reload OPNsense/XrayClient
+```
+
+Rollback of other updates was already in place: Apply keeps the previous `config.json` when the new one fails `xray run -test`, *Update Xray-core* restores the previous binary (`xray.previous`) if Xray does not start, and *Update GeoIP & GeoSite* restores the previous `.dat` files.
+
 ## Service state, uptime and crash restarts
 
 Xray runs under `daemon -r -R 5`: if the process dies, the supervisor starts it again after 5 seconds, so no extra watchdog is needed. *Maintenance & Updates* shows a **Service** row (running / restarting / stopped, uptime). When Xray is much younger than its supervisor, the row adds a warning *«Xray was restarted automatically N ago»*: it had stopped by itself, so look at the error log (*Copy Debug Info* collects it). A restart from the GUI starts a new supervisor and does not trigger the warning.

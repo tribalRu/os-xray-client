@@ -12,6 +12,34 @@ if [ ! -d "${SRC_DIR}" ]; then
     exit 1
 fi
 
+# Keep a copy of the installed plugin files (and config.xml) so a failed
+# install or update can be undone; a fresh installation has nothing to save.
+BACKUP_SH="${SRC_DIR}/opnsense/scripts/OPNsense/XrayClient/plugin_backup.sh"
+BACKUP_DIR=""
+INSTALL_DONE=0
+MIGRATING=0
+if [ -f "${BACKUP_SH}" ]; then
+    BACKUP_OUT=$(sh "${BACKUP_SH}" backup) || BACKUP_OUT=""
+    echo "${BACKUP_OUT}" | grep -v '^BACKUP_DIR='
+    BACKUP_DIR=$(echo "${BACKUP_OUT}" | sed -n 's/^BACKUP_DIR=//p')
+fi
+
+rollback_on_failure() {
+    [ "${INSTALL_DONE}" = "1" ] && return 0
+    [ -n "${BACKUP_DIR}" ] || return 0
+    echo "ERROR: the installation failed; putting the previous plugin files back from ${BACKUP_DIR}."
+    if [ "${MIGRATING}" = "1" ]; then
+        sh "${BACKUP_SH}" restore "${BACKUP_DIR}" config || echo "WARNING: automatic restore failed; restore manually from ${BACKUP_DIR}."
+    else
+        sh "${BACKUP_SH}" restore "${BACKUP_DIR}" || echo "WARNING: automatic restore failed; restore manually from ${BACKUP_DIR}."
+    fi
+    rm -f /var/lib/php/tmp/opnsense_menu_cache.xml /var/lib/php/tmp/opnsense_acl_cache.json
+    rm -rf /var/lib/php/cache/* 2>/dev/null || true
+    service configd restart >/dev/null 2>&1 || true
+    echo "The previous version is back in place. Nothing was restarted."
+}
+trap rollback_on_failure EXIT
+
 install -d -m 0755 /usr/local/etc/inc/plugins.inc.d
 install -d -m 0755 /usr/local/etc/rc.d
 install -d -m 0755 /usr/local/etc/xray
@@ -47,10 +75,12 @@ PLUGIN_VER=$(sed -n 's|.*<version>[[:space:]]*\([0-9][0-9.]*\)[[:space:]]*</vers
 echo "${PLUGIN_VER:-unknown}" > /usr/local/opnsense/scripts/OPNsense/XrayClient/PLUGIN_VERSION
 
 echo "Running OPNsense MVC migrations..."
+MIGRATING=1
 /usr/local/opnsense/mvc/script/run_migrations.php || {
     echo "ERROR: model migrations failed. Installation aborted."
     exit 1
 }
+MIGRATING=0
 
 echo "Clearing OPNsense UI, menu, ACL and compiled Volt cache..."
 # Volt compiles .volt templates into $cacheDir (/var/lib/php/cache);
@@ -93,4 +123,5 @@ if [ ! -x "/usr/local/bin/xray" ]; then
     /usr/local/opnsense/scripts/OPNsense/XrayClient/update_geodata.sh runetfreedom none none || true
 fi
 
+INSTALL_DONE=1
 echo "=== Installation complete! ==="
