@@ -46,6 +46,12 @@ The gateway must be the **Xray end** of the `/30` (`10.255.0.1` for the default 
 
 Fix: System → Gateways → Configuration → edit the `XRAY_GW` → *Gateway address* = `10.255.0.1` → Apply → `pfctl -F states` to drop stale SYN_SENT states.
 
+## Service state, uptime and crash restarts
+
+Xray runs under `daemon -r -R 5`: if the process dies, the supervisor starts it again after 5 seconds, so no extra watchdog is needed. *Maintenance & Updates* shows a **Service** row (running / restarting / stopped, uptime). When Xray is much younger than its supervisor, the row adds a warning *«Xray was restarted automatically N ago»*: it had stopped by itself, so look at the error log (*Copy Debug Info* collects it). A restart from the GUI starts a new supervisor and does not trigger the warning.
+
+For alerts, the service is registered with its pidfile (`/var/run/xrayclient.pid`), so OPNsense **Services → Monit** can watch it with the standard process test.
+
 ## Copy Debug Info
 
 *Maintenance & Updates → Copy Debug Info* collects a text report for bug reports: plugin, Xray, OPNsense and GeoData versions, service state and uptime, the TUN interface, a settings summary, the generated `config.json`, the result of `xray run -test` and the last 60 lines of `error.log`. Keys, passwords, UUIDs, short ids and server addresses are masked (`***`), IPv4 addresses in log lines lose their last two octets. Read the text through before posting it publicly; the masking is automatic but not a guarantee for free-form log text.
