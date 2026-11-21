@@ -1414,21 +1414,6 @@
             $('#maint_versions_wrap').remove();
         })();
 
-        // Copy Debug Info: a masked support bundle (versions, service, TUN,
-        // settings summary, config.json, error log tail) in a dialog.
-        (function debugInfoButton() {
-            var $helpRow = $('#frm_maintenance [id^="show_all_help"]').first().closest('tr');
-            if ($helpRow.length === 0) {
-                return;
-            }
-            var $row = $('<tr class="maint_debug_row"><td colspan="3" style="padding-top: 10px;"></td></tr>');
-            $row.children('td').append(
-                $('<button type="button" class="btn btn-default" id="btn_debug_info"><span class="fa fa-fw fa-clipboard"></span> Copy Debug Info</button>'),
-                $('<span class="text-muted" style="margin-left: 10px;">Collects versions, service state, settings, the generated config and the error log for a bug report. Keys, passwords and UUIDs are masked.</span>')
-            );
-            ($('.maint_versions_row').length ? $('.maint_versions_row').last() : $helpRow).after($row);
-        })();
-
         function debugInfoCopy() {
             var $ta = $('#debug_info_text');
             var text = $ta.val();
@@ -5265,6 +5250,7 @@
             <div id="maint_versions" style="border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; padding: 12px 15px; margin-bottom: 10px; background: rgba(255,255,255,0.02);">
                 <div class="form-inline" style="margin-bottom: 8px;">
                     <button id="btn_check_updates" type="button" class="btn btn-default"><i class="fa fa-refresh"></i> <b>Check for Updates</b></button>
+                    <button id="btn_debug_info" type="button" class="btn btn-default" style="margin-left: 6px;" title="Collects versions, service state, settings, the generated config and the error log for a bug report. Keys, passwords and UUIDs are masked."><span class="fa fa-fw fa-clipboard"></span> Copy Debug Info</button>
                     <span id="lbl_updates_status" class="text-muted" style="margin-left: 12px;">Not checked yet.</span>
                 </div>
                 <table class="maint_ver_table">
