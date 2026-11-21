@@ -1097,7 +1097,9 @@ class TestWarpMasque(unittest.TestCase):
         self.server = HTTPServer(('127.0.0.1', 0), Handler)
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
         self.cfg = dict(warp_masque._DEFAULTS,
-                        masque_api_base='http://127.0.0.1:%d/v0a4471' % self.server.server_port)
+                        masque_api_base='http://127.0.0.1:%d/v0a4471' % self.server.server_port,
+                        # never reach the real fallback host from a test
+                        masque_api_base_fallback='')
         self.base64, self.subprocess, self.tempfile = base64, subprocess, tempfile
 
     def tearDown(self):
