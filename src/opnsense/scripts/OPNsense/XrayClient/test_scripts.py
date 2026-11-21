@@ -1810,5 +1810,68 @@ class TestGeodata(unittest.TestCase):
             self.geodata.list_tags('site')
 
 
+class TestDebugInfo(unittest.TestCase):
+    """The support bundle must never leak keys, UUIDs or server addresses."""
+
+    @classmethod
+    def setUpClass(cls):
+        import debug_info
+        cls.d = debug_info
+
+    CONFIG = {
+        'dns': {'servers': [{'address': '8.8.8.8'}], 'tag': 'dns-out'},
+        'outbounds': [{
+            'tag': 'node_1',
+            'settings': {
+                'address': 'secret-server.example.com', 'port': 443,
+                'users': [{'id': '11111111-2222-3333-4444-555555555555', 'flow': 'xtls-rprx-vision'}],
+                'secretKey': 'SECRETKEYVALUE', 'peers': [{'publicKey': 'PUBKEYVALUE', 'endpoint': '203.0.113.9:2408'}],
+            },
+            'streamSettings': {
+                'security': 'reality',
+                'realitySettings': {'publicKey': 'REALPUB', 'shortId': 'abcd1234', 'serverName': 'www.example.org',
+                                    'password': 'hunter2'},
+            },
+        }],
+        'routing': {'rules': [{'ip': ['8.8.4.4'], 'outboundTag': 'node_1'}]},
+    }
+
+    def test_secrets_are_masked_in_config(self):
+        text = json.dumps(self.d.mask_json(self.CONFIG))
+        for leaked in ('11111111-2222', 'SECRETKEYVALUE', 'PUBKEYVALUE', 'REALPUB', 'abcd1234',
+                       'hunter2', 'secret-server.example.com', '203.0.113.9'):
+            self.assertNotIn(leaked, text)
+
+    def test_useful_structure_survives(self):
+        masked = self.d.mask_json(self.CONFIG)
+        self.assertEqual(masked['dns']['servers'][0]['address'], '8.8.8.8')
+        self.assertEqual(masked['dns']['tag'], 'dns-out')
+        self.assertEqual(masked['routing']['rules'][0]['ip'], ['8.8.4.4'])
+        self.assertEqual(masked['outbounds'][0]['settings']['port'], 443)
+        self.assertEqual(masked['outbounds'][0]['settings']['users'][0]['flow'], 'xtls-rprx-vision')
+        self.assertEqual(masked['outbounds'][0]['streamSettings']['security'], 'reality')
+
+    def test_mask_does_not_change_the_original(self):
+        self.d.mask_json(self.CONFIG)
+        self.assertEqual(self.CONFIG['outbounds'][0]['settings']['secretKey'], 'SECRETKEYVALUE')
+
+    def test_log_lines_are_masked(self):
+        line = 'from 203.0.113.55:4433 accepted user 11111111-2222-3333-4444-555555555555 password=hunter2'
+        out = self.d.mask_text(line, ips=True)
+        self.assertNotIn('11111111-2222', out)
+        self.assertNotIn('hunter2', out)
+        self.assertNotIn('113.55', out)
+        self.assertIn('203.0.x.x', out)
+
+    def test_ips_kept_in_free_text_by_default(self):
+        self.assertIn('8.8.4.4', self.d.mask_text('dns 8.8.4.4 ok'))
+
+    def test_report_is_built_without_a_router(self):
+        # Every section must degrade to a message, never raise.
+        report = self.d.build_report()
+        for title in ('Versions', 'Service', 'Settings', 'config.json', 'error.log'):
+            self.assertIn(title, report)
+
+
 if __name__ == '__main__':
     unittest.main()

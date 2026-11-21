@@ -522,6 +522,17 @@ class ServiceController extends ApiMutableServiceControllerBase
         return is_array($data) ? $data : ['status' => 'error', 'balancers' => []];
     }
 
+    /**
+     * Support bundle for bug reports (secrets masked by the script).
+     */
+    public function debugInfoAction()
+    {
+        $backend = new Backend();
+        $response = $backend->configdRun('xrayclient debug_info');
+        $data = json_decode($response, true);
+        return is_array($data) ? $data : ['status' => 'error', 'text' => 'No answer from configd'];
+    }
+
     public function versionAction()
     {
         $backend = new Backend();

@@ -46,6 +46,10 @@ The gateway must be the **Xray end** of the `/30` (`10.255.0.1` for the default 
 
 Fix: System → Gateways → Configuration → edit the `XRAY_GW` → *Gateway address* = `10.255.0.1` → Apply → `pfctl -F states` to drop stale SYN_SENT states.
 
+## Copy Debug Info
+
+*Maintenance & Updates → Copy Debug Info* collects a text report for bug reports: plugin, Xray, OPNsense and GeoData versions, service state and uptime, the TUN interface, a settings summary, the generated `config.json`, the result of `xray run -test` and the last 60 lines of `error.log`. Keys, passwords, UUIDs, short ids and server addresses are masked (`***`), IPv4 addresses in log lines lose their last two octets. Read the text through before posting it publicly; the masking is automatic but not a guarantee for free-form log text.
+
 ## Outbound protocols
 
 The node dialog supports every outbound protocol implemented by Xray-core. Choosing a protocol shows only its relevant fields:
