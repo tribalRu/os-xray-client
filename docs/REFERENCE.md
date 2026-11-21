@@ -36,6 +36,8 @@ Xray-core **creates the TUN interface itself** while the service runs (FreeBSD `
 
 Full-tunnel auto-routing (`autoSystemRoutingTable`, which replaces the system routing table and binds outbounds to a physical interface via a second FIB) is not wired up yet: on FreeBSD it requires `net.fibs=2` in `/boot/loader.conf` and a reboot. Manual policy routing above works out of the box.
 
+**Changing the TUN subnet later.** The gateway in *System > Gateways* is not touched by the plugin, so it has to follow the subnet: it must be the first address of `TUN Tunnel Subnet`. The plugin helps in two ways. *Save & Apply* asks for a confirmation when the subnet changes (old and new value, the gateway to fix). A yellow warning under the field appears when the gateway on the TUN interface does not match the subnet, and the same check is part of *Copy Debug Info*. After the change, edit the gateway address in *System > Gateways > Configuration* and apply.
+
 The prestart/poststop hooks honour `enable_tun` and clean up stale interfaces automatically.
 
 ### Troubleshooting: pages on LAN clients never leave SYN_SENT, Xray sees nothing (empty access.log)

@@ -153,6 +153,25 @@ def tun_section(tun_name):
     return section('TUN interface %s' % tun_name, out + '\n\n' + stats)
 
 
+def gateway_section(tun_name):
+    """Gateway of the TUN interface vs. TUN Tunnel Subnet (see tun_gateway.py)."""
+    if not tun_name:
+        return ''
+    try:
+        import _lib
+        import tun_gateway
+        info = tun_gateway.check(_lib._load_root(), tun_name,
+                                 _lib.get_general_value('tun_address') or '10.255.0.1/30')
+    except Exception as exc:
+        return section('TUN gateway', 'unavailable: %s' % exc)
+    lines = ['status: %s' % info['status'],
+             'expected gateway address: %s' % info['expected'],
+             'interface: %s' % (info['interface'] or 'not assigned')]
+    for gw in info['gateways']:
+        lines.append('gateway %s: %s%s' % (gw['name'], gw['address'], '' if gw['ok'] else '  <-- does not match'))
+    return section('TUN gateway (System -> Gateways)', '\n'.join(lines))
+
+
 def settings_section():
     try:
         from _lib import get_general_value, iter_nodes
@@ -202,6 +221,7 @@ def build_report():
         service_section(),
         settings,
         tun_section(tun_name),
+        gateway_section(tun_name),
         config_section(),
         log_section(),
     ]

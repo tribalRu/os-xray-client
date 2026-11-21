@@ -2029,5 +2029,58 @@ class TestPluginBackup(unittest.TestCase):
         self.assertLess(inst.index('trap rollback_on_failure EXIT'), inst.index('cp -R "${SRC_DIR}/etc/"*'))
 
 
+class TestTunGateway(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        import tun_gateway
+        cls.tg = tun_gateway
+
+    XML = """<opnsense>
+  <interfaces><lan><if>igb0</if></lan><opt3><if>tun_xray0</if><descr>XRAY</descr></opt3></interfaces>
+  <OPNsense><Gateways>%s</Gateways></OPNsense>
+</opnsense>"""
+
+    def root(self, *gateways):
+        import xml.etree.ElementTree as ET
+        items = ''.join(
+            '<gateway_item uuid="u%d"><name>%s</name><interface>%s</interface><gateway>%s</gateway>%s</gateway_item>'
+            % (i, name, iface, addr, extra) for i, (name, iface, addr, extra) in enumerate(gateways))
+        return ET.fromstring(self.XML % items)
+
+    def test_matching_gateway_is_ok(self):
+        r = self.tg.check(self.root(('XRAY_GW', 'opt3', '10.255.0.1', '')), 'tun_xray0', '10.255.0.1/30')
+        self.assertEqual(r['status'], 'ok')
+        self.assertEqual(r['interface'], 'opt3')
+        self.assertTrue(r['gateways'][0]['ok'])
+
+    def test_changed_subnet_is_a_mismatch(self):
+        r = self.tg.check(self.root(('XRAY_GW', 'opt3', '10.255.0.1', '')), 'tun_xray0', '10.77.0.1/30')
+        self.assertEqual(r['status'], 'mismatch')
+        self.assertEqual(r['expected'], '10.77.0.1')
+        self.assertFalse(r['gateways'][0]['ok'])
+
+    def test_other_interfaces_and_disabled_gateways_are_ignored(self):
+        r = self.tg.check(self.root(('WAN_GW', 'wan', '192.0.2.1', ''),
+                                    ('OLD', 'opt3', '10.1.1.1', '<disabled>1</disabled>')),
+                          'tun_xray0', '10.255.0.1/30')
+        self.assertEqual(r['status'], 'no_gateway')
+
+    def test_ipv6_gateway_is_ignored(self):
+        r = self.tg.check(self.root(('GW6', 'opt3', 'fd00::1', '')), 'tun_xray0', '10.255.0.1/30')
+        self.assertEqual(r['status'], 'no_gateway')
+
+    def test_not_assigned_and_disabled(self):
+        root = self.root()
+        self.assertEqual(self.tg.check(root, 'tun_other0', '10.255.0.1/30')['status'], 'no_interface')
+        self.assertEqual(self.tg.check(root, 'tun_xray0', '10.255.0.1/30', enabled=False)['status'], 'disabled')
+
+    def test_legacy_gateways_section(self):
+        import xml.etree.ElementTree as ET
+        root = ET.fromstring('<opnsense><interfaces><opt1><if>tun_xray0</if></opt1></interfaces>'
+                             '<gateways><gateway_item><name>G</name><interface>opt1</interface>'
+                             '<gateway>10.255.0.1</gateway></gateway_item></gateways></opnsense>')
+        self.assertEqual(self.tg.check(root, 'tun_xray0', '10.255.0.1/30')['status'], 'ok')
+
+
 if __name__ == '__main__':
     unittest.main()

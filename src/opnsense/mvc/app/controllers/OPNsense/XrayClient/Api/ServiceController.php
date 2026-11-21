@@ -543,6 +543,16 @@ class ServiceController extends ApiMutableServiceControllerBase
         return is_array($data) ? $data : ['state' => 'unknown'];
     }
 
+    /**
+     * Does the gateway of the TUN interface match the TUN Tunnel Subnet?
+     */
+    public function tunGatewayAction()
+    {
+        $backend = new Backend();
+        $data = json_decode($backend->configdRun('xrayclient tun_gateway'), true);
+        return is_array($data) ? $data : ['status' => 'unknown'];
+    }
+
     public function versionAction()
     {
         $backend = new Backend();
