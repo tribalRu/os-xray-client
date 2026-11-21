@@ -1,0 +1,17 @@
+const fs=require('fs');const assert=require('assert');const {JSDOM}=require('jsdom');
+const s=fs.readFileSync(__dirname + '/../../src/opnsense/mvc/app/views/OPNsense/XrayClient/index.volt','utf8');
+const code=s.slice(s.indexOf('// GEODATA-PURE-BEGIN'),s.indexOf('// GEODATA-PURE-END'));
+const w=new JSDOM('',{runScripts:'outside-only'}).window;
+w.eval(fs.readFileSync('node_modules/jquery/dist/jquery.js','utf8'));
+w.eval(code+';window.U=geodataUnknownTags;window.E=geodataEntryToken;');
+const sets={site:{'ru-blocked':3,'category-ads-all':1},ip:{ru:5}};
+assert.strictEqual(JSON.stringify(w.U(['geosite:ru-blocked','geosite:RU-Blocked@ads','geosite:ru','domain:x.ru'],sets)),JSON.stringify(['geosite:ru']));
+assert.strictEqual(JSON.stringify(w.U(['geoip:ru','!geoip:ru','geoip:private','geoip:xx','1.2.3.0/24'],sets)),JSON.stringify(['geoip:xx']));
+assert.strictEqual(JSON.stringify(w.U(['geosite:nothing'],{site:null,ip:null})),JSON.stringify([]));
+assert.strictEqual(w.E('site',{type:'domain',value:'a.ru'}),'domain:a.ru');
+assert.strictEqual(w.E('site',{type:'full',value:'www.a.ru'}),'full:www.a.ru');
+assert.strictEqual(w.E('site',{type:'regexp',value:'^a'}),'regexp:^a');
+assert.strictEqual(w.E('site',{type:'keyword',value:'tor'}),'tor');
+assert.strictEqual(w.E('ip',{type:'cidr',value:'10.0.0.0/8'}),'10.0.0.0/8');
+assert(s.includes('id="DialogGeoData"') && s.includes('id="btn_geodata_browse"') && s.includes('geodataTags/'));
+console.log('geodata OK');
