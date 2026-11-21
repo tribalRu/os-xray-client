@@ -1414,6 +1414,48 @@
             $('#maint_versions_wrap').remove();
         })();
 
+        // Copy Debug Info: a masked support bundle (versions, service, TUN,
+        // settings summary, config.json, error log tail) in a dialog.
+        (function debugInfoButton() {
+            var $helpRow = $('#frm_maintenance [id^="show_all_help"]').first().closest('tr');
+            if ($helpRow.length === 0) {
+                return;
+            }
+            var $row = $('<tr class="maint_debug_row"><td colspan="3" style="padding-top: 10px;"></td></tr>');
+            $row.children('td').append(
+                $('<button type="button" class="btn btn-default" id="btn_debug_info"><span class="fa fa-fw fa-clipboard"></span> Copy Debug Info</button>'),
+                $('<span class="text-muted" style="margin-left: 10px;">Collects versions, service state, settings, the generated config and the error log for a bug report. Keys, passwords and UUIDs are masked.</span>')
+            );
+            ($('.maint_versions_row').length ? $('.maint_versions_row').last() : $helpRow).after($row);
+        })();
+
+        function debugInfoCopy() {
+            var $ta = $('#debug_info_text');
+            var text = $ta.val();
+            function done(ok) {
+                $('#debug_info_copied').text(ok ? 'Copied to the clipboard' : 'Select the text and copy it manually').show().delay(2500).fadeOut();
+            }
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+                return;
+            }
+            $ta.focus().select();
+            var ok = false;
+            try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+            done(ok);
+        }
+
+        $('#btn_debug_info').on('click', function () {
+            $('#debug_info_text').val('Collecting information, this takes a few seconds...');
+            $('#btn_debug_copy').prop('disabled', true);
+            $('#DialogDebugInfo').modal('show');
+            ajaxCall('/api/xrayclient/service/debugInfo', {}, function (data) {
+                $('#debug_info_text').val((data && data.text) ? data.text : 'No data returned.');
+                $('#btn_debug_copy').prop('disabled', false);
+            });
+        });
+        $('#btn_debug_copy').on('click', debugInfoCopy);
+
         // Each update button sits in the row of the field it acts on, right
         // beside the dropdown.
         (function placeMaintenanceButtons() {
@@ -5280,6 +5322,26 @@
                 </div>
             </div>
             <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="DialogDebugInfo" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                <h4 class="modal-title">Debug information</h4>
+            </div>
+            <div class="modal-body">
+                <div class="text-muted" style="margin-bottom: 8px;">Keys, passwords, UUIDs and server addresses are masked. Read the text through before you post it publicly.</div>
+                <textarea id="debug_info_text" class="form-control" rows="22" readonly="readonly" spellcheck="false" style="font-family: monospace; font-size: 12px; white-space: pre; overflow: auto;"></textarea>
+            </div>
+            <div class="modal-footer">
+                <span class="text-success" id="debug_info_copied" style="display: none; margin-right: 10px;"></span>
+                <button type="button" class="btn btn-primary" id="btn_debug_copy" disabled="disabled"><span class="fa fa-fw fa-clipboard"></span> Copy</button>
                 <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
             </div>
         </div>
