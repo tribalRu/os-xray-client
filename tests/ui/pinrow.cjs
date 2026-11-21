@@ -1,0 +1,14 @@
+const fs=require('fs');const {JSDOM}=require('jsdom');const assert=require('assert');
+const s=fs.readFileSync(__dirname + '/../../src/opnsense/mvc/app/views/OPNsense/XrayClient/index.volt','utf8');
+const a=s.indexOf('        (function mergePinRows() {');const b=s.indexOf('        // Pin to top and Pin to end exclude',a);
+const code=s.slice(a,b);
+const row=(id,l,h)=>`<tr><td><div class="control-label"><a><i></i></a> <b>${l}</b></div></td><td><input type="checkbox" id="${id}"><div class="hidden" data-for="h"><small>${h}</small></div></td><td></td></tr>`;
+const dom=new JSDOM(`<div id="DialogRule"><table><tbody>${row('rule.pinned','Pin to top','TOPHELP')}${row('rule.pin_end','Pin to end','ENDHELP')}</tbody></table></div>`,{runScripts:'outside-only'});
+const w=dom.window;w.eval(fs.readFileSync('node_modules/jquery/dist/jquery.js','utf8'));w.eval(code);
+const $=w.$;
+const tr=$('[id="rule.pinned"]').closest('tr');
+assert.strictEqual($('[id="rule.pin_end"]').closest('tr')[0],tr[0],'same row');
+assert.strictEqual($('#DialogRule tr').eq(1).css('display'),'none');
+assert(/TOPHELP[\s\S]*ENDHELP/.test(tr.text()));
+assert.strictEqual($('[id="rule.pinned"]').nextAll('input').length,1);assert.strictEqual($('[id="rule.pinned"]').nextAll('label').length,2);
+console.log('pinrow OK');

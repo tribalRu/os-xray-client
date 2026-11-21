@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  scripts:
+    name: Python tests (scripts, config template)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install jinja2
+      - run: python3 src/opnsense/scripts/OPNsense/XrayClient/test_scripts.py
+
+  static:
+    name: Static checks (XML, PHP, Volt JavaScript)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: sudo apt-get update && sudo apt-get install -y php-cli
+      - run: python3 tests/check_static.py
+
+  ui:
+    name: UI tests (jsdom)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+        working-directory: tests/ui
+      - name: Run every UI test
+        working-directory: tests/ui
+        run: |
+          set -e
+          for t in *.cjs; do
+            echo "== $t"
+            node "$t"
+          done

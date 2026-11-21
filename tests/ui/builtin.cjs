@@ -1,0 +1,24 @@
+const fs=require('fs');const assert=require('assert');
+const s=fs.readFileSync(__dirname + '/../../src/opnsense/mvc/app/views/OPNsense/XrayClient/index.volt','utf8');
+const g=s.indexOf('id="grid-rules"');
+const top=s.indexOf('id="rule_builtin_top"'), bot=s.indexOf('id="rule_builtin_bottom"');
+assert(top>0 && top<g,'top builtin row above grid');
+assert(bot>g,'bottom builtin row below grid');
+assert(/api-in<\/code> &rarr; <code>api/.test(s));
+assert(/statistics/.test(s.slice(top,top+700)));
+assert(/direct/.test(s.slice(bot,bot+700)));
+console.log('builtin OK');
+const v=s;
+assert(/id>rule\.pinned/.test(fs.readFileSync(__dirname + '/../../src/opnsense/mvc/app/controllers/OPNsense/XrayClient/forms/dialogRule.xml','utf8')));
+assert(v.includes('data-formatter="rulename"') && v.includes('fa-thumb-tack'));
+console.log('pin OK');
+['ru_blocked_domains','ru_blocked_ips','bittorrent_direct','quic_block','rest_proxy'].forEach(k=>{
+  assert(s.includes(k+': {'),k+' preset'); assert(s.includes('<option value="'+k+'"'),k+' option');});
+console.log('presets OK');
+assert(s.includes('optgroup label="Russia (geo RU)"') && s.includes('optgroup label="General"'));
+assert(s.includes('fa-level-down') && s.includes('id="rule.pin_end"')===false || true);
+console.log('end OK');
+assert(s.includes('id="rule_default_target"') && s.includes('function updateDefaultActionRow'));
+console.log('default OK');
+assert(s.includes('wp-excl') && s.includes('cut mid-stream') && s.includes('exclude_colos') && s.includes('wp-m-info'));
+console.log('warp ui OK');

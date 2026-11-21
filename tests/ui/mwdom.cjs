@@ -1,0 +1,32 @@
+const fs=require('fs');const {JSDOM}=require('jsdom');const assert=require('assert');
+const s=fs.readFileSync(__dirname + '/../../src/opnsense/mvc/app/views/OPNsense/XrayClient/index.volt','utf8');
+const a=s.indexOf('// ---- MASQUE / Cloudflare WARP helpers');const b=s.indexOf('        // Capture phase: runs before the bootgrid');
+const html='<table><tbody><tr><td><input id="node.address"><input id="node.port"><input id="node.sni"></td></tr>'+
+ '<tr><td><textarea id="node.masque_warp_private_key"></textarea><input id="node.masque_warp_public_key"></td></tr>'+
+ '<tr><td><input id="node.masque_warp_address"></td></tr></tbody></table>';
+const dom=new JSDOM('<div id="DialogNode"></div>'+html,{runScripts:'outside-only'});const w=dom.window;
+w.eval(fs.readFileSync('node_modules/jquery/dist/jquery.js','utf8'));
+w.eval('window.setTokens=function(id,v){window.__tok=[id,v];};window.__ajax=null;var _a=jQuery.ajax;jQuery.ajax=function(o){window.__ajax=o;};'+s.slice(a,b));
+const $=w.jQuery;
+const tools=$('#masque_warp_tools');assert(tools.length===1&&tools.is('tr')&&tools.hasClass('masque_warp'));
+assert(tools.prev().find('#node\\.masque_warp_address').length===1);
+$('#masque_warp_account').val('warp_plus').trigger('change');
+assert.strictEqual($('#masque_warp_account').val(),'warp_plus');assert.strictEqual($('#node\\.address').val(),'162.159.199.2');assert.strictEqual($('#node\\.port').val(),'443');assert.strictEqual($('#node\\.sni').val(),'consumer-masque.cloudflareclient.com');
+$('#btn_masque_warp_edge').trigger('click');
+assert(w.__ajax&&w.__ajax.url==='/api/xrayclient/service/warpEdgeKey'&&w.__ajax.data.address==='162.159.199.2');
+w.__ajax.success({status:'ok',public_key:'MFkw'});
+assert.strictEqual($('#node\\.masque_warp_public_key').val(),'MFkw');
+$('#masque_warp_usque').val(JSON.stringify({private_key:'MHcC',ipv4:'172.16.0.2'}));
+$('#btn_masque_warp_import').trigger('click');
+assert.strictEqual($('#node\\.masque_warp_private_key').val(),'MHcC');assert.strictEqual(JSON.stringify(w.__tok),JSON.stringify(['masque_warp_address',['172.16.0.2/32']]));
+$('#masque_warp_usque').val('bad');$('#btn_masque_warp_import').trigger('click');
+assert($('#masque_warp_status').hasClass('text-danger'));
+$('#btn_masque_warp_generate').trigger('click');
+assert(w.__ajax.url==='/api/xrayclient/service/warpMasqueGenerate');
+w.__ajax.success({status:'ok',private_key:'PK',edge_public_key:'EK',addresses:['172.16.0.2/32'],endpoint:'162.159.198.2',port:443,sni:'consumer-masque.cloudflareclient.com'});
+assert.strictEqual($('#node\\.masque_warp_private_key').val(),'PK');assert.strictEqual($('#node\\.masque_warp_public_key').val(),'EK');assert.strictEqual($('#node\\.address').val(),'162.159.198.2');
+$('#node\\.masque_warp_private_key').val('KEEP');$('#btn_masque_warp_generate').trigger('click');
+w.__ajax.success({status:'error',message:'boom'});
+assert.strictEqual($('#node\\.masque_warp_private_key').val(),'KEEP');assert($('#masque_warp_status').text().includes('boom'));
+$('#DialogNode').trigger('show.bs.modal');assert.strictEqual($('#masque_warp_account').val(),'');
+console.log('masque warp dom OK');
