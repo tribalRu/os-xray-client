@@ -533,6 +533,16 @@ class ServiceController extends ApiMutableServiceControllerBase
         return is_array($data) ? $data : ['status' => 'error', 'text' => 'No answer from configd'];
     }
 
+    /**
+     * State, uptime and automatic restarts of the Xray process.
+     */
+    public function serviceInfoAction()
+    {
+        $backend = new Backend();
+        $data = json_decode($backend->configdRun('xrayclient service_info'), true);
+        return is_array($data) ? $data : ['state' => 'unknown'];
+    }
+
     public function versionAction()
     {
         $backend = new Backend();

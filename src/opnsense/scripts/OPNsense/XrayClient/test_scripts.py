@@ -1875,5 +1875,69 @@ class TestDebugInfo(unittest.TestCase):
             self.assertIn(title, report)
 
 
+class TestServiceInfo(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        import service_info
+        cls.si = service_info
+
+    PS_HEAD = '  PID  PPID     ELAPSED COMMAND\n'
+
+    def ps(self, *rows):
+        return self.PS_HEAD + '\n'.join(rows) + '\n'
+
+    def test_parse_etime_formats(self):
+        p = self.si.parse_etime
+        self.assertEqual(p('05:09'), 5 * 60 + 9)
+        self.assertEqual(p('02:05:09'), 2 * 3600 + 5 * 60 + 9)
+        self.assertEqual(p('3-02:05:09'), 3 * 86400 + 2 * 3600 + 5 * 60 + 9)
+        self.assertIsNone(p('garbage'))
+        self.assertIsNone(p(''))
+
+    def test_human(self):
+        h = self.si.human
+        self.assertEqual(h(42), '42s')
+        self.assertEqual(h(125), '2m')
+        self.assertEqual(h(3 * 3600 + 5 * 60), '3h 5m')
+        self.assertEqual(h(3 * 86400 + 4 * 3600), '3d 4h')
+
+    def test_running_and_not_restarted(self):
+        out = self.si.collect(self.ps(
+            '  100     1  01:00:00 daemon: /usr/local/bin/xray[101] (daemon)',
+            '  101   100  01:00:00 /usr/local/bin/xray run -c /usr/local/etc/xray/config.json'), 100)
+        self.assertEqual(out['state'], 'running')
+        self.assertEqual(out['uptime'], 3600)
+        self.assertFalse(out['auto_restarted'])
+
+    def test_young_child_means_automatic_restart(self):
+        out = self.si.collect(self.ps(
+            '  100     1  2-01:00:00 daemon: /usr/local/bin/xray[205] (daemon)',
+            '  205   100     12:30 /usr/local/bin/xray run -c /usr/local/etc/xray/config.json'), 100)
+        self.assertEqual(out['state'], 'running')
+        self.assertTrue(out['auto_restarted'])
+        self.assertEqual(out['uptime_text'], '12m')
+
+    def test_small_difference_is_not_a_restart(self):
+        out = self.si.collect(self.ps(
+            '  100     1     01:00 daemon: /usr/local/bin/xray[101] (daemon)',
+            '  101   100     00:55 /usr/local/bin/xray run -c /usr/local/etc/xray/config.json'), 100)
+        self.assertFalse(out['auto_restarted'])
+
+    def test_supervisor_without_child_is_restarting(self):
+        out = self.si.collect(self.ps(
+            '  100     1     05:00 daemon: /usr/local/bin/xray[] (daemon)'), 100)
+        self.assertEqual(out['state'], 'restarting')
+
+    def test_no_supervisor_means_stopped(self):
+        self.assertEqual(self.si.collect(self.ps('  1     0  10:00 init'), 100)['state'], 'stopped')
+        self.assertEqual(self.si.collect('', None)['state'], 'stopped')
+
+    def test_foreign_child_is_ignored(self):
+        out = self.si.collect(self.ps(
+            '  100     1     05:00 daemon: /usr/local/bin/xray[] (daemon)',
+            '  300   100     00:10 /bin/sh -c sleep 1'), 100)
+        self.assertEqual(out['state'], 'restarting')
+
+
 if __name__ == '__main__':
     unittest.main()

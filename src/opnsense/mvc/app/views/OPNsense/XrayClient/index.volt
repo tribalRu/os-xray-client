@@ -4726,6 +4726,7 @@
         });
 
         function loadVersionInfo() {
+            loadServiceInfo();
             ajaxCall('/api/xrayclient/service/version', {}, function (data) {
                 if (data) {
                     $('#lbl_core_version').text(data.core_version || 'Unknown');
@@ -4733,6 +4734,33 @@
                     $('#lbl_plugin_version').text(data.plugin_version || 'unknown');
                 }
             });
+        }
+
+        // State and uptime of Xray; a young process under an older supervisor
+        // means Xray crashed and daemon(8) restarted it.
+        function renderServiceInfo(info) {
+            var $state = $('#lbl_service_state');
+            var $note = $('#lbl_service_note').empty().removeClass('text-warning text-muted');
+            var state = info && info.state;
+            if (state === 'running') {
+                $state.text('Running' + (info.uptime_text ? ', up ' + info.uptime_text : ''));
+                if (info.auto_restarted) {
+                    $note.addClass('text-warning').append($('<i class="fa fa-exclamation-triangle"/>')).append(
+                        document.createTextNode(' Xray was restarted automatically ' + (info.uptime_text || 'recently') +
+                            ' ago (it had stopped by itself). See the error log, Copy Debug Info collects it.'));
+                }
+            } else if (state === 'restarting') {
+                $state.text('Restarting');
+                $note.addClass('text-warning').text('The process is not up yet; the supervisor starts it again within a few seconds.');
+            } else if (state === 'stopped') {
+                $state.text('Stopped');
+            } else {
+                $state.text('Unknown');
+            }
+        }
+
+        function loadServiceInfo() {
+            ajaxCall('/api/xrayclient/service/serviceInfo', {}, renderServiceInfo);
         }
 
         function renderUpdateRow(prefix, info) {
@@ -5257,6 +5285,11 @@
                             <td id="upd_plugin_latest" class="text-muted">&mdash;</td>
                             <td id="upd_plugin_badge"></td>
                             <td><a id="upd_plugin_link" href="#" target="_blank" rel="noopener" style="display: none;">GitHub</a></td>
+                        </tr>
+                        <tr class="maint_ver_row">
+                            <td><b>Service</b></td>
+                            <td id="lbl_service_state">&hellip;</td>
+                            <td id="lbl_service_note" colspan="3"></td>
                         </tr>
                         <tr class="maint_ver_row">
                             <td><b>GeoIP &amp; GeoSite</b></td>
