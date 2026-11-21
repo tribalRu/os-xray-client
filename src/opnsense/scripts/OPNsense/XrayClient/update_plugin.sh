@@ -62,7 +62,7 @@ fi
 
 echo "Running installer..."
 XRAY_FROM_CONFIGD=1 sh "${EXTRACTED_DIR}/install.sh" || {
-    echo "ERROR: Installer failed; the plugin may be partially updated."
+    echo "ERROR: Installer failed (the installer put the previous version back when a backup existed; see above)."
     exit 1
 }
 

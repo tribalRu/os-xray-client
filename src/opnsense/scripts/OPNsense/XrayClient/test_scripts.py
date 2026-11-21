@@ -1939,5 +1939,95 @@ class TestServiceInfo(unittest.TestCase):
         self.assertEqual(out['state'], 'restarting')
 
 
+class TestPluginBackup(unittest.TestCase):
+    """plugin_backup.sh in a throw-away root directory."""
+
+    SCRIPT = os.path.join(SCRIPT_DIR, 'plugin_backup.sh')
+
+    def setUp(self):
+        import tempfile
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = self.tmp.name
+        self.env = dict(os.environ, XRAY_ROOT=self.root)
+        for d in ('usr/local/opnsense/scripts/OPNsense/XrayClient', 'usr/local/opnsense/mvc/app/models/OPNsense/XrayClient',
+                  'usr/local/etc/rc.d', 'conf', 'root'):
+            os.makedirs(os.path.join(self.root, d))
+        self.write('usr/local/opnsense/scripts/OPNsense/XrayClient/a.py', 'v1')
+        self.write('usr/local/opnsense/mvc/app/models/OPNsense/XrayClient/M.xml', 'm1')
+        self.write('usr/local/etc/rc.d/os-xray-client', 'rc1')
+        self.write('conf/config.xml', 'cfg1')
+
+    def write(self, rel, text):
+        with open(os.path.join(self.root, rel), 'w') as handle:
+            handle.write(text)
+
+    def read(self, rel):
+        with open(os.path.join(self.root, rel)) as handle:
+            return handle.read()
+
+    def run_script(self, *args):
+        import subprocess
+        return subprocess.run(['sh', self.SCRIPT] + list(args), capture_output=True, text=True, env=self.env)
+
+    def backup(self):
+        res = self.run_script('backup')
+        self.assertEqual(res.returncode, 0, res.stderr)
+        for line in res.stdout.splitlines():
+            if line.startswith('BACKUP_DIR='):
+                return line.split('=', 1)[1]
+        self.fail('no BACKUP_DIR in: ' + res.stdout)
+
+    def test_restore_brings_back_files_and_removes_new_ones(self):
+        d = self.backup()
+        self.write('usr/local/opnsense/scripts/OPNsense/XrayClient/a.py', 'v2')
+        self.write('usr/local/opnsense/scripts/OPNsense/XrayClient/extra.py', 'new')
+        self.assertEqual(self.run_script('restore', d).returncode, 0)
+        self.assertEqual(self.read('usr/local/opnsense/scripts/OPNsense/XrayClient/a.py'), 'v1')
+        self.assertFalse(os.path.exists(os.path.join(self.root, 'usr/local/opnsense/scripts/OPNsense/XrayClient/extra.py')))
+
+    def test_config_xml_only_restored_on_request(self):
+        d = self.backup()
+        self.write('conf/config.xml', 'cfg2')
+        self.run_script('restore', d)
+        self.assertEqual(self.read('conf/config.xml'), 'cfg2')
+        self.run_script('restore', d, 'config')
+        self.assertEqual(self.read('conf/config.xml'), 'cfg1')
+
+    def test_backup_is_private(self):
+        d = self.backup()
+        self.assertEqual(os.stat(d).st_mode & 0o777, 0o700)
+        self.assertEqual(os.stat(os.path.join(d, 'config.xml')).st_mode & 0o777, 0o600)
+
+    def test_fresh_install_has_nothing_to_back_up(self):
+        import shutil
+        for d in ('usr', 'conf'):
+            shutil.rmtree(os.path.join(self.root, d))
+        res = self.run_script('backup')
+        self.assertEqual(res.returncode, 0)
+        self.assertNotIn('BACKUP_DIR=', res.stdout)
+
+    def test_only_the_newest_three_are_kept(self):
+        base = os.path.join(self.root, 'root')
+        for stamp in ('20260101-000001', '20260101-000002', '20260101-000003', '20260101-000004'):
+            d = os.path.join(base, 'os-xray-client-backup-' + stamp)
+            os.makedirs(d)
+        self.backup()
+        left = sorted(n for n in os.listdir(base) if n.startswith('os-xray-client-backup-'))
+        self.assertEqual(len(left), 3)
+        self.assertNotIn('os-xray-client-backup-20260101-000001', left)
+
+    def test_restore_refuses_a_foreign_directory(self):
+        res = self.run_script('restore', self.tmp.name)
+        self.assertNotEqual(res.returncode, 0)
+        self.assertEqual(self.read('usr/local/opnsense/scripts/OPNsense/XrayClient/a.py'), 'v1')
+
+    def test_installer_wires_backup_and_rollback(self):
+        inst = open(os.path.join(SCRIPT_DIR, '..', '..', '..', '..', '..', 'install.sh')).read()
+        for needle in ('plugin_backup.sh', 'trap rollback_on_failure EXIT', 'MIGRATING=1', 'INSTALL_DONE=1'):
+            self.assertIn(needle, inst)
+        self.assertLess(inst.index('trap rollback_on_failure EXIT'), inst.index('cp -R "${SRC_DIR}/etc/"*'))
+
+
 if __name__ == '__main__':
     unittest.main()
