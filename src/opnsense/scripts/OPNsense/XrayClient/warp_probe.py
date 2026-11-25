@@ -23,6 +23,7 @@ Request: {"mode": "wg"|"masque_h2"|"masque_h3", "credentials": {...},
           "sources": ["https://..."],      # external lists (WireGuard only)
           "any_address": false,            # probe non-Cloudflare entries too
           "ipv6": false,                   # built-in IPv6 addresses instead of IPv4
+          "targets": ["188.114.98.0/28"],  # test only these addresses (IP, CIDR, ip:port)
           "exclude_colos": ["DME"],        # drop candidates landing on these nodes
           "include_colos": ["HEL"],        # keep only candidates landing on these nodes
           "include_countries": ["FI"],     # ... or in these countries (of the data center)
@@ -114,7 +115,10 @@ CF_NETS = [ipaddress.ip_network(n) for n in (
     '162.158.0.0/15', '104.16.0.0/13', '104.24.0.0/14', '172.64.0.0/13', '131.0.72.0/22',
     # WARP ranges of the community list that are not in the published list
     '8.6.112.0/24', '8.34.70.0/24', '8.34.146.0/24', '8.35.211.0/24', '8.39.125.0/24',
-    '8.39.204.0/24', '8.39.214.0/24', '8.47.69.0/24')]
+    '8.39.204.0/24', '8.39.214.0/24', '8.47.69.0/24',
+    # IPv6 ranges published by Cloudflare
+    '2400:cb00::/32', '2606:4700::/32', '2803:f800::/32', '2405:b500::/32', '2405:8100::/32',
+    '2a06:98c0::/29', '2c0f:f248::/32')]
 SOURCE_TTL = 24 * 3600
 SOURCE_MAX_BYTES = 2 * 1024 * 1024
 SOURCE_MAX_ENTRIES = 60000
@@ -373,6 +377,76 @@ def resolve_node_filter(colos, exclude=(), only=(), countries_only=(), countries
     if wanted and not only:
         raise ValueError('The node and country filters exclude each other')
     return tuple(sorted(exclude)), tuple(sorted(only))
+MAX_TARGETS = 50
+TARGET_MIN_BITS_V4 = 20          # at most 4096 addresses of one IPv4 network
+TARGET_V6_SAMPLE = 256           # random addresses taken from a wide IPv6 network
+
+
+def parse_targets(items, any_address=False):
+    """User-given addresses -> [(network, port or None)]. Accepts 1.2.3.4,
+    1.2.3.0/28, 1.2.3.4:2408, 2606:4700:d0::1, [2606:4700:d0::1]:2408,
+    2606:4700:d0::/48. Raises ValueError with a message for the user."""
+    out = []
+    tokens = [t for item in (items or []) for t in re.split(r'[\s,;]+', str(item)) if t]
+    if len(tokens) > MAX_TARGETS:
+        raise ValueError('at most %d addresses or networks' % MAX_TARGETS)
+    for tok in tokens:
+        port = None
+        m = re.match(r'^\[([0-9A-Fa-f:.]+)\]:(\d{1,5})$', tok) or re.match(r'^(\d{1,3}(?:\.\d{1,3}){3}):(\d{1,5})$', tok)
+        if m:
+            tok, port = m.group(1), int(m.group(2))
+            if not 0 < port < 65536:
+                raise ValueError('bad port in %s' % m.group(0))
+        try:
+            net = ipaddress.ip_network(tok, strict=False)
+        except ValueError:
+            raise ValueError('%s is not an IP address or a network' % tok)
+        if port is not None and net.num_addresses != 1:
+            raise ValueError('a port goes with a single address: %s' % tok)
+        if net.version == 4 and net.prefixlen < TARGET_MIN_BITS_V4:
+            raise ValueError('%s is too wide, use /%d or narrower' % (tok, TARGET_MIN_BITS_V4))
+        if not net.network_address.is_global:
+            raise ValueError('%s is not a public address' % tok)
+        if not any_address and not in_cloudflare(str(net.network_address)):
+            raise ValueError('%s is not a Cloudflare address (tick "Also test addresses outside Cloudflare ranges")' % tok)
+        out.append((net, port))
+    if not out:
+        raise ValueError('the address list is empty')
+    return out
+
+
+def generate_targets(mode, entries, rng=None, skip=()):
+    """Candidates (host, port) for user-given targets: pinned ports first, then
+    every address on the common ports, then on the rest of the port list."""
+    rng = rng or random.Random()
+    skip = set(skip)
+    pinned, hosts = [], []
+    for net, port in entries:
+        if net.num_addresses == 1:
+            host = str(net.network_address)
+            if port:
+                pinned.append((host, port))
+            else:
+                hosts.append(host)
+        elif net.version == 4 or net.num_addresses <= TARGET_V6_SAMPLE:
+            hosts.extend(str(a) for a in net)
+        else:
+            bits = net.max_prefixlen - net.prefixlen
+            base = int(net.network_address)
+            hosts.extend(str(ipaddress.ip_address(base + rng.getrandbits(bits))) for _ in range(TARGET_V6_SAMPLE))
+    hosts = list(dict.fromkeys(hosts))
+    rng.shuffle(hosts)
+    ports = WG_PORTS if mode == 'wg' else MASQUE_PORTS
+    priority = list(WG_PRIORITY_PORTS if mode == 'wg' else MASQUE_PORTS)
+    rest = [p for p in ports if p not in priority]
+    rng.shuffle(rest)
+    seen = set()
+    for host, port in pinned + [(h, p) for p in priority + rest for h in hosts]:
+        key = candidate_key(mode, host, port)
+        if (host, port) in seen or key in skip:
+            continue
+        seen.add((host, port))
+        yield host, port
 
 
 def in_cloudflare(ip):
@@ -972,6 +1046,10 @@ class Search:
             candidates = iter(explicit)
             self.max_attempts = len(explicit)
             self.state['max_attempts'] = len(explicit)
+        elif self.req.get('targets'):
+            skip = set() if self.req.get('ignore_cache') else self.cache.bad_keys()
+            candidates = generate_targets(self.mode, parse_targets(self.req['targets'], bool(self.req.get('any_address'))),
+                                          self.rng, skip)
         elif self.ipv6:
             if not self.ipv6_check():
                 raise ValueError('This router has no IPv6 route to the internet')
@@ -1038,6 +1116,11 @@ def validate_request(req):
         value = req.get(key) or []
         if not isinstance(value, list) or len(value) > 20 or any(not rx.match(str(c)) for c in value):
             raise ValueError('invalid %s' % key)
+    targets = req.get('targets') or []
+    if not isinstance(targets, list) or any(not isinstance(t, str) or len(t) > 100 for t in targets):
+        raise ValueError('invalid target list')
+    if targets:
+        parse_targets(targets, bool(req.get('any_address')))
     fm = req.get('finalmask') or {}
     if not isinstance(fm, dict) or len(fm) > 80 or any(
             not re.match(r'^(fm_[a-z0-9_]{1,40}|finalmask)$', str(k)) or not isinstance(v, str) or len(v) > 4000

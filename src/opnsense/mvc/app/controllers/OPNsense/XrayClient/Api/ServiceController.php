@@ -688,6 +688,13 @@ class ServiceController extends ApiMutableServiceControllerBase
         if ($onlyColos === null || $onlyCountries === null || $skipCountries === null) {
             return ['status' => 'error', 'message' => 'Node codes are three letters (HEL), country codes two (FI).'];
         }
+        // Addresses to test instead of the built-in pools (checked again by the script).
+        $targets = array_slice(preg_split('/[\s,;]+/', trim((string)$this->request->getPost('targets', 'string', '')), -1, PREG_SPLIT_NO_EMPTY), 0, 50);
+        foreach ($targets as $t) {
+            if (!preg_match('/^[0-9A-Fa-f:.\/\[\]]{2,100}$/', $t)) {
+                return ['status' => 'error', 'message' => 'Invalid address in the list: ' . substr($t, 0, 40)];
+            }
+        }
         $request = [
             'mode' => $mode,
             'credentials' => $cred,
@@ -696,6 +703,7 @@ class ServiceController extends ApiMutableServiceControllerBase
             'include_countries' => $onlyCountries,
             'exclude_countries' => $skipCountries,
             'ipv6' => $this->request->getPost('ipv6', 'string', '0') === '1',
+            'targets' => $targets,
             'zero_trust' => $this->request->getPost('zero_trust', 'string', '0') === '1',
             'want' => max(1, min(20, (int)$this->request->getPost('want', 'string', '5'))),
             'max_attempts' => max(1, min(300, (int)$this->request->getPost('max_attempts', 'string', '80'))),
