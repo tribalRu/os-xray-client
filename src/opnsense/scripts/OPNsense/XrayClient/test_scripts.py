@@ -1345,7 +1345,7 @@ class TestWarpProbe(unittest.TestCase):
         self.assertEqual(tls['serverName'], 'www.cloudflare.com')
         self.assertEqual(tls['verifyPeerCertByName'], 'consumer-masque.cloudflareclient.com')
 
-    def probe_instance(self, answers, mode='masque_h3', exclude=()):
+    def probe_instance(self, answers, mode='masque_h3', exclude=(), only=()):
         from unittest.mock import patch
         wp = self.wp
 
@@ -1365,7 +1365,7 @@ class TestWarpProbe(unittest.TestCase):
             return a
 
         with patch.object(wp, 'http_get', http), patch.object(wp, 'LATE_CHECK_DELAY', 0.01):
-            return wp._probe_instance(Inst(), mode, {'host': '162.159.198.2', 'port': 443}, '93.1.1.1', exclude), calls
+            return wp._probe_instance(Inst(), mode, {'host': '162.159.198.2', 'port': 443}, '93.1.1.1', exclude, only), calls
 
     def test_excluded_node_stops_the_probe_at_the_first_answer(self):
         trace = b'ip=104.28.1.1\nwarp=on\ncolo=DME\n'
@@ -1407,6 +1407,41 @@ class TestWarpProbe(unittest.TestCase):
         self.assertTrue(res['checks'].startswith('4/4, cut after'))
         self.assertTrue(res['torn'])
         self.assertEqual(seen['late'], 1)
+
+    def test_node_filter_resolution(self):
+        r = self.wp.resolve_node_filter
+        colos = {'HEL': ['FI', 'Helsinki'], 'ARN': ['SE', 'Stockholm'], 'DME': ['RU', 'Moscow'], 'SVO': ['RU', 'Moscow']}
+        self.assertEqual(r(colos), ((), ()))
+        self.assertEqual(r(colos, countries_skip=('RU',)), (('DME', 'SVO'), ()))
+        self.assertEqual(r(colos, exclude=('HEL',), countries_skip=('RU',)), (('DME', 'HEL', 'SVO'), ()))
+        self.assertEqual(r(colos, countries_only=('FI', 'SE')), ((), ('ARN', 'HEL')))
+        self.assertEqual(r(colos, only=('HEL',), countries_only=('SE',)), ((), ('ARN', 'HEL')))
+        self.assertEqual(r(colos, only=('HEL', 'DME'), exclude=('DME',)), (('DME',), ('HEL',)))
+        with self.assertRaises(ValueError):
+            r(colos, countries_only=('ZZ',))
+        with self.assertRaises(ValueError):
+            r(colos, only=('DME',), exclude=('DME',))
+
+    def test_search_with_impossible_country_filter_fails_early(self):
+        with self.assertRaises(ValueError):
+            self.run_search({'mode': 'wg', 'credentials': self.CRED_WG, 'want': 1, 'max_attempts': 5,
+                             'include_countries': ['ZZ']}, self.fake_probe(set()), 'cc')
+
+    def test_validate_request_checks_the_new_filters(self):
+        base = {'mode': 'wg', 'credentials': self.CRED_WG}
+        self.wp.validate_request(dict(base, include_colos=['HEL'], include_countries=['FI'], exclude_countries=['RU']))
+        for key, bad in (('include_colos', ['hel1']), ('include_countries', ['FIN']), ('exclude_countries', 'RU')):
+            with self.assertRaises(ValueError):
+                self.wp.validate_request(dict(base, **{key: bad}))
+
+    def test_only_filter_stops_the_probe_at_the_first_answer(self):
+        trace = b'ip=104.28.1.1\nwarp=on\ncolo=FRA\nloc=DE\n'
+        res, calls = self.probe_instance(lambda url, n: (trace, 0.2), only=('HEL',))
+        self.assertEqual((res['status'], res['reason']), ('failed', 'node FRA excluded'))
+        self.assertEqual(len(calls), 1)
+        res, _ = self.probe_instance(lambda url, n: (trace, 0.2) if 'trace' in url else (b'x' * 300000, 1.0),
+                                     only=('FRA', 'HEL'))
+        self.assertEqual(res['status'], 'verified')
 
     def test_search_drops_and_counts_excluded_nodes(self):
         def probe(mode, host, port, cred, own_ip, exclude=()):

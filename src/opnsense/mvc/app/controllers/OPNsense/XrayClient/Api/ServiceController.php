@@ -671,10 +671,30 @@ class ServiceController extends ApiMutableServiceControllerBase
             }
             $exclude[] = $code;
         }
+        // The same for keeping only some nodes, and for countries (two letters).
+        $codes = function (string $field, int $len) {
+            $out = [];
+            foreach (preg_split('/[\s,]+/', strtoupper(trim((string)$this->request->getPost($field, 'string', ''))), -1, PREG_SPLIT_NO_EMPTY) as $code) {
+                if (!preg_match('/^[A-Z]{' . $len . '}$/', $code)) {
+                    return null;
+                }
+                $out[] = $code;
+            }
+            return array_values(array_unique(array_slice($out, 0, 20)));
+        };
+        $onlyColos = $codes('include_colos', 3);
+        $onlyCountries = $codes('include_countries', 2);
+        $skipCountries = $codes('exclude_countries', 2);
+        if ($onlyColos === null || $onlyCountries === null || $skipCountries === null) {
+            return ['status' => 'error', 'message' => 'Node codes are three letters (HEL), country codes two (FI).'];
+        }
         $request = [
             'mode' => $mode,
             'credentials' => $cred,
             'exclude_colos' => array_values(array_unique(array_slice($exclude, 0, 20))),
+            'include_colos' => $onlyColos,
+            'include_countries' => $onlyCountries,
+            'exclude_countries' => $skipCountries,
             'zero_trust' => $this->request->getPost('zero_trust', 'string', '0') === '1',
             'want' => max(1, min(20, (int)$this->request->getPost('want', 'string', '5'))),
             'max_attempts' => max(1, min(300, (int)$this->request->getPost('max_attempts', 'string', '80'))),
