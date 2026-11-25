@@ -22,6 +22,7 @@ Request: {"mode": "wg"|"masque_h2"|"masque_h3", "credentials": {...},
           "ignore_cache": false,
           "sources": ["https://..."],      # external lists (WireGuard only)
           "any_address": false,            # probe non-Cloudflare entries too
+          "ipv6": false,                   # built-in IPv6 addresses instead of IPv4
           "exclude_colos": ["DME"],        # drop candidates landing on these nodes
           "include_colos": ["HEL"],        # keep only candidates landing on these nodes
           "include_countries": ["FI"],     # ... or in these countries (of the data center)
@@ -190,6 +191,63 @@ def generate_candidates(mode, zero_trust=False, rng=None, skip=(), extra=(), wid
             else:
                 misses += 1
         round_no += 1
+
+
+# IPv6: the /48 pools of the WireGuard endpoints and of the MASQUE (HTTP/2)
+# endpoints; the MASQUE (HTTP/3) ones are four fixed addresses. The address
+# below the /48 is random, with the fourth hextet kept at zero, the way the
+# official client builds them (pools as measured by the warpscout project, MIT).
+WG_V6_PREFIXES = ['2606:4700:d0', '2606:4700:d1']
+MASQUE_V6_PREFIXES = ['2606:4700:103', '2606:4700:104']
+MASQUE_V6_FIXED = ['2606:4700:103::1', '2606:4700:103::2', '2606:4700:104::1', '2606:4700:104::2']
+
+
+def random_v6(prefix, rng):
+    tail = ':'.join('%x' % rng.randrange(0x10000) for _ in range(4))
+    return ipaddress.IPv6Address('%s::%s' % (prefix, tail)).compressed
+
+
+def generate_candidates_v6(mode, rng=None, skip=()):
+    """Candidates (host, port) over IPv6. Endless for the /48 pools (the caller
+    limits the attempts), finite for the four fixed MASQUE (HTTP/3) addresses."""
+    rng = rng or random.Random()
+    skip = set(skip)
+    if mode == 'masque_h3':
+        for port in MASQUE_PORTS:
+            for host in MASQUE_V6_FIXED:
+                if candidate_key(mode, host, port) not in skip:
+                    yield host, port
+        return
+    prefixes = WG_V6_PREFIXES if mode == 'wg' else MASQUE_V6_PREFIXES
+    ports = WG_PORTS if mode == 'wg' else MASQUE_PORTS
+    priority = list(WG_PRIORITY_PORTS if mode == 'wg' else MASQUE_PORTS)
+    count = 0
+    while True:
+        for prefix in prefixes:
+            port = priority[count % len(priority)] if count < len(priority) * 2 else rng.choice(ports)
+            count += 1
+            host = random_v6(prefix, rng)
+            if candidate_key(mode, host, port) not in skip:
+                yield host, port
+
+
+def has_ipv6_route():
+    """Does the router have an IPv6 route to the internet? (a UDP connect sends
+    nothing, it only fails at once when there is no route)"""
+    try:
+        sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+        try:
+            sock.settimeout(2)
+            sock.connect(('2606:4700:4700::1111', 53))
+        finally:
+            sock.close()
+        return True
+    except OSError:
+        return False
+
+
+def bracket(host):
+    return '[%s]' % host if ':' in str(host) else str(host)
 
 
 # ----------------------------------------------------- external endpoint lists
@@ -436,7 +494,7 @@ def build_xray_config(mode, host, port, cred, listen_port, logfile=None, finalma
     """Temporary test config: one local HTTP inbound, one outbound."""
     if mode == 'wg':
         peer = {
-            'endpoint': '%s:%d' % (host, port),
+            'endpoint': '%s:%d' % (bracket(host), port),
             'publicKey': cred['wg_public_key'],
             'keepAlive': 0,
             'allowedIPs': cred.get('wg_allowed_ips') or ['0.0.0.0/0', '::/0'],
@@ -482,6 +540,9 @@ def build_xray_config(mode, host, port, cred, listen_port, logfile=None, finalma
         mask = build_finalmask(finalmask, 'tcp' if mode == 'masque_h2' else 'udp')
         if mask:
             outbound['streamSettings']['finalmask'] = mask
+        if ':' in host:
+            # an IPv6 literal needs no resolving, and "UseIPv4" must not apply to it
+            del outbound['targetStrategy']
     return {
         'log': {'loglevel': 'debug', 'error': logfile} if logfile else {'loglevel': 'none'},
         'inbounds': [{'tag': 'in', 'listen': '127.0.0.1', 'port': listen_port, 'protocol': 'http'}],
@@ -518,7 +579,7 @@ def tls_prefilter(host, port, timeout=3, sni=None):
     """HTTP/2 candidates: a TLS handshake is a cheap test before the full one.
     Returns the SubjectPublicKeyInfo base64 of the edge certificate or None."""
     try:
-        out = subprocess.run(['openssl', 's_client', '-connect', '%s:%d' % (host, port), '-servername', sni or SNI,
+        out = subprocess.run(['openssl', 's_client', '-connect', '%s:%d' % (bracket(host), port), '-servername', sni or SNI,
                               '-alpn', 'h2', '-tls1_3'], input='', capture_output=True, text=True,
                              timeout=timeout).stdout
         cert = re.search(r'-----BEGIN CERTIFICATE-----.+?-----END CERTIFICATE-----', out, re.S)
@@ -812,7 +873,7 @@ class Search:
     """One search (or re-check) run; probe is injectable for tests."""
 
     def __init__(self, request, state_path, cache, probe=None, rng=None, cancel_path=None, fetch=None,
-                 colo_fetch=None):
+                 colo_fetch=None, ipv6_check=None):
         self.fetch = fetch or fetch_source
         self.colo_fetch = colo_fetch or fetch_colos
         self.colos = {}
@@ -833,6 +894,8 @@ class Search:
         self.sni_search = bool(request.get('sni_search')) and self.mode != 'wg'
         self.sni_chosen = None
         self.sni_trials = 0
+        self.ipv6 = bool(request.get('ipv6'))
+        self.ipv6_check = ipv6_check or has_ipv6_route
         self.state = {'status': 'running', 'mode': self.mode, 'started': int(time.time()), 'attempts': 0,
                       'max_attempts': self.max_attempts, 'want': self.want, 'verified': 0, 'results': [],
                       'recheck': bool(request.get('endpoints'))}
@@ -909,6 +972,11 @@ class Search:
             candidates = iter(explicit)
             self.max_attempts = len(explicit)
             self.state['max_attempts'] = len(explicit)
+        elif self.ipv6:
+            if not self.ipv6_check():
+                raise ValueError('This router has no IPv6 route to the internet')
+            skip = set() if self.req.get('ignore_cache') else self.cache.bad_keys()
+            candidates = generate_candidates_v6(self.mode, self.rng, skip)
         else:
             skip = set() if self.req.get('ignore_cache') else self.cache.bad_keys()
             extra = []
@@ -976,7 +1044,12 @@ def validate_request(req):
             for k, v in fm.items()):
         raise ValueError('invalid finalmask')
     for ep in req.get('endpoints') or []:
-        if not IP_RE.match(str(ep.get('host', ''))) or not 0 < int(ep.get('port', 0)) < 65536:
+        try:
+            ipaddress.ip_address(str(ep.get('host', '')))
+            good_port = 0 < int(ep.get('port', 0)) < 65536
+        except (ValueError, TypeError):
+            good_port = False
+        if not good_port:
             raise ValueError('invalid endpoint')
         if ep.get('sni') and not SNI_RE.match(str(ep['sni'])):
             raise ValueError('invalid endpoint')

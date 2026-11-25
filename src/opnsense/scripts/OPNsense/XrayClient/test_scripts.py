@@ -1235,6 +1235,60 @@ class TestWarpProbe(unittest.TestCase):
             self.assertEqual(out['settings'], {'address': '162.159.198.2', 'port': 443})
             self.assertEqual(out['streamSettings']['masqueSettings']['warp']['publicKey'], 'E' * 90)
 
+    def take6(self, mode, n, skip=()):
+        import itertools
+        import random
+        return list(itertools.islice(self.wp.generate_candidates_v6(mode, random.Random(1), skip), n))
+
+    def test_ipv6_candidates_come_from_the_known_pools(self):
+        import ipaddress
+        got = self.take6('wg', 60)
+        pools = [ipaddress.ip_network('2606:4700:d0::/48'), ipaddress.ip_network('2606:4700:d1::/48')]
+        self.assertTrue(all(any(ipaddress.ip_address(h) in n for n in pools) for h, _ in got))
+        self.assertTrue(all(p in self.wp.WG_PORTS for _, p in got))
+        self.assertTrue(all(ipaddress.ip_address(h).packed[6:8] == b'\0\0' for h, _ in got))  # fourth hextet is 0
+        got = self.take6('masque_h2', 60)
+        pools = [ipaddress.ip_network('2606:4700:103::/48'), ipaddress.ip_network('2606:4700:104::/48')]
+        self.assertTrue(all(any(ipaddress.ip_address(h) in n for n in pools) for h, _ in got))
+        self.assertTrue(all(p in self.wp.MASQUE_PORTS for _, p in got))
+
+    def test_ipv6_masque_h3_is_the_four_fixed_addresses_and_ends(self):
+        got = self.take6('masque_h3', 1000)
+        self.assertEqual({h for h, _ in got}, set(self.wp.MASQUE_V6_FIXED))
+        self.assertEqual(len(got), len(self.wp.MASQUE_V6_FIXED) * len(self.wp.MASQUE_PORTS))
+        skip = {self.wp.candidate_key('masque_h3', '2606:4700:103::1', 443)}
+        self.assertNotIn(('2606:4700:103::1', 443), self.take6('masque_h3', 1000, skip))
+
+    def test_ipv6_endpoints_are_bracketed_in_the_probe_config(self):
+        cfg = self.wp.build_xray_config('wg', '2606:4700:d0::1:2:3:4', 2408, self.CRED_WG, 1)
+        self.assertEqual(cfg['outbounds'][0]['settings']['peers'][0]['endpoint'], '[2606:4700:d0::1:2:3:4]:2408')
+        out = self.wp.build_xray_config('masque_h3', '2606:4700:103::1', 443, self.CRED_MQ, 1)['outbounds'][0]
+        self.assertEqual(out['settings']['address'], '2606:4700:103::1')
+        self.assertNotIn('targetStrategy', out)
+        out = self.wp.build_xray_config('masque_h3', '162.159.198.2', 443, self.CRED_MQ, 1)['outbounds'][0]
+        self.assertEqual(out['targetStrategy'], 'UseIPv4')
+
+    def test_ipv6_search_needs_a_route_and_uses_ipv6_candidates(self):
+        import random
+        probe = self.fake_probe(set())
+        req = {'mode': 'wg', 'credentials': self.CRED_WG, 'want': 2, 'max_attempts': 20, 'ipv6': True}
+        no_route = self.wp.Search(req, os.path.join(self.tmp, 'v6a.json'), self.cache, probe=probe,
+                                  rng=random.Random(2), ipv6_check=lambda: False)
+        with self.assertRaises(ValueError):
+            no_route.run(None)
+        self.assertEqual(probe.calls, [])
+        search = self.wp.Search(req, os.path.join(self.tmp, 'v6b.json'), self.cache, probe=probe,
+                                rng=random.Random(2), ipv6_check=lambda: True)
+        st = search.run(None)
+        self.assertGreaterEqual(st['verified'], 2)
+        self.assertTrue(all(':' in h for h, _ in probe.calls))
+
+    def test_recheck_accepts_ipv6_endpoints(self):
+        base = {'mode': 'wg', 'credentials': self.CRED_WG}
+        self.wp.validate_request(dict(base, endpoints=[{'host': '2606:4700:d0::1', 'port': 2408}]))
+        with self.assertRaises(ValueError):
+            self.wp.validate_request(dict(base, endpoints=[{'host': 'example.com', 'port': 2408}]))
+
     def test_trace_must_be_warp_and_not_the_router_itself(self):
         tr = self.wp.parse_trace('ip=104.28.1.1\nwarp=on\nloc=NL\n')
         self.assertTrue(self.wp.trace_is_warp(tr))

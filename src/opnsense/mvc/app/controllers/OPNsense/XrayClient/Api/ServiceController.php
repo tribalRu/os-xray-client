@@ -654,7 +654,7 @@ class ServiceController extends ApiMutableServiceControllerBase
         foreach (is_array($raw) ? $raw : [] as $ep) {
             $h = trim((string)($ep['host'] ?? ''));
             $port = (int)($ep['port'] ?? 0);
-            if (!filter_var($h, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) || $port < 1 || $port > 65535) {
+            if (!filter_var($h, FILTER_VALIDATE_IP) || $port < 1 || $port > 65535) {
                 return ['status' => 'error', 'message' => 'Invalid endpoint in the re-check list.'];
             }
             $epSni = trim((string)($ep['sni'] ?? ''));
@@ -695,6 +695,7 @@ class ServiceController extends ApiMutableServiceControllerBase
             'include_colos' => $onlyColos,
             'include_countries' => $onlyCountries,
             'exclude_countries' => $skipCountries,
+            'ipv6' => $this->request->getPost('ipv6', 'string', '0') === '1',
             'zero_trust' => $this->request->getPost('zero_trust', 'string', '0') === '1',
             'want' => max(1, min(20, (int)$this->request->getPost('want', 'string', '5'))),
             'max_attempts' => max(1, min(300, (int)$this->request->getPost('max_attempts', 'string', '80'))),
