@@ -4279,6 +4279,8 @@
                         ? 'Cloudflare edge nodes (airport codes, comma separated) to skip. Traffic through the Moscow node DME has been filtered by DPI since April 2026: an endpoint that lands there connects and then hangs. Empty = skip nothing'
                         : 'Cloudflare edge nodes (airport codes, comma separated) to skip. With MASQUE all endpoints of a run usually land on the same node, which depends on your network and not on the address: skipping it would drop every candidate, so the field is empty by default') +
                         '">Skip nodes <input type="text" class="wp-excl form-control" style="width: 8em; display: inline-block;" value="' + (kind === 'wg' ? 'DME' : '') + '" maxlength="40" spellcheck="false"></label>' +
+                    ' <label class="checkbox-inline" title="Cloudflare edge nodes (airport codes, comma separated) to skip. Traffic through the Moscow node DME has been filtered by DPI since April 2026: an endpoint that lands there connects and then hangs. Empty = skip nothing">Skip nodes <input type="text" class="wp-excl form-control" style="width: 8em; display: inline-block;" value="DME" maxlength="40" spellcheck="false"></label>' +
+                    '<div style="margin-top: 6px;">Test only these addresses <input type="text" class="wp-targets form-control" style="width: 24em; max-width: 100%; display: inline-block;" maxlength="400" spellcheck="false" placeholder="188.114.98.0/28, 162.159.192.5:2408" title="Instead of the built-in pools: IP addresses, networks (IPv4 /20 or narrower) or address:port, separated by commas. Without a port the usual WARP ports are tried. Empty = the built-in pools. Addresses outside Cloudflare ranges need the option below"></div>' +
                     '<div class="wp-src-box" style="display:none; margin-top: 6px;">' +
                     '<div class="text-muted" style="font-size: 12px; margin-bottom: 2px;">External endpoint lists, one https:// URL per line. Saved with the plugin settings, shared by WireGuard and MASQUE searches.</div>' +
                     '<textarea class="form-control wp-src-urls" rows="3" spellcheck="false" style="max-width: none; font-family: monospace; font-size: 12px;" placeholder="https://example.com/warp-endpoints.json"></textarea>' +
@@ -4531,6 +4533,7 @@
                         data.exclude_countries = $.trim($wrap.find('.wp-xcc').val() || '');
                     }
                     data.ipv6 = $wrap.find('.wp-v6').is(':checked') ? '1' : '0';
+                    data.targets = $.trim($wrap.find('.wp-targets').val() || '');
                     if (kind !== 'wg' && $wrap.find('.wp-fm').is(':checked')) {
                         data.fm = fmValues();
                     }

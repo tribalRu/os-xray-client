@@ -1288,6 +1288,42 @@ class TestWarpProbe(unittest.TestCase):
         self.wp.validate_request(dict(base, endpoints=[{'host': '2606:4700:d0::1', 'port': 2408}]))
         with self.assertRaises(ValueError):
             self.wp.validate_request(dict(base, endpoints=[{'host': 'example.com', 'port': 2408}]))
+    def test_targets_are_parsed_and_checked(self):
+        import ipaddress
+        e = self.wp.parse_targets(['188.114.98.0/30, 162.159.192.5:2408', '[2606:4700:d0::1]:500'])
+        self.assertEqual([(str(n), p) for n, p in e],
+                         [('188.114.98.0/30', None), ('162.159.192.5/32', 2408), ('2606:4700:d0::1/128', 500)])
+        for bad in ('example.com', '188.114.96.0/19', '10.0.0.1', '1.1.1.1', '188.114.98.0/30:2408', '162.159.192.5:99999'):
+            with self.assertRaises(ValueError, msg=bad):
+                self.wp.parse_targets([bad])
+        self.assertEqual(len(self.wp.parse_targets(['93.184.216.34'], any_address=True)), 1)
+        with self.assertRaises(ValueError):
+            self.wp.parse_targets([])
+        with self.assertRaises(ValueError):
+            self.wp.parse_targets(['188.114.98.%d' % i for i in range(60)])
+
+    def test_target_candidates_pinned_first_then_common_ports(self):
+        import itertools
+        import random
+        e = self.wp.parse_targets(['188.114.98.0/31', '162.159.192.5:2408'])
+        got = list(itertools.islice(self.wp.generate_targets('wg', e, random.Random(1)), 12))
+        self.assertEqual(got[0], ('162.159.192.5', 2408))
+        self.assertEqual({h for h, p in got[1:3]}, {'188.114.98.0', '188.114.98.1'})
+        self.assertEqual(got[1][1], 2408)
+        everything = list(self.wp.generate_targets('wg', e, random.Random(1)))
+        self.assertEqual(len(everything), len(set(everything)))
+        self.assertEqual(len(everything), 1 + 2 * len(self.wp.WG_PORTS))
+        skip = {self.wp.candidate_key('wg', '162.159.192.5', 2408)}
+        self.assertNotIn(('162.159.192.5', 2408), self.wp.generate_targets('wg', e, random.Random(1), skip))
+
+    def test_search_with_targets_tries_only_those_hosts(self):
+        probe = self.fake_probe(set())
+        st = self.run_search({'mode': 'wg', 'credentials': self.CRED_WG, 'want': 2, 'max_attempts': 30,
+                              'targets': ['188.114.98.0/29']}, probe, 'tg')
+        self.assertGreaterEqual(st['verified'], 2)
+        self.assertTrue(all(h.startswith('188.114.98.') for h, _ in probe.calls))
+        with self.assertRaises(ValueError):
+            self.wp.validate_request({'mode': 'wg', 'credentials': self.CRED_WG, 'targets': ['10.1.1.1']})
 
     def test_trace_must_be_warp_and_not_the_router_itself(self):
         tr = self.wp.parse_trace('ip=104.28.1.1\nwarp=on\nloc=NL\n')
