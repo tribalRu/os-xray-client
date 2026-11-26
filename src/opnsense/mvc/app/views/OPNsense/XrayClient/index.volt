@@ -4153,6 +4153,11 @@
             });
         }
 
+        // host:port, with an IPv6 address in brackets.
+        function warpEndpointText(host, port) {
+            return (String(host).indexOf(':') !== -1 ? '[' + host + ']' : host) + ':' + port;
+        }
+
         // Flag emoji of a two letter country code ('' when there is none).
         function warpFlag(cc) {
             if (!/^[A-Za-z]{2}$/.test(cc || '')) {
@@ -4285,6 +4290,7 @@
                         '<div style="margin-top: 4px;">Only nodes <input type="text" class="wp-only form-control" style="width: 8em; display: inline-block;" maxlength="40" spellcheck="false" placeholder="HEL,ARN" title="Keep only endpoints that land on these Cloudflare nodes (airport codes, comma separated). Empty = any node"> ' +
                         'Only countries <input type="text" class="wp-cc form-control" style="width: 7em; display: inline-block;" maxlength="40" spellcheck="false" placeholder="FI,SE" title="Keep only endpoints whose data center is in these countries (two-letter codes, comma separated). Empty = any country"> ' +
                         'Skip countries <input type="text" class="wp-xcc form-control" style="width: 7em; display: inline-block;" maxlength="40" spellcheck="false" placeholder="RU" title="Skip endpoints whose data center is in these countries (two-letter codes, comma separated)"></div>') +
+                    '<div style="margin-top: 4px;"><label class="checkbox-inline" title="Test the IPv6 addresses of the WARP endpoints instead of the IPv4 ones. Needs an IPv6 route on the router; external lists, Zero Trust and the wide ranges are IPv4 only"><input type="checkbox" class="wp-v6"> IPv6 addresses instead of IPv4</label></div>' +
                     '<div class="text-muted" style="font-size: 12px; margin-top: 4px;">Each candidate is tested with this node\'s keys through a temporary Xray on the router; FinalMask is applied when the option is ticked.</div></div>' +
                     '</div>');
                 $anchorRow.after($row);
@@ -4380,7 +4386,7 @@
                             $ep.append($('<span/>').css({ 'margin-right': '6px', cursor: 'help' })
                                 .attr('title', warpPlaceTitle(r)).text(warpFlag(r.cc) || r.colo));
                         }
-                        $ep.append(document.createTextNode(r.host + ':' + r.port + ' ')).append($(label));
+                        $ep.append(document.createTextNode(warpEndpointText(r.host, r.port) + ' ')).append($(label));
                         if (r.sni) {
                             $ep.append($('<div class="text-muted" style="font-size: 11px;"/>').text('SNI ' + r.sni));
                         }
@@ -4418,7 +4424,7 @@
 
                 function use(r) {
                     if (kind === 'wg') {
-                        $('#node\\.wg_endpoint').val(r.host + ':' + r.port);
+                        $('#node\\.wg_endpoint').val(warpEndpointText(r.host, r.port));
                     } else {
                         $('#node\\.address').val(r.host);
                         $('#node\\.port').val(String(r.port));
@@ -4524,6 +4530,7 @@
                         data.include_countries = $.trim($wrap.find('.wp-cc').val() || '');
                         data.exclude_countries = $.trim($wrap.find('.wp-xcc').val() || '');
                     }
+                    data.ipv6 = $wrap.find('.wp-v6').is(':checked') ? '1' : '0';
                     if (kind !== 'wg' && $wrap.find('.wp-fm').is(':checked')) {
                         data.fm = fmValues();
                     }
