@@ -31,6 +31,16 @@ if node:
     if res.returncode != 0:
         errors.append('index.volt JavaScript: ' + res.stderr[:600])
 
+# The service must come up at boot: OPNsense does not run rc.d scripts by itself,
+# only the hooks a plugin registers in plugins.inc.d.
+inc = (ROOT / 'src/etc/inc/plugins.inc.d/xrayclient.inc').read_text()
+if not re.search(r"function xrayclient_configure\(\)", inc) or "'bootup' => ['xrayclient_configure_do']" not in inc:
+    errors.append("xrayclient.inc: no 'bootup' hook, the service would not start after a reboot")
+if "configd_run('xrayclient start'" not in inc:
+    errors.append('xrayclient.inc: the boot hook does not start the service')
+if not re.search(r"^\[start\]\n", (ROOT / 'src/opnsense/service/conf/actions.d/actions_xrayclient.conf').read_text(), re.M):
+    errors.append('actions_xrayclient.conf: no [start] action')
+
 php = shutil.which('php')
 if php:
     for path in sorted((ROOT / 'src').rglob('*.php')) + sorted((ROOT / 'src').rglob('*.inc')):
