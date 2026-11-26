@@ -23,6 +23,9 @@ Request: {"mode": "wg"|"masque_h2"|"masque_h3", "credentials": {...},
           "sources": ["https://..."],      # external lists (WireGuard only)
           "any_address": false,            # probe non-Cloudflare entries too
           "exclude_colos": ["DME"],        # drop candidates landing on these nodes
+          "include_colos": ["HEL"],        # keep only candidates landing on these nodes
+          "include_countries": ["FI"],     # ... or in these countries (of the data center)
+          "exclude_countries": ["RU"],     # drop candidates in these countries
           "sni_search": false}             # MASQUE: try other SNI names
 """
 import ipaddress
@@ -72,6 +75,7 @@ LATE_CHECK_DELAY = 2.0
 # (reported by the warpscout project). A candidate that lands on one is dropped
 # as soon as the first answer names it.
 COLO_RE = re.compile(r'^[A-Z]{3}$')
+CC_RE = re.compile(r'^[A-Z]{2}$')
 SNI_TRIAL_CANDIDATES = 3
 SNI_RE = re.compile(r'^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$')
 
@@ -290,6 +294,27 @@ def load_colos(cache, fetch=fetch_colos, now=None):
     merged = {k: list(v) for k, v in FALLBACK_COLOS.items()}
     merged.update(stored.get('map') or {})
     return merged
+
+
+def resolve_node_filter(colos, exclude=(), only=(), countries_only=(), countries_skip=()):
+    """Turn node and country filters into (exclude, only) tuples of data
+    center codes. colos maps a code to [country, city]. Raises ValueError
+    when the filters cannot match any known data center."""
+    exclude = set(exclude)
+    for code, place in colos.items():
+        if place and place[0] in countries_skip:
+            exclude.add(code)
+    only = set(only)
+    wanted = bool(only or countries_only)
+    if countries_only:
+        found = {code for code, place in colos.items() if place and place[0] in countries_only}
+        if not found and not only:
+            raise ValueError('No known Cloudflare data center in: %s' % ', '.join(sorted(countries_only)))
+        only |= found
+    only -= exclude
+    if wanted and not only:
+        raise ValueError('The node and country filters exclude each other')
+    return tuple(sorted(exclude)), tuple(sorted(only))
 
 
 def in_cloudflare(ip):
@@ -569,7 +594,7 @@ def median(values):
     return values[len(values) // 2] if values else None
 
 
-def probe_endpoint(mode, host, port, cred, own_ip, confirm_only=False, finalmask=None, sni=None, exclude=()):
+def probe_endpoint(mode, host, port, cred, own_ip, confirm_only=False, finalmask=None, sni=None, exclude=(), only=()):
     """Returns {'status': 'verified'|'unstable'|'failed', 'ms', 'kbps', 'checks', 'edge_key'?}.
 
     sni: send this name in the handshake instead of the node's own one."""
@@ -596,7 +621,7 @@ def probe_endpoint(mode, host, port, cred, own_ip, confirm_only=False, finalmask
         os.close(os.open(logfile, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600))
     inst = XrayInstance(build_xray_config(mode, host, port, cred, free_port(), logfile, finalmask))
     try:
-        res = _probe_instance(inst, mode, result, own_ip, exclude)
+        res = _probe_instance(inst, mode, result, own_ip, exclude, only)
         if logfile and res['status'] != 'verified':
             res['log'] = read_log(logfile, cred)
         return res
@@ -653,7 +678,7 @@ def _masque_confirm(inst, own_ip, times):
     return ok, times, kbps
 
 
-def _probe_instance(inst, mode, result, own_ip, exclude=()):
+def _probe_instance(inst, mode, result, own_ip, exclude=(), only=()):
     host, port = result['host'], result['port']
     try:
         if not inst.wait_ready():
@@ -676,7 +701,7 @@ def _probe_instance(inst, mode, result, own_ip, exclude=()):
         colo = first.get('colo', '')
         if re.match(r'^[A-Z]{3}$', colo):
             result['colo'] = colo
-            if colo in exclude:
+            if colo in exclude or (only and colo not in only):
                 return dict(result, status='failed', reason='node %s excluded' % colo, excluded=True)
         total = 1 + CONFIRM_REQUESTS
         kbps = None
@@ -802,6 +827,9 @@ class Search:
         self.max_attempts = max(1, min(int(request.get('max_attempts') or 80), MAX_ATTEMPTS_LIMIT))
         self.lock = threading.Lock()
         self.exclude = tuple(c for c in (request.get('exclude_colos') or []) if COLO_RE.match(str(c)))
+        self.only = tuple(c for c in (request.get('include_colos') or []) if COLO_RE.match(str(c)))
+        self.cc_only = tuple(c for c in (request.get('include_countries') or []) if CC_RE.match(str(c)))
+        self.cc_skip = tuple(c for c in (request.get('exclude_countries') or []) if CC_RE.match(str(c)))
         self.sni_search = bool(request.get('sni_search')) and self.mode != 'wg'
         self.sni_chosen = None
         self.sni_trials = 0
@@ -823,6 +851,8 @@ class Search:
             kwargs['sni'] = sni
         if self.exclude:
             kwargs['exclude'] = self.exclude
+        if self.only:
+            kwargs['only'] = self.only
         try:
             return self.probe(self.mode, host, port, self.req['credentials'], own_ip, **kwargs)
         except Exception as exc:  # a broken probe must not kill the search
@@ -847,7 +877,8 @@ class Search:
                         self.state['sni'] = alt
                     res = other
                     break
-        if self.exclude and res.get('colo') in self.exclude and res['status'] != 'failed':
+        if ((self.exclude and res.get('colo') in self.exclude) or (self.only and res.get('colo') not in self.only)) \
+                and res.get('colo') and res['status'] != 'failed':
             res = dict(res, status='failed', reason='node %s excluded' % res['colo'], excluded=True)
         with self.lock:
             self.state['attempts'] += 1
@@ -871,6 +902,8 @@ class Search:
 
     def run(self, own_ip=None):
         self.colos = load_colos(self.cache, self.colo_fetch)
+        if self.exclude or self.only or self.cc_only or self.cc_skip:
+            self.exclude, self.only = resolve_node_filter(self.colos, self.exclude, self.only, self.cc_only, self.cc_skip)
         explicit = [(e['host'], int(e['port']), e.get('sni') or None) for e in (self.req.get('endpoints') or [])]
         if explicit:
             candidates = iter(explicit)
@@ -933,6 +966,10 @@ def validate_request(req):
     colos = req.get('exclude_colos') or []
     if not isinstance(colos, list) or len(colos) > 20 or any(not COLO_RE.match(str(c)) for c in colos):
         raise ValueError('invalid node list')
+    for key, rx in (('include_colos', COLO_RE), ('include_countries', CC_RE), ('exclude_countries', CC_RE)):
+        value = req.get(key) or []
+        if not isinstance(value, list) or len(value) > 20 or any(not rx.match(str(c)) for c in value):
+            raise ValueError('invalid %s' % key)
     fm = req.get('finalmask') or {}
     if not isinstance(fm, dict) or len(fm) > 80 or any(
             not re.match(r'^(fm_[a-z0-9_]{1,40}|finalmask)$', str(k)) or not isinstance(v, str) or len(v) > 4000

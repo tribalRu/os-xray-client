@@ -4281,6 +4281,10 @@
                     '<div class="text-muted" style="font-size: 12px; margin-top: 2px;">Accepted: JSON [{"ip": "8.6.112.0", "ports": [500, 939]}], JSON with ip:port strings or an ip-to-ports object, or text with ip:port lines. The router fetches the lists when a search starts and caches them for a day. Every entry is still tested end to end, and only Cloudflare addresses are used unless the option above allows others. Empty = built-in ranges only.</div></div>' +
                     '<div style="margin-top: 4px;">Stop after <input type="number" class="wp-want form-control" style="width: 5em; display: inline-block;" value="5" min="1" max="20"> verified, at most ' +
                     '<input type="number" class="wp-max form-control" style="width: 6em; display: inline-block;" value="80" min="1" max="300"> attempts</div>' +
+                    (kind !== 'wg' ? '' :
+                        '<div style="margin-top: 4px;">Only nodes <input type="text" class="wp-only form-control" style="width: 8em; display: inline-block;" maxlength="40" spellcheck="false" placeholder="HEL,ARN" title="Keep only endpoints that land on these Cloudflare nodes (airport codes, comma separated). Empty = any node"> ' +
+                        'Only countries <input type="text" class="wp-cc form-control" style="width: 7em; display: inline-block;" maxlength="40" spellcheck="false" placeholder="FI,SE" title="Keep only endpoints whose data center is in these countries (two-letter codes, comma separated). Empty = any country"> ' +
+                        'Skip countries <input type="text" class="wp-xcc form-control" style="width: 7em; display: inline-block;" maxlength="40" spellcheck="false" placeholder="RU" title="Skip endpoints whose data center is in these countries (two-letter codes, comma separated)"></div>') +
                     '<div class="text-muted" style="font-size: 12px; margin-top: 4px;">Each candidate is tested with this node\'s keys through a temporary Xray on the router; FinalMask is applied when the option is ticked.</div></div>' +
                     '</div>');
                 $anchorRow.after($row);
@@ -4515,6 +4519,11 @@
                         data.sni_search = '1';
                     }
                     data.exclude_colos = $.trim($wrap.find('.wp-excl').val() || '');
+                    if (kind === 'wg') {
+                        data.include_colos = $.trim($wrap.find('.wp-only').val() || '');
+                        data.include_countries = $.trim($wrap.find('.wp-cc').val() || '');
+                        data.exclude_countries = $.trim($wrap.find('.wp-xcc').val() || '');
+                    }
                     if (kind !== 'wg' && $wrap.find('.wp-fm').is(':checked')) {
                         data.fm = fmValues();
                     }
