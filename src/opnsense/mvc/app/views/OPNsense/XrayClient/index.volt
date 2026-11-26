@@ -2408,6 +2408,17 @@
             $sel.selectpicker('refresh');
         }
 
+        // TCP fragment rows of the FinalMask section (from a link or from the endpoint finder).
+        function fillFragmentMask(data) {
+            setSelectValue($('#node\\.fm_tcp_type'), data.fm_tcp_type);
+            setSelectValue($('#node\\.fm_tcp_fragment_packets'), data.fm_tcp_fragment_packets || 'tlshello');
+            clearTokenizeField('#node\\.fm_tcp_fragment_lengths');
+            clearTokenizeField('#node\\.fm_tcp_fragment_delays');
+            fillTokenizeField('#node\\.fm_tcp_fragment_lengths', data.fm_tcp_fragment_lengths);
+            fillTokenizeField('#node\\.fm_tcp_fragment_delays', data.fm_tcp_fragment_delays);
+            $('#node\\.fm_tcp_fragment_max_split').val(data.fm_tcp_fragment_max_split || '');
+        }
+
         function fillNodeDialog(data) {
             $('body').addClass('modal-open');
             $('#node\\.enabled').prop('checked', true);
@@ -2537,11 +2548,7 @@
             }
             if (data.fm_tcp_type) {
                 // A link whose FinalMask fits the rows fills them (the raw field stays empty)
-                setSelectValue($('#node\\.fm_tcp_type'), data.fm_tcp_type);
-                setSelectValue($('#node\\.fm_tcp_fragment_packets'), data.fm_tcp_fragment_packets || 'tlshello');
-                fillTokenizeField('#node\\.fm_tcp_fragment_lengths', data.fm_tcp_fragment_lengths);
-                fillTokenizeField('#node\\.fm_tcp_fragment_delays', data.fm_tcp_fragment_delays);
-                $('#node\\.fm_tcp_fragment_max_split').val(data.fm_tcp_fragment_max_split || '');
+                fillFragmentMask(data);
             }
 
             // WireGuard
@@ -4274,6 +4281,8 @@
                     ' <label class="checkbox-inline" title="Normally only Cloudflare addresses are tested: a list could point the handshake at any host"><input type="checkbox" class="wp-any"> Also test addresses outside Cloudflare ranges</label>' +
                     (kind === 'wg' ? '' : ' <label class="checkbox-inline" title="Send the probe the way this node would: the FinalMask rows of the dialog are applied. Needed where the connection is filtered"><input type="checkbox" class="wp-fm" checked> Apply this node\'s FinalMask</label>') +
                     (kind === 'wg' ? '' : ' <label class="checkbox-inline" title="For connections where the first packets get through and then nothing: the first failing candidates are retried with other SNI names (speed.cloudflare.com, www.apple.com, www.google.com, www.microsoft.com, cdn.jsdelivr.net); a name that works is used for the rest of the search and filled into the node by Use"><input type="checkbox" class="wp-sni"> Try other SNI names</label>') +
+                    (kind === 'wg' ? '' : ' <label class="checkbox-inline" title="For connections where the first packets get through and then nothing: the first failing candidates are retried with other SNI names (www.cloudflare.com, one.one.one.one, cloudflare-dns.com); a name that works is used for the rest of the search and filled into the node by Use"><input type="checkbox" class="wp-sni"> Try other SNI names</label>') +
+                    (kind === 'wg' ? '' : ' <label class="checkbox-inline" title="MASQUE over HTTP/2 only. For networks that cut the connection at the TLS hello: the first failing candidates are retried with TCP fragment presets (the hello is sent in pieces); a preset that works is used for the rest of the search and filled into the FinalMask rows of the node by Use. Not tried on HTTP/3"><input type="checkbox" class="wp-fmsearch"> Try FinalMask fragment presets (HTTP/2)</label>') +
                     (kind === 'wg' ? '' : ' <label class="checkbox-inline" title="Experimental: other WARP ranges (162.159.192.x, 162.159.195.x and the WireGuard ranges) with the MASQUE ports"><input type="checkbox" class="wp-wide"> Also try other WARP ranges</label>') +
                     ' <label class="checkbox-inline" title="' + (kind === 'wg'
                         ? 'Cloudflare edge nodes (airport codes, comma separated) to skip. Traffic through the Moscow node DME has been filtered by DPI since April 2026: an endpoint that lands there connects and then hangs. Empty = skip nothing'
@@ -4364,6 +4373,9 @@
                         .toggleClass('progress-bar-danger', !!done && !(st.verified || 0));
                     $dlg.find('.wp-m-src').text(warpSourcesText(st && st.sources));
                     var info = [];
+                    if (st && st.fm) {
+                        info.push('FinalMask in use: ' + st.fm);
+                    }
                     if (st && st.sni) {
                         info.push('SNI in use: ' + st.sni);
                     }
@@ -4389,6 +4401,10 @@
                                 .attr('title', warpPlaceTitle(r)).text(warpFlag(r.cc) || r.colo));
                         }
                         $ep.append(document.createTextNode(warpEndpointText(r.host, r.port) + ' ')).append($(label));
+                        $ep.append(document.createTextNode(r.host + ':' + r.port + ' ')).append($(label));
+                        if (r.fm) {
+                            $ep.append($('<div class="text-muted" style="font-size: 11px;"/>').text('FinalMask ' + r.fm));
+                        }
                         if (r.sni) {
                             $ep.append($('<div class="text-muted" style="font-size: 11px;"/>').text('SNI ' + r.sni));
                         }
@@ -4440,6 +4456,13 @@
                         }
                         if (r.edge_key) {
                             $('#node\\.masque_warp_public_key').val(r.edge_key);
+                        }
+                        if (r.fm_values && r.fm_values.fm_tcp_type) {
+                            // the fragment preset that got through the filter: fill the rows
+                            // and drop the raw JSON, which would win over them
+                            fillFragmentMask(r.fm_values);
+                            $('#node\\.finalmask').val('').trigger('change');
+                            toggleNodeDialogFields();
                         }
                         if (r.sni) {
                             // the name that got through the filter; the certificate is
@@ -4525,6 +4548,9 @@
                     }
                     if (kind !== 'wg' && $wrap.find('.wp-sni').is(':checked')) {
                         data.sni_search = '1';
+                    }
+                    if (kind !== 'wg' && $wrap.find('.wp-fmsearch').is(':checked')) {
+                        data.fm_search = '1';
                     }
                     data.exclude_colos = $.trim($wrap.find('.wp-excl').val() || '');
                     if (kind === 'wg') {
