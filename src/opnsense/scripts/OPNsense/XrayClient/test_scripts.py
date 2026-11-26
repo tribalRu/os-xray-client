@@ -1377,6 +1377,14 @@ class TestWarpProbe(unittest.TestCase):
                                          exclude=('FRA',))
         self.assertEqual(res['status'], 'verified')
 
+    def test_exit_country_is_taken_from_the_trace(self):
+        trace = b'ip=104.28.1.1\nwarp=on\ncolo=FRA\nloc=RU\n'
+        res, _ = self.probe_instance(lambda url, n: (trace, 0.2) if 'trace' in url else (b'x' * 300000, 1.0))
+        self.assertEqual((res['colo'], res['loc']), ('FRA', 'RU'))
+        res, _ = self.probe_instance(lambda url, n: (b'ip=104.28.1.1\nwarp=on\ncolo=FRA\nloc=<x>\n', 0.2)
+                                     if 'trace' in url else (b'x' * 300000, 1.0))
+        self.assertNotIn('loc', res)
+
     def test_connection_cut_after_the_first_answer_is_marked_torn(self):
         def answers(url, n):
             if n == 1:

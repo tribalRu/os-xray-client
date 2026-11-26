@@ -4163,6 +4163,11 @@
             }));
         }
 
+        // "Seen as" column: flag and code of the exit country, '-' when unknown.
+        function warpSeenAs(loc) {
+            return /^[A-Za-z]{2}$/.test(loc || '') ? (warpFlag(loc) + ' ' + loc.toUpperCase()).replace(/^ /, '') : '-';
+        }
+
         // Tooltip of the flag: city, country name and the data center code.
         function warpPlaceTitle(r) {
             var name = r.cc || '';
@@ -4291,7 +4296,7 @@
                     '<div class="wp-m-src text-muted" style="font-size: 12px; margin-bottom: 8px;"></div>' +
                     '<div class="wp-m-info text-muted" style="font-size: 12px; margin: -4px 0 8px 0;"></div>' +
                     '<table class="table table-condensed wp-table" style="display:none;"><thead><tr>' +
-                    '<th>Endpoint</th><th>Latency</th><th>Speed</th><th>Checks</th><th>Verified</th><th></th></tr></thead><tbody></tbody></table>' +
+                    '<th>Endpoint</th><th title="The country websites will place you in when you use this endpoint. It can differ from the country of the Cloudflare data center (the flag next to the address)">Seen as</th><th>Latency</th><th>Speed</th><th>Checks</th><th>Verified</th><th></th></tr></thead><tbody></tbody></table>' +
                     '<div class="wp-empty text-muted" style="display:none;">Nothing has answered yet.</div></div>' +
                     '<div class="modal-footer"><button type="button" class="btn btn-default wp-recheck-all" style="display:none;"><i class="fa fa-refresh"></i> Re-check all</button> ' +
                     '<button type="button" class="btn btn-default wp-cancel" style="display:none;">Cancel search</button> ' +
@@ -4376,6 +4381,7 @@
                             $ep.append($('<div class="text-muted" style="font-size: 11px;"/>').text('SNI ' + r.sni));
                         }
                         var $tr = $('<tr/>').append($ep)
+                            .append($('<td/>').text(warpSeenAs(r.loc)))
                             .append($('<td/>').text(r.ms ? r.ms + ' ms' : '-'))
                             .append($('<td/>').text(r.kbps ? (r.kbps >= 1000 ? (r.kbps / 1000).toFixed(1) + ' Mbit/s' : r.kbps + ' kbit/s') : '-'))
                             .append($('<td/>').text(r.checks || '-'))
@@ -4388,7 +4394,7 @@
                             .on('click', function () { start([r.sni ? { host: r.host, port: r.port, sni: r.sni } : { host: r.host, port: r.port }]); });
                         var $acts = $('<td/>').append($use).append($re);
                         if (r.log && r.log.length) {
-                            var $logRow = $('<tr class="wp-log" style="display:none;"><td colspan="6"><pre style="margin: 0; font-size: 11px; white-space: pre-wrap;"></pre></td></tr>');
+                            var $logRow = $('<tr class="wp-log" style="display:none;"><td colspan="7"><pre style="margin: 0; font-size: 11px; white-space: pre-wrap;"></pre></td></tr>');
                             $logRow.find('pre').text(r.log.join('\n'));
                             $acts.append($('<button type="button" class="btn btn-xs btn-default" style="margin-left: 4px;">Log</button>')
                                 .on('click', function () { $logRow.toggle(); }));

@@ -668,7 +668,12 @@ def _probe_instance(inst, mode, result, own_ip, exclude=()):
             return dict(result, status='failed', reason='not through WARP')
         times.append(secs)
         ok = 1
-        colo = parse_trace(body.decode('utf-8', 'replace')).get('colo', '')
+        first = parse_trace(body.decode('utf-8', 'replace'))
+        # the country Cloudflare sees for the tunnel (where websites will
+        # place you); not the same as the country of the data center (colo)
+        if re.match(r'^[A-Z]{2}$', first.get('loc', '')):
+            result['loc'] = first['loc']
+        colo = first.get('colo', '')
         if re.match(r'^[A-Z]{3}$', colo):
             result['colo'] = colo
             if colo in exclude:
