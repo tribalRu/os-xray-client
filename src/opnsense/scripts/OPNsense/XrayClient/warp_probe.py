@@ -29,6 +29,8 @@ Request: {"mode": "wg"|"masque_h2"|"masque_h3", "credentials": {...},
           "include_countries": ["FI"],     # ... or in these countries (of the data center)
           "exclude_countries": ["RU"],     # drop candidates in these countries
           "sni_search": false}             # MASQUE: try other SNI names
+          "sni_search": false,             # MASQUE: try other SNI names
+          "fm_search": false}              # MASQUE over HTTP/2: try TCP fragment presets
 """
 import ipaddress
 import json
@@ -79,6 +81,23 @@ LATE_CHECK_DELAY = 2.0
 COLO_RE = re.compile(r'^[A-Z]{3}$')
 CC_RE = re.compile(r'^[A-Z]{2}$')
 SNI_TRIAL_CANDIDATES = 3
+# TCP "fragment" masks for MASQUE over HTTP/2: the client cuts its TLS
+# ClientHello into pieces, which the server does not notice and a DPI that
+# reads the hello often does not reassemble. Values are in the form of the
+# node dialog rows (comma separated). With "fm_search" the first candidates
+# that fail are retried with these presets and the first one that makes a
+# candidate verified is used for the rest of the search.
+FM_PRESETS = [
+    {'name': 'fragment 100-200 / 10-20', 'fm_tcp_type': 'fragment', 'fm_tcp_fragment_packets': 'tlshello',
+     'fm_tcp_fragment_lengths': '100-200', 'fm_tcp_fragment_delays': '10-20'},
+    {'name': 'fragment 3-7, 4-9, 6-9 / 30-40, 40-50', 'fm_tcp_type': 'fragment', 'fm_tcp_fragment_packets': 'tlshello',
+     'fm_tcp_fragment_lengths': '3-7,4-9,6-9', 'fm_tcp_fragment_delays': '30-40,40-50'},
+    {'name': 'fragment 10-30 / 5-10', 'fm_tcp_type': 'fragment', 'fm_tcp_fragment_packets': 'tlshello',
+     'fm_tcp_fragment_lengths': '10-30', 'fm_tcp_fragment_delays': '5-10'},
+    {'name': 'fragment first writes 1-3, 50-100 / 10-20', 'fm_tcp_type': 'fragment', 'fm_tcp_fragment_packets': '1-3',
+     'fm_tcp_fragment_lengths': '50-100', 'fm_tcp_fragment_delays': '10-20'},
+]
+FM_TRIAL_CANDIDATES = 3
 SNI_RE = re.compile(r'^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$')
 
 # Ranges and ports of the community list of WARP endpoints (any address of a
@@ -970,6 +989,9 @@ class Search:
         self.sni_trials = 0
         self.ipv6 = bool(request.get('ipv6'))
         self.ipv6_check = ipv6_check or has_ipv6_route
+        self.fm_search = bool(request.get('fm_search')) and self.mode == 'masque_h2'
+        self.fm_chosen = None
+        self.fm_trials = 0
         self.state = {'status': 'running', 'mode': self.mode, 'started': int(time.time()), 'attempts': 0,
                       'max_attempts': self.max_attempts, 'want': self.want, 'verified': 0, 'results': [],
                       'recheck': bool(request.get('endpoints'))}
@@ -980,9 +1002,15 @@ class Search:
     def save_state(self):
         _write_json(self.state_path, self.state)
 
-    def _probe(self, host, port, own_ip, sni=None):
+    def _probe(self, host, port, own_ip, sni=None, preset=None):
         kwargs = {}
-        if self.req.get('finalmask'):
+        if preset:
+            # the preset replaces the TCP mask of the node (and its raw JSON)
+            base = {k: v for k, v in (self.req.get('finalmask') or {}).items()
+                    if k != 'finalmask' and not k.startswith('fm_tcp_')}
+            base.update({k: v for k, v in preset.items() if k != 'name'})
+            kwargs['finalmask'] = base
+        elif self.req.get('finalmask'):
             kwargs['finalmask'] = self.req['finalmask']
         if sni:
             kwargs['sni'] = sni
@@ -997,7 +1025,8 @@ class Search:
 
     def _one(self, host, port, own_ip, sni=None):
         sni = sni or self.sni_chosen
-        res = self._probe(host, port, own_ip, sni)
+        preset = self.fm_chosen
+        res = self._probe(host, port, own_ip, sni, preset)
         if (self.sni_search and not sni and self.sni_chosen is None and res['status'] != 'verified'
                 and self.sni_trials < SNI_TRIAL_CANDIDATES and not self.cancelled()):
             # Filtering by SNI hits every address alike, so a few candidates are
@@ -1007,13 +1036,33 @@ class Search:
             for alt in SNI_FALLBACKS:
                 if self.cancelled():
                     break
-                other = self._probe(host, port, own_ip, alt)
+                other = self._probe(host, port, own_ip, alt, preset)
                 if other['status'] == 'verified':
                     with self.lock:
                         self.sni_chosen = alt
                         self.state['sni'] = alt
                     res = other
                     break
+        if (self.fm_search and self.fm_chosen is None and res['status'] != 'verified'
+                and self.fm_trials < FM_TRIAL_CANDIDATES and not self.cancelled()):
+            # A filter that reads the ClientHello hits every address alike, so
+            # a few candidates are enough to find out whether fragmenting helps.
+            with self.lock:
+                self.fm_trials += 1
+            trial_sni = sni or self.sni_chosen
+            for fm in FM_PRESETS:
+                if self.cancelled():
+                    break
+                other = self._probe(host, port, own_ip, trial_sni, fm)
+                if other['status'] == 'verified':
+                    with self.lock:
+                        self.fm_chosen = fm
+                        self.state['fm'] = fm['name']
+                    res, preset = other, fm
+                    break
+        if preset and res['status'] != 'failed':
+            res['fm'] = preset['name']
+            res['fm_values'] = {k: v for k, v in preset.items() if k != 'name'}
         if ((self.exclude and res.get('colo') in self.exclude) or (self.only and res.get('colo') not in self.only)) \
                 and res.get('colo') and res['status'] != 'failed':
             res = dict(res, status='failed', reason='node %s excluded' % res['colo'], excluded=True)

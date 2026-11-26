@@ -1398,6 +1398,63 @@ class TestWarpProbe(unittest.TestCase):
         self.assertEqual(len(alt_calls), self.wp.SNI_TRIAL_CANDIDATES * len(self.wp.SNI_FALLBACKS))
         self.assertNotIn('sni', st)
 
+    def fm_probe(self, works_with):
+        calls = []
+
+        def probe(mode, host, port, cred, own_ip, sni=None, finalmask=None):
+            calls.append((host, sni, finalmask))
+            ok = bool(finalmask) and finalmask.get('fm_tcp_fragment_lengths') == works_with
+            return {'host': host, 'port': port, 'status': 'verified' if ok else 'failed', 'ms': 40, 'kbps': 900,
+                    'checks': '4/4'}
+        probe.calls = calls
+        return probe
+
+    def test_fm_search_finds_a_preset_and_keeps_using_it(self):
+        probe = self.fm_probe('10-30')
+        st = self.run_search({'mode': 'masque_h2', 'credentials': self.CRED_MQ, 'want': 2, 'max_attempts': 20,
+                              'fm_search': True, 'finalmask': {'fm_udp_type': 'none', 'finalmask': '{"tcp": []}'}},
+                             probe, 'fm1')
+        self.assertEqual(st['fm'], 'fragment 10-30 / 5-10')
+        self.assertEqual(st['verified'], 2)
+        self.assertTrue(all(r['fm'] == 'fragment 10-30 / 5-10' for r in st['results']))
+        self.assertEqual(st['results'][0]['fm_values']['fm_tcp_fragment_delays'], '5-10')
+        self.assertNotIn('name', st['results'][0]['fm_values'])
+        # the raw JSON of the node must not override the preset, other rows stay
+        used = [c[2] for c in probe.calls if c[2] and c[2].get('fm_tcp_type') == 'fragment']
+        self.assertTrue(used)
+        self.assertTrue(all('finalmask' not in fm and fm['fm_udp_type'] == 'none' for fm in used))
+        # once found, the unmasked probe is not tried again
+        self.assertEqual([c for c in probe.calls[len(self.wp.FM_PRESETS) + 1:] if c[2].get('fm_tcp_type') != 'fragment'], [])
+
+    def test_fm_search_is_for_http2_only_and_off_by_default(self):
+        probe = self.fm_probe('100-200')
+        st = self.run_search({'mode': 'masque_h3', 'credentials': self.CRED_MQ, 'want': 1, 'max_attempts': 5,
+                              'fm_search': True}, probe, 'fm2')
+        self.assertEqual(st['verified'], 0)
+        self.assertTrue(all(c[2] is None for c in probe.calls))
+        st = self.run_search({'mode': 'masque_h2', 'credentials': self.CRED_MQ, 'want': 1, 'max_attempts': 5},
+                             self.fm_probe('100-200'), 'fm3')
+        self.assertEqual(st['verified'], 0)
+        self.assertNotIn('fm', st)
+
+    def test_fm_search_tries_only_a_few_candidates(self):
+        probe = self.fm_probe('none')
+        st = self.run_search({'mode': 'masque_h2', 'credentials': self.CRED_MQ, 'want': 1, 'max_attempts': 10,
+                              'fm_search': True}, probe, 'fm4')
+        masked = [c for c in probe.calls if c[2]]
+        self.assertEqual(len(masked), self.wp.FM_TRIAL_CANDIDATES * len(self.wp.FM_PRESETS))
+        self.assertNotIn('fm', st)
+
+    def test_fm_presets_become_a_tcp_fragment_mask(self):
+        for preset in self.wp.FM_PRESETS:
+            fm = {k: v for k, v in preset.items() if k != 'name'}
+            mask = self.wp.build_finalmask(fm, 'tcp')
+            self.assertEqual(mask['tcp'][0]['type'], 'fragment')
+            st = mask['tcp'][0]['settings']
+            self.assertEqual(st['packets'], preset['fm_tcp_fragment_packets'])
+            self.assertEqual(','.join(st['lengths']), preset['fm_tcp_fragment_lengths'])
+            self.assertEqual(','.join(st['delays']), preset['fm_tcp_fragment_delays'])
+
     def test_recheck_uses_the_sni_that_worked(self):
         probe = self.sni_probe('www.cloudflare.com')
         st = self.run_search({'mode': 'masque_h3', 'credentials': self.CRED_MQ,

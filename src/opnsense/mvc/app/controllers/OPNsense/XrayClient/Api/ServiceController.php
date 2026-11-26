@@ -713,6 +713,7 @@ class ServiceController extends ApiMutableServiceControllerBase
             'any_address' => $this->request->getPost('any_address', 'string', '0') === '1',
             'wide' => $mode !== 'wg' && $this->request->getPost('wide', 'string', '0') === '1',
             'sni_search' => $mode !== 'wg' && $this->request->getPost('sni_search', 'string', '0') === '1',
+            'fm_search' => $mode === 'masque_h2' && $this->request->getPost('fm_search', 'string', '0') === '1',
             'finalmask' => new \stdClass(),
         ];
         // The node's FinalMask, so that a probe goes out the way the node would (MASQUE only).
